@@ -2241,6 +2241,7 @@ def inject_custom_css() -> None:
             box-shadow: none !important;
             color: #0F172A !important;
             min-height: 44px !important;
+            outline: none !important;
             overflow: hidden !important;
         }
 
@@ -2248,7 +2249,8 @@ def inject_custom_css() -> None:
         [data-testid="stTextInput"] > div > div:focus-within,
         [data-baseweb="input"]:focus-within {
             border: 2px solid #2563EB !important;
-            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12) !important;
+            box-shadow: none !important;
+            outline: none !important;
         }
 
         [data-baseweb="input"] > div,
@@ -2263,6 +2265,7 @@ def inject_custom_css() -> None:
             color: #0F172A !important;
             display: flex !important;
             min-height: 44px !important;
+            outline: none !important;
         }
 
         [data-baseweb="input"] svg {
@@ -2284,6 +2287,7 @@ def inject_custom_css() -> None:
             box-shadow: none !important;
             color: #0F172A !important;
             min-height: 44px;
+            outline: none !important;
             padding: 10px 12px !important;
         }
 
@@ -2308,7 +2312,7 @@ def inject_custom_css() -> None:
         [data-testid="stTextArea"] textarea:focus,
         [data-testid="stNumberInput"] input:focus {
             border: 2px solid #2563EB !important;
-            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12) !important;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.08) !important;
         }
 
         .stTextInput input::placeholder,
