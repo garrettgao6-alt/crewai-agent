@@ -129,11 +129,13 @@ streamlit run streamlit_app.py
 
 The Streamlit app displays `category`, `confidence`, `version`, `result`, and response time fields. It also keeps a session-local History sidebar with the 10 most recent requests, including each request's query, mode, routing metadata, result, and elapsed time. Use `Clear History` to reset the sidebar.
 
-The sidebar is organized into `Prompt Library`, `Form Builder`, `Document Analysis`, and `History` sections. The SQLite-backed Prompt Library section lets you choose a `Business` or `Construction` category, select a prompt, and click `Load Template` to place the full template into the editable input box. The prompt text remains editable before submitting.
+The sidebar is organized into `Prompt Library`, `Form Builder`, `Document Analysis`, `Project Intelligence Review`, and `History` sections. The SQLite-backed Prompt Library section lets you choose a `Business` or `Construction` category, select a prompt, and click `Load Template` to place the full template into the editable input box. The prompt text remains editable before submitting.
 
 The Form Builder section is collapsed by default and covers all Business and Construction prompt templates. Choose a form category and template, complete the structured fields, and click `Generate Prompt` to write a professional prompt into the same editable input box. Form fields support text inputs, larger text areas, dropdowns, and multi-select focus areas.
 
-The Document Analysis section is collapsed by default and supports PDF, TXT, DOCX, and XLSX uploads. Choose an analysis type, upload a document, and click `Generate Document Prompt` to place the extracted document text and requested analysis task into the editable input box. Uploaded content is limited to the first 12000 characters when needed, and the generated prompt states when truncation occurred.
+The Document Analysis section is collapsed by default and supports single-file PDF, TXT, DOCX, and XLSX uploads. Choose an analysis type, upload a document, and click `Generate Document Prompt` to place the extracted document text and requested analysis task into the editable input box. Uploaded content is limited to the first 12000 characters when needed, and the generated prompt states when truncation occurred.
+
+The Project Intelligence Review section is collapsed by default and supports multi-file project reviews for construction and business workflows. Upload multiple project documents, choose a review type, and click `Generate Project Review Prompt` to combine the extracted content into one professional cross-document review prompt.
 
 Streamlit supports two modes:
 
@@ -171,7 +173,7 @@ Clicking `Generate Prompt` updates `st.session_state.query`; the user can still 
 
 ## Document Analysis
 
-Document Analysis reads uploaded files in the Streamlit sidebar and generates a document-specific analysis prompt. It supports multiple uploaded files at once, keeps each file name in the generated prompt, and combines the extracted text for analysis. Each analysis type uses its own professional report structure instead of a shared generic checklist.
+Document Analysis reads one uploaded file in the Streamlit sidebar and generates a document-specific analysis prompt. Each analysis type uses its own professional report structure instead of a shared generic checklist.
 
 Supported formats:
 
@@ -190,9 +192,25 @@ Supported analysis types:
 - Safety Inspection
 - Business Analysis
 
-Each file is limited to the first 12000 extracted characters, and combined document content is limited to 30000 characters across all uploaded files. The UI shows each file's extracted character count and truncation status. Files that cannot be read show an error and are skipped without blocking other uploaded files.
+Uploaded document content is limited to the first 12000 extracted characters. The UI shows the extracted character count and truncation status.
 
 After a Document Analysis result is generated, the result area shows a `Download PDF` button. PDF export uses `reportlab`, preserves line breaks, paginates long reports, and names the file from the selected analysis type, such as `contract_review.pdf` or `business_analysis.pdf`.
+
+## Project Intelligence Review
+
+Project Intelligence Review is a commercial multi-document workflow for project-level analysis. It supports multiple PDF, TXT, DOCX, and XLSX uploads in one review and preserves each file name in the generated prompt.
+
+Supported review types:
+
+- Full Project Review
+- Contract + Tender Review
+- Commercial Risk Review
+- Construction Risk Review
+- NCC / Compliance Review
+- Procurement Review
+- Progress & Meeting Review
+
+Each uploaded file is limited to the first 12000 extracted characters, and combined project document content is limited to 30000 characters. Files that cannot be read show an error and are skipped without blocking other uploaded files.
 
 ## Docker
 

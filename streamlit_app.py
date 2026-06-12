@@ -24,6 +24,15 @@ DOCUMENT_ANALYSIS_TYPES = [
     "Safety Inspection",
     "Business Analysis",
 ]
+PROJECT_REVIEW_TYPES = [
+    "Full Project Review",
+    "Contract + Tender Review",
+    "Commercial Risk Review",
+    "Construction Risk Review",
+    "NCC / Compliance Review",
+    "Procurement Review",
+    "Progress & Meeting Review",
+]
 DOCUMENT_REPORT_STRUCTURES = {
     "Contract Review": [
         "Executive Summary",
@@ -1630,9 +1639,13 @@ def apply_total_document_limit(documents: list[dict]) -> tuple[list[dict], bool]
 
 def build_document_prompt(
     analysis_type: str,
-    documents: list[dict],
-    total_truncated: bool,
+    file_name: str,
+    document_text: str,
+    truncated: bool,
 ) -> str:
+    truncation_notice = ""
+    if truncated:
+        truncation_notice = f"Content truncated to first {DOCUMENT_TEXT_LIMIT} characters.\n\n"
     report_items = DOCUMENT_REPORT_STRUCTURES.get(
         analysis_type,
         DOCUMENT_REPORT_STRUCTURES["Business Analysis"],
@@ -1641,6 +1654,24 @@ def build_document_prompt(
         f"{index}. {item}"
         for index, item in enumerate(report_items, start=1)
     )
+
+    return f"""Analyze the following uploaded document.
+
+Analysis Type: {analysis_type}
+File Name: {file_name}
+
+Document Content:
+{truncation_notice}{document_text}
+
+Provide:
+{report_structure}"""
+
+
+def build_project_review_prompt(
+    review_type: str,
+    documents: list[dict],
+    total_truncated: bool,
+) -> str:
     document_sections = []
     for document in documents:
         notices = []
@@ -1661,28 +1692,85 @@ def build_document_prompt(
     if total_truncated:
         total_notice = f"\nContent truncated to first {DOCUMENT_TOTAL_TEXT_LIMIT} total characters across uploaded files.\n"
 
-    return f"""Analyze the following uploaded project documents.
+    return f"""Analyze the following project documents as a professional construction and business advisor.
 
-Analysis Type: {analysis_type}
+Review Type: {review_type}
 
-Documents:
+Project Documents:
 {documents_text}{total_notice}
 
 Provide:
-{report_structure}"""
+1. Executive Summary
+2. Document-by-Document Findings
+3. Cross-Document Inconsistencies
+4. Commercial Risks
+5. Technical Risks
+6. Contractual Risks
+7. Compliance / NCC Risks
+8. Procurement Risks
+9. Priority Matrix
+10. Recommended Actions"""
 
 
 def render_document_analysis() -> None:
-    uploaded_files = st.file_uploader(
-        "Upload Documents",
+    uploaded_file = st.file_uploader(
+        "Upload Document",
         type=["pdf", "txt", "docx", "xlsx"],
         key="document_analysis_upload",
-        accept_multiple_files=True,
     )
     analysis_type = st.selectbox(
         "Analysis Type",
         DOCUMENT_ANALYSIS_TYPES,
         key="document_analysis_type",
+    )
+
+    document_text = ""
+    truncated_text = ""
+    truncated = False
+    read_failed = False
+
+    if uploaded_file:
+        try:
+            document_text = extract_uploaded_document_text(
+                uploaded_file.name,
+                uploaded_file.getvalue(),
+            )
+            truncated_text, truncated = truncate_document_text(document_text)
+        except Exception as exc:
+            read_failed = True
+            st.error(f"Could not read uploaded file: {exc}")
+        else:
+            st.write(f"File name: {uploaded_file.name}")
+            st.write(f"Extracted character count: {len(document_text)}")
+            st.write(f"Truncated: {'Yes' if truncated else 'No'}")
+            if truncated:
+                st.warning(f"File content was truncated to first {DOCUMENT_TEXT_LIMIT} characters.")
+
+    if st.button("Generate Document Prompt", use_container_width=True):
+        if not uploaded_file:
+            st.warning("Please upload a document first.")
+        elif read_failed:
+            st.error("Could not generate a prompt because the uploaded file could not be read.")
+        else:
+            st.session_state.query = build_document_prompt(
+                analysis_type,
+                uploaded_file.name,
+                truncated_text,
+                truncated,
+            )
+
+
+def render_project_intelligence_review() -> None:
+    uploaded_files = st.file_uploader(
+        "Upload Project Documents",
+        type=["pdf", "txt", "docx", "xlsx"],
+        key="project_review_upload",
+        accept_multiple_files=True,
+    )
+    review_type = st.selectbox(
+        "Review Type",
+        PROJECT_REVIEW_TYPES,
+        key="project_review_type",
     )
 
     documents = []
@@ -1714,19 +1802,19 @@ def render_document_analysis() -> None:
         if any(document["file_truncated"] for document in documents):
             st.warning(f"One or more files were truncated to first {DOCUMENT_TEXT_LIMIT} characters.")
 
-    if st.button("Generate Document Prompt", use_container_width=True):
+    if st.button("Generate Project Review Prompt", use_container_width=True):
         if not uploaded_files:
-            st.warning("Please upload at least one document first.")
+            st.warning("Please upload at least one project document first.")
         elif not documents:
-            st.error("No uploaded documents could be read.")
+            st.error("No uploaded project documents could be read.")
         else:
             limited_documents, total_truncated = apply_total_document_limit(documents)
             if total_truncated:
                 st.warning(f"Combined document content was truncated to first {DOCUMENT_TOTAL_TEXT_LIMIT} characters.")
             if had_file_error:
                 st.warning("Some files could not be read and were excluded from the prompt.")
-            st.session_state.query = build_document_prompt(
-                analysis_type,
+            st.session_state.query = build_project_review_prompt(
+                review_type,
                 limited_documents,
                 total_truncated,
             )
@@ -1827,6 +1915,9 @@ with st.sidebar:
 
     with st.expander("Document Analysis", expanded=False):
         render_document_analysis()
+
+    with st.expander("Project Intelligence Review", expanded=False):
+        render_project_intelligence_review()
 
     with st.expander("History", expanded=True):
         st.download_button(
