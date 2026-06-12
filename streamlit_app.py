@@ -2186,8 +2186,9 @@ def inject_custom_css() -> None:
 
         .hero-subtitle {
             color: #2563EB !important;
-            font-weight: 700 !important;
             font-size: 1.35rem;
+            font-weight: 700 !important;
+            line-height: 1.4;
         }
 
         .hub-hero p {
@@ -2387,7 +2388,7 @@ def inject_custom_css() -> None:
             }
 
             .hero-subtitle {
-                font-size: 1.1rem;
+                font-size: 1.1rem !important;
             }
 
             .hub-hero p {
