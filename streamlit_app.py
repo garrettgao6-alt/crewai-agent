@@ -2179,9 +2179,15 @@ def inject_custom_css() -> None:
 
         .hub-hero h2 {
             color: #2563EB !important;
-            font-size: 21px;
+            font-size: 1.35rem;
             margin: 0 0 12px;
-            font-weight: 700;
+            font-weight: 700 !important;
+        }
+
+        .hero-subtitle {
+            color: #2563EB !important;
+            font-weight: 700 !important;
+            font-size: 1.35rem;
         }
 
         .hub-hero p {
@@ -2192,55 +2198,87 @@ def inject_custom_css() -> None:
             margin: 0;
         }
 
+        .hub-status-grid {
+            display: grid;
+            gap: 16px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            margin: 0 0 18px;
+        }
+
         .hub-status-card {
-            background: var(--hub-card);
-            border: 1px solid var(--hub-border);
-            border-radius: 8px;
-            padding: 18px 18px;
-            min-height: 132px;
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 18px;
             box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+            display: flex;
+            flex-direction: column;
+            height: 220px;
+            justify-content: space-between;
+            min-height: 220px;
+            padding: 24px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .hub-card-top {
             align-items: center;
             display: flex;
+            height: 48px;
             justify-content: space-between;
-            margin-bottom: 12px;
         }
 
         .hub-card-icon {
             align-items: center;
             background: linear-gradient(135deg, #EFF6FF, #F5F3FF);
             border: 1px solid #DBEAFE;
-            border-radius: 8px;
+            border-radius: 12px;
             display: inline-flex;
-            font-size: 18px;
-            height: 36px;
+            font-size: 22px;
+            height: 48px;
             justify-content: center;
-            width: 36px;
+            width: 48px;
         }
 
         .hub-badge {
-            background: #ECFDF5;
+            align-items: center;
+            background: #DCFCE7;
             border: 1px solid #BBF7D0;
             border-radius: 999px;
-            color: #16A34A !important;
+            color: #15803D !important;
+            display: inline-flex;
             font-size: 12px;
             font-weight: 700;
-            padding: 3px 9px;
+            height: 36px;
+            justify-content: center;
+            line-height: 1;
+            padding: 0 12px;
         }
 
         .hub-status-card .title {
             color: #0F172A !important;
             font-size: 18px;
             font-weight: 760;
-            margin-bottom: 6px;
+            line-height: 1.25;
+            min-height: 72px;
         }
 
         .hub-status-card .body {
             color: #475569 !important;
-            font-size: 13px;
-            line-height: 1.45;
+            font-size: 14px;
+            line-height: 1.5;
+            min-height: 80px;
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+            .hub-status-card:hover {
+                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+                transform: translateY(-4px);
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .hub-status-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
         }
 
         .hub-section-title {
@@ -2326,7 +2364,11 @@ def inject_custom_css() -> None:
             }
 
             .hub-hero h2 {
-                font-size: 16px;
+                font-size: 1.1rem;
+            }
+
+            .hero-subtitle {
+                font-size: 1.1rem;
             }
 
             .hub-hero p {
@@ -2339,7 +2381,10 @@ def inject_custom_css() -> None:
 
             .hub-status-card {
                 margin-bottom: 10px;
-                min-height: 0;
+            }
+
+            .hub-status-grid {
+                grid-template-columns: 1fr;
             }
 
             section[data-testid="stSidebar"] {
@@ -2379,7 +2424,7 @@ def render_hero() -> None:
         """
         <div class="hub-hero">
             <h1>Garrett Intelligence Hub</h1>
-            <h2>Business, Construction &amp; Executive AI Intelligence Platform</h2>
+            <h2 class="hero-subtitle">Business, Construction &amp; Executive AI Intelligence Platform</h2>
             <p>Transform project documents, business data, and executive workflows into decision-ready intelligence.</p>
         </div>
         """,
@@ -2394,22 +2439,23 @@ def render_status_cards() -> None:
         ("📄", "Document Intelligence", "Extract and analyze PDF, DOCX, XLSX, and TXT files."),
         ("🧠", "Executive Decision Support", "Board-ready reports powered by executive agent modes."),
     ]
-    columns = st.columns(4)
-    for column, (icon, title, body) in zip(columns, cards):
-        with column:
-            st.markdown(
-                f"""
-                <div class="hub-status-card">
-                    <div class="hub-card-top">
-                        <div class="hub-card-icon">{icon}</div>
-                        <div class="hub-badge">Active</div>
-                    </div>
-                    <div class="title">{title}</div>
-                    <div class="body">{body}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+    card_markup = "\n".join(
+        f"""
+        <div class="hub-status-card">
+            <div class="hub-card-top">
+                <div class="hub-card-icon">{icon}</div>
+                <div class="hub-badge">Active</div>
+            </div>
+            <div class="title">{title}</div>
+            <div class="body">{body}</div>
+        </div>
+        """
+        for icon, title, body in cards
+    )
+    st.markdown(
+        f'<div class="hub-status-grid">{card_markup}</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def render_mobile_navigation_tabs() -> None:
