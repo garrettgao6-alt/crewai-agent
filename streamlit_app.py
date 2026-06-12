@@ -104,6 +104,15 @@ DOCUMENT_PDF_FILENAMES = {
     "Safety Inspection": "safety_inspection.pdf",
     "Business Analysis": "business_analysis.pdf",
 }
+PROJECT_REVIEW_PDF_FILENAMES = {
+    "Full Project Review": "full_project_review.pdf",
+    "Contract + Tender Review": "contract_tender_review.pdf",
+    "Commercial Risk Review": "commercial_risk_review.pdf",
+    "Construction Risk Review": "construction_risk_review.pdf",
+    "NCC / Compliance Review": "ncc_compliance_review.pdf",
+    "Procurement Review": "procurement_review.pdf",
+    "Progress & Meeting Review": "progress_meeting_review.pdf",
+}
 
 INDUSTRY_OPTIONS = [
     "Construction",
@@ -1435,6 +1444,15 @@ def get_document_analysis_type(query: str) -> str | None:
     return None
 
 
+def get_project_review_type(query: str) -> str | None:
+    for line in query.splitlines():
+        if line.startswith("Review Type:"):
+            review_type = line.split(":", 1)[1].strip()
+            if review_type in PROJECT_REVIEW_PDF_FILENAMES:
+                return review_type
+    return None
+
+
 def build_pdf_report(analysis_type: str, report_content: str) -> bytes:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -1510,15 +1528,22 @@ def build_pdf_report(analysis_type: str, report_content: str) -> bytes:
 
 def render_pdf_download(entry: dict) -> None:
     analysis_type = get_document_analysis_type(entry.get("query", ""))
+    review_type = get_project_review_type(entry.get("query", ""))
     report_content = str(entry.get("result", ""))
-    if not analysis_type or not report_content:
+    report_type = analysis_type or review_type
+    if not report_type or not report_content:
         return
 
-    pdf_bytes = build_pdf_report(analysis_type, report_content)
+    pdf_bytes = build_pdf_report(report_type, report_content)
+    file_name = DOCUMENT_PDF_FILENAMES.get(
+        report_type,
+        PROJECT_REVIEW_PDF_FILENAMES.get(report_type, "executive_review.pdf"),
+    )
+    button_label = "Download Executive PDF" if review_type else "Download PDF"
     st.download_button(
-        "Download PDF",
+        button_label,
         data=pdf_bytes,
-        file_name=DOCUMENT_PDF_FILENAMES[analysis_type],
+        file_name=file_name,
         mime="application/pdf",
         use_container_width=True,
     )
@@ -1672,22 +1697,7 @@ def build_project_review_prompt(
     documents: list[dict],
     total_truncated: bool,
 ) -> str:
-    document_sections = []
-    for document in documents:
-        notices = []
-        if document.get("file_truncated"):
-            notices.append(f"File content truncated to first {DOCUMENT_TEXT_LIMIT} characters.")
-        if document.get("total_truncated"):
-            notices.append(f"Combined document content truncated to first {DOCUMENT_TOTAL_TEXT_LIMIT} characters.")
-
-        notice_text = ""
-        if notices:
-            notice_text = "\n".join(notices) + "\n"
-
-        document_sections.append(
-            f"=== File: {document['file_name']} ===\n{notice_text}{document['text']}"
-        )
-    documents_text = "\n\n".join(document_sections)
+    documents_text = format_project_documents_for_prompt(documents)
     total_notice = ""
     if total_truncated:
         total_notice = f"\nContent truncated to first {DOCUMENT_TOTAL_TEXT_LIMIT} total characters across uploaded files.\n"
@@ -1710,6 +1720,25 @@ Provide:
 8. Procurement Risks
 9. Priority Matrix
 10. Recommended Actions"""
+
+
+def format_project_documents_for_prompt(documents: list[dict]) -> str:
+    document_sections = []
+    for document in documents:
+        notices = []
+        if document.get("file_truncated"):
+            notices.append(f"File content truncated to first {DOCUMENT_TEXT_LIMIT} characters.")
+        if document.get("total_truncated"):
+            notices.append(f"Combined document content truncated to first {DOCUMENT_TOTAL_TEXT_LIMIT} characters.")
+
+        notice_text = ""
+        if notices:
+            notice_text = "\n".join(notices) + "\n"
+
+        document_sections.append(
+            f"=== File: {document['file_name']} ===\n{notice_text}{document['text']}"
+        )
+    return "\n\n".join(document_sections)
 
 
 def render_document_analysis() -> None:
@@ -1802,21 +1831,65 @@ def render_project_intelligence_review() -> None:
         if any(document["file_truncated"] for document in documents):
             st.warning(f"One or more files were truncated to first {DOCUMENT_TEXT_LIMIT} characters.")
 
-    if st.button("Generate Project Review Prompt", use_container_width=True):
+    ready_documents = []
+    ready_total_truncated = False
+    ready_documents_text = ""
+    if documents:
+        ready_documents, ready_total_truncated = apply_total_document_limit(documents)
+        ready_documents_text = format_project_documents_for_prompt(ready_documents)
+
+    if st.button("Generate Executive Review", use_container_width=True):
         if not uploaded_files:
             st.warning("Please upload at least one project document first.")
         elif not documents:
             st.error("No uploaded project documents could be read.")
         else:
-            limited_documents, total_truncated = apply_total_document_limit(documents)
-            if total_truncated:
+            if ready_total_truncated:
                 st.warning(f"Combined document content was truncated to first {DOCUMENT_TOTAL_TEXT_LIMIT} characters.")
             if had_file_error:
                 st.warning("Some files could not be read and were excluded from the prompt.")
             st.session_state.query = build_project_review_prompt(
                 review_type,
-                limited_documents,
-                total_truncated,
+                ready_documents,
+                ready_total_truncated,
+            )
+
+    if st.button("Run Agent Team", use_container_width=True):
+        if not uploaded_files:
+            st.warning("Please upload at least one project document first.")
+        elif not documents:
+            st.error("No uploaded project documents could be read.")
+        else:
+            if ready_total_truncated:
+                st.warning(f"Combined document content was truncated to first {DOCUMENT_TOTAL_TEXT_LIMIT} characters.")
+            if had_file_error:
+                st.warning("Some files could not be read and were excluded from the agent team input.")
+            try:
+                from executive_agents import run_executive_agent_team
+
+                with st.spinner("Running executive agent team..."):
+                    started_at = time.perf_counter()
+                    payload = run_executive_agent_team(review_type, ready_documents_text)
+                    elapsed_seconds = time.perf_counter() - started_at
+            except Exception:
+                payload = {
+                    "category": "executive",
+                    "confidence": 0.0,
+                    "result": "Executive agent team failed: unable to reach the LLM provider. Please try again later.",
+                    "version": VERSION,
+                }
+                elapsed_seconds = 0.0
+
+            st.session_state.query = build_project_review_prompt(
+                review_type,
+                ready_documents,
+                ready_total_truncated,
+            )
+            save_history_entry(
+                st.session_state.query,
+                "Executive Agent Team",
+                payload,
+                elapsed_seconds,
             )
 
 
@@ -1916,7 +1989,7 @@ with st.sidebar:
     with st.expander("Document Analysis", expanded=False):
         render_document_analysis()
 
-    with st.expander("Project Intelligence Review", expanded=False):
+    with st.expander("Executive Intelligence Board", expanded=False):
         render_project_intelligence_review()
 
     with st.expander("History", expanded=True):
