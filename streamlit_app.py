@@ -1362,8 +1362,6 @@ def build_prompt_from_form(form_definition: dict, values: dict[str, str | list[s
 
 
 def render_form_builder() -> None:
-    st.header("Form Builder")
-
     selected_category = st.selectbox(
         "Form Category",
         list(FORM_LIBRARY.keys()),
@@ -1432,59 +1430,56 @@ prompt_store.initialize_prompt_store()
 st.title("Garrett Intelligence Hub")
 
 with st.sidebar:
-    st.header("Prompt Library")
+    with st.expander("Prompt Library", expanded=True):
+        categories = prompt_store.list_categories()
+        if categories:
+            selected_category = st.selectbox("Category", categories, key="prompt_library_category")
+            prompts = prompt_store.list_prompts(selected_category)
+            prompt_options = {prompt["name"]: prompt["id"] for prompt in prompts}
 
-    categories = prompt_store.list_categories()
-    if categories:
-        selected_category = st.selectbox("Category", categories, key="prompt_library_category")
-        prompts = prompt_store.list_prompts(selected_category)
-        prompt_options = {prompt["name"]: prompt["id"] for prompt in prompts}
+            selected_prompt_name = st.selectbox(
+                "Prompt",
+                list(prompt_options.keys()),
+                key="prompt_library_prompt",
+            )
+            selected_prompt_id = prompt_options[selected_prompt_name]
 
-        selected_prompt_name = st.selectbox(
-            "Prompt",
-            list(prompt_options.keys()),
-            key="prompt_library_prompt",
+            if st.button("Load Template", use_container_width=True):
+                selected_prompt = prompt_store.get_prompt(selected_prompt_id)
+                if selected_prompt:
+                    st.session_state.query = selected_prompt["content"]
+        else:
+            st.caption("No prompts available.")
+
+    with st.expander("Form Builder", expanded=False):
+        render_form_builder()
+
+    with st.expander("History", expanded=True):
+        st.download_button(
+            "Export History",
+            data=json.dumps(st.session_state.history, indent=2),
+            file_name="history.json",
+            mime="application/json",
+            use_container_width=True,
         )
-        selected_prompt_id = prompt_options[selected_prompt_name]
 
-        if st.button("Load Template", use_container_width=True):
-            selected_prompt = prompt_store.get_prompt(selected_prompt_id)
-            if selected_prompt:
-                st.session_state.query = selected_prompt["content"]
-    else:
-        st.caption("No prompts available.")
+        if st.button("Clear History", use_container_width=True):
+            st.session_state.history = []
+            st.session_state.selected_history = None
 
-    st.divider()
-    render_form_builder()
-
-    st.divider()
-    st.header("History")
-
-    st.download_button(
-        "Export History",
-        data=json.dumps(st.session_state.history, indent=2),
-        file_name="history.json",
-        mime="application/json",
-        use_container_width=True,
-    )
-
-    if st.button("Clear History", use_container_width=True):
-        st.session_state.history = []
-        st.session_state.selected_history = None
-
-    if st.session_state.history:
-        for index, entry in enumerate(st.session_state.history[:HISTORY_LIMIT]):
-            label = entry["query"].replace("\n", " ").strip()
-            if len(label) > 60:
-                label = f"{label[:57]}..."
-            if st.button(
-                f"{index + 1}. {entry['mode']} - {label}",
-                key=f"history_{index}",
-                use_container_width=True,
-            ):
-                st.session_state.selected_history = entry
-    else:
-        st.caption("No history yet.")
+        if st.session_state.history:
+            for index, entry in enumerate(st.session_state.history[:HISTORY_LIMIT]):
+                label = entry["query"].replace("\n", " ").strip()
+                if len(label) > 60:
+                    label = f"{label[:57]}..."
+                if st.button(
+                    f"{index + 1}. {entry['mode']} - {label}",
+                    key=f"history_{index}",
+                    use_container_width=True,
+                ):
+                    st.session_state.selected_history = entry
+        else:
+            st.caption("No history yet.")
 
 mode = st.radio(
     "Routing",
