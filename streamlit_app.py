@@ -2231,37 +2231,84 @@ def inject_custom_css() -> None:
             fill: #0F172A !important;
         }
 
-        .stTextInput input,
-        .stTextArea textarea,
-        .stNumberInput input,
-        [data-testid="stTextInput"] input,
-        [data-testid="stTextArea"] textarea,
-        [data-testid="stNumberInput"] input {
+        .stTextInput > div > div,
+        [data-testid="stTextInput"] > div > div,
+        [data-baseweb="input"] {
+            align-items: center !important;
             background: #FFFFFF !important;
             border: 1px solid #CBD5E1 !important;
             border-radius: 12px !important;
+            box-shadow: none !important;
+            color: #0F172A !important;
+            min-height: 44px !important;
+            overflow: hidden !important;
+        }
+
+        .stTextInput > div > div:focus-within,
+        [data-testid="stTextInput"] > div > div:focus-within,
+        [data-baseweb="input"]:focus-within {
+            border: 2px solid #2563EB !important;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12) !important;
+        }
+
+        [data-baseweb="input"] > div,
+        [data-baseweb="input"] button,
+        [data-baseweb="input"] [role="button"] {
+            align-items: center !important;
+            align-self: stretch !important;
+            background: #FFFFFF !important;
+            border: 0 !important;
+            border-radius: 12px !important;
+            box-shadow: none !important;
+            color: #0F172A !important;
+            display: flex !important;
+            min-height: 44px !important;
+        }
+
+        [data-baseweb="input"] svg {
+            color: #0F172A !important;
+            fill: #0F172A !important;
+        }
+
+        .stTextInput input,
+        .stTextInput > div > div > input,
+        .stTextArea textarea,
+        .stNumberInput input,
+        [data-testid="stTextInput"] input,
+        [data-baseweb="input"] input,
+        [data-testid="stTextArea"] textarea,
+        [data-testid="stNumberInput"] input {
+            background: #FFFFFF !important;
+            border: 0 !important;
+            border-radius: 12px !important;
+            box-shadow: none !important;
             color: #0F172A !important;
             min-height: 44px;
             padding: 10px 12px !important;
         }
 
-        .stTextInput input:hover,
         .stTextArea textarea:hover,
         .stNumberInput input:hover,
-        [data-testid="stTextInput"] input:hover,
         [data-testid="stTextArea"] textarea:hover,
         [data-testid="stNumberInput"] input:hover {
             border: 1px solid #2563EB !important;
         }
 
         .stTextInput input:focus,
+        .stTextInput > div > div > input:focus,
+        [data-testid="stTextInput"] input:focus,
+        [data-baseweb="input"] input:focus {
+            border: 0 !important;
+            box-shadow: none !important;
+            outline: none !important;
+        }
+
         .stTextArea textarea:focus,
         .stNumberInput input:focus,
-        [data-testid="stTextInput"] input:focus,
         [data-testid="stTextArea"] textarea:focus,
         [data-testid="stNumberInput"] input:focus {
             border: 2px solid #2563EB !important;
-            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15) !important;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12) !important;
         }
 
         .stTextInput input::placeholder,
@@ -2636,6 +2683,15 @@ def inject_custom_css() -> None:
 
             textarea {
                 min-height: 220px !important;
+            }
+
+            .stTextInput > div > div,
+            [data-testid="stTextInput"] > div > div,
+            [data-baseweb="input"],
+            [data-baseweb="input"] > div,
+            [data-baseweb="input"] button,
+            [data-baseweb="input"] [role="button"] {
+                min-height: 48px !important;
             }
 
             .stTextInput input,
