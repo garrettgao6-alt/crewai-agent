@@ -2153,6 +2153,20 @@ def inject_custom_css() -> None:
             color: #0F172A !important;
         }
 
+        [data-testid="stTextInput"],
+        [data-testid="stTextArea"],
+        [data-testid="stSelectbox"],
+        [data-testid="stMultiSelect"] {
+            pointer-events: auto !important;
+        }
+
+        [data-testid="stTextInput"] *,
+        [data-testid="stTextArea"] *,
+        [data-testid="stSelectbox"] *,
+        [data-testid="stMultiSelect"] * {
+            pointer-events: auto !important;
+        }
+
         .stTextInput input,
         .stTextArea textarea,
         .stNumberInput input,
@@ -3068,18 +3082,23 @@ def render_automation_intelligence() -> None:
         for automation_definition in AUTOMATION_LIBRARY
         if automation_definition["name"] == selected_automation_name
     )
+    selected_automation_key = "".join(
+        character.lower() if character.isalnum() else "_"
+        for character in selected_automation_name
+    ).strip("_")
 
     with st.form("automation_intelligence_form"):
         values = {}
         for automation_field in selected_automation["fields"]:
-            widget_key = f"automation_{selected_automation_name}_{automation_field['key']}"
+            widget_key = f"automation_{selected_automation_key}_{automation_field['key']}"
             field_type = automation_field["type"]
 
             if field_type == "text_area":
                 values[automation_field["key"]] = st.text_area(
                     automation_field["name"],
                     key=widget_key,
-                    height=80,
+                    height=90,
+                    placeholder=automation_field.get("placeholder", ""),
                 )
             elif field_type == "selectbox":
                 values[automation_field["key"]] = st.selectbox(
@@ -3097,6 +3116,7 @@ def render_automation_intelligence() -> None:
                 values[automation_field["key"]] = st.text_input(
                     automation_field["name"],
                     key=widget_key,
+                    placeholder=automation_field.get("placeholder", ""),
                 )
 
         if st.form_submit_button("Generate Automation Blueprint", use_container_width=True):
