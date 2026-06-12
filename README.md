@@ -20,6 +20,7 @@ crewai-agent/
 ├── main.py                   # Legacy fixed demo workflow
 ├── requirements.txt          # Runtime dependencies
 ├── requirements-dev.txt      # Test/development dependencies
+├── run_local.sh              # Local script that starts FastAPI and Streamlit
 ├── streamlit_app.py          # Streamlit web UI for the FastAPI gateway
 ├── test_gateway_routing.py   # Pytest routing and error-handling tests
 └── README.md
@@ -89,6 +90,14 @@ This entry point:
 - classifies each request before choosing a specialist agent
 - falls back to the writing agent if routing fails
 - returns a friendly error if the specialist LLM call fails
+
+Start the local FastAPI and Streamlit development servers together:
+
+```bash
+./run_local.sh
+```
+
+The script checks that `.env` and `venv` exist before starting services. FastAPI runs on `http://127.0.0.1:8000`, Streamlit runs on `http://127.0.0.1:8501`, and pressing `Ctrl+C` stops both.
 
 Run the FastAPI gateway locally:
 
