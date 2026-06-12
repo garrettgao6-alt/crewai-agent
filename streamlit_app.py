@@ -8,6 +8,7 @@ import requests
 import streamlit as st
 
 import prompt_store
+import subscription_store
 import user_store
 
 
@@ -2749,6 +2750,101 @@ def render_auth_page() -> None:
             )
 
 
+def get_current_user_id() -> int:
+    current_user = st.session_state.current_user or {}
+    return int(current_user["id"])
+
+
+def format_limit(limit: int | None) -> str:
+    if limit is None:
+        return "Unlimited"
+    return str(limit)
+
+
+def format_renewal_date(value: str | None) -> str:
+    parsed_value = subscription_store.parse_datetime(value)
+    if parsed_value is None:
+        return "Not set"
+    return parsed_value.date().isoformat()
+
+
+def refresh_subscription_usage() -> dict:
+    usage = subscription_store.get_usage(get_current_user_id())
+    if st.session_state.current_user is not None:
+        st.session_state.current_user.update(usage)
+    return usage
+
+
+def consume_ai_request_or_warn() -> bool:
+    can_use, message = subscription_store.can_use_ai_request(get_current_user_id())
+    if not can_use:
+        st.error(message)
+        return False
+    try:
+        subscription_store.increment_ai_request(get_current_user_id())
+    except PermissionError as exc:
+        st.error(str(exc))
+        return False
+    refresh_subscription_usage()
+    return True
+
+
+def consume_document_analysis_or_warn() -> bool:
+    can_use, message = subscription_store.can_use_document_analysis(get_current_user_id())
+    if not can_use:
+        st.error(message)
+        return False
+    try:
+        subscription_store.increment_document_analysis(get_current_user_id())
+    except PermissionError as exc:
+        st.error(str(exc))
+        return False
+    refresh_subscription_usage()
+    return True
+
+
+def consume_executive_agent_usage_or_warn() -> bool:
+    can_use_documents, document_message = subscription_store.can_use_document_analysis(get_current_user_id())
+    if not can_use_documents:
+        st.error(document_message)
+        return False
+
+    can_use_ai, ai_message = subscription_store.can_use_ai_request(get_current_user_id())
+    if not can_use_ai:
+        st.error(ai_message)
+        return False
+
+    try:
+        subscription_store.increment_document_analysis(get_current_user_id())
+        subscription_store.increment_ai_request(get_current_user_id())
+    except PermissionError as exc:
+        st.error(str(exc))
+        return False
+
+    refresh_subscription_usage()
+    return True
+
+
+def render_subscription_summary() -> None:
+    try:
+        usage = refresh_subscription_usage()
+    except ValueError:
+        st.error("Could not load subscription details.")
+        return
+
+    st.markdown("#### Subscription")
+    st.metric("Plan", usage["subscription_tier"])
+    st.metric(
+        "Usage",
+        f'{usage["current_request_count"]} / {format_limit(usage["monthly_request_limit"])}',
+    )
+    st.metric(
+        "Documents",
+        f'{usage["current_document_count"]} / {format_limit(usage["monthly_document_limit"])}',
+    )
+    st.metric("Renewal Date", format_renewal_date(usage["subscription_end"]))
+
+
 def display_result(entry: dict) -> None:
     st.markdown('<div class="hub-section-title">Response</div>', unsafe_allow_html=True)
     with st.container(border=True):
@@ -2999,6 +3095,8 @@ def render_document_analysis() -> None:
             st.warning("Please upload a document first.")
         elif read_failed:
             st.error("Could not generate a prompt because the uploaded file could not be read.")
+        elif not consume_document_analysis_or_warn():
+            return
         else:
             st.session_state.query = build_document_prompt(
                 analysis_type,
@@ -3068,6 +3166,8 @@ def render_project_intelligence_review() -> None:
             st.warning("Please upload at least one project document first.")
         elif not documents:
             st.error("No uploaded project documents could be read.")
+        elif not consume_document_analysis_or_warn():
+            return
         else:
             if ready_total_truncated:
                 st.warning(f"Combined document content was truncated to first {DOCUMENT_TOTAL_TEXT_LIMIT} characters.")
@@ -3084,6 +3184,8 @@ def render_project_intelligence_review() -> None:
             st.warning("Please upload at least one project document first.")
         elif not documents:
             st.error("No uploaded project documents could be read.")
+        elif not consume_executive_agent_usage_or_warn():
+            return
         else:
             if ready_total_truncated:
                 st.warning(f"Combined document content was truncated to first {DOCUMENT_TOTAL_TEXT_LIMIT} characters.")
@@ -3260,6 +3362,7 @@ render_status_cards()
 with st.sidebar:
     current_user = st.session_state.current_user or {}
     st.caption(f"Logged in as: {current_user.get('username', 'User')}")
+    render_subscription_summary()
     if st.button("Sign Out", use_container_width=True):
         st.session_state.authenticated = False
         st.session_state.current_user = None
@@ -3352,6 +3455,8 @@ if submitted:
 
     if not cleaned_query:
         st.warning("Please enter a request.")
+    elif not consume_ai_request_or_warn():
+        pass
     else:
         try:
             with st.spinner("Analyzing..."):

@@ -6,6 +6,8 @@ from pathlib import Path
 
 import bcrypt
 
+import subscription_store
+
 
 DB_PATH = Path(__file__).with_name("users.db")
 LOCAL_AUTH_PROVIDER = "local"
@@ -34,6 +36,15 @@ def initialize_user_store() -> None:
                 role TEXT NOT NULL DEFAULT 'User',
                 auth_provider TEXT NOT NULL DEFAULT 'local',
                 provider_user_id TEXT,
+                subscription_tier TEXT NOT NULL DEFAULT 'Starter',
+                monthly_request_limit INTEGER DEFAULT 100,
+                monthly_document_limit INTEGER DEFAULT 20,
+                current_request_count INTEGER NOT NULL DEFAULT 0,
+                current_document_count INTEGER NOT NULL DEFAULT 0,
+                subscription_start TEXT,
+                subscription_end TEXT,
+                stripe_customer_id TEXT,
+                stripe_subscription_id TEXT,
                 created_at TEXT NOT NULL,
                 last_login_at TEXT
             )
@@ -45,6 +56,7 @@ def initialize_user_store() -> None:
         _ensure_column(connection, "users", "provider_user_id", "TEXT")
         _ensure_column(connection, "users", "created_at", "TEXT")
         _ensure_column(connection, "users", "last_login_at", "TEXT")
+        subscription_store.ensure_subscription_columns(connection)
         connection.execute(
             """
             CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_provider
@@ -96,6 +108,7 @@ def create_user(username: str, email: str, password: str) -> dict:
 
     password_hash = hash_password(password)
     created_at = utc_now()
+    subscription_values = subscription_store.default_subscription_values()
 
     try:
         with get_connection() as connection:
@@ -108,10 +121,19 @@ def create_user(username: str, email: str, password: str) -> dict:
                     role,
                     auth_provider,
                     provider_user_id,
+                    subscription_tier,
+                    monthly_request_limit,
+                    monthly_document_limit,
+                    current_request_count,
+                    current_document_count,
+                    subscription_start,
+                    subscription_end,
+                    stripe_customer_id,
+                    stripe_subscription_id,
                     created_at,
                     last_login_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     clean_username,
@@ -120,6 +142,15 @@ def create_user(username: str, email: str, password: str) -> dict:
                     "User",
                     LOCAL_AUTH_PROVIDER,
                     None,
+                    subscription_values["subscription_tier"],
+                    subscription_values["monthly_request_limit"],
+                    subscription_values["monthly_document_limit"],
+                    subscription_values["current_request_count"],
+                    subscription_values["current_document_count"],
+                    subscription_values["subscription_start"],
+                    subscription_values["subscription_end"],
+                    subscription_values["stripe_customer_id"],
+                    subscription_values["stripe_subscription_id"],
                     created_at,
                     created_at,
                 ),
@@ -135,6 +166,7 @@ def create_user(username: str, email: str, password: str) -> dict:
         "role": "User",
         "auth_provider": LOCAL_AUTH_PROVIDER,
         "provider_user_id": None,
+        **subscription_values,
         "created_at": created_at,
         "last_login_at": created_at,
     }
