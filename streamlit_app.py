@@ -1,5 +1,6 @@
 import json
 from io import BytesIO
+from xml.sax.saxutils import escape
 import time
 
 import requests
@@ -83,6 +84,15 @@ DOCUMENT_REPORT_STRUCTURES = {
         "Recommendations",
         "Next Steps",
     ],
+}
+DOCUMENT_PDF_FILENAMES = {
+    "Contract Review": "contract_review.pdf",
+    "Tender Review": "tender_review.pdf",
+    "Risk Assessment": "risk_assessment.pdf",
+    "Meeting Minutes": "meeting_minutes.pdf",
+    "Progress Report": "progress_report.pdf",
+    "Safety Inspection": "safety_inspection.pdf",
+    "Business Analysis": "business_analysis.pdf",
 }
 
 INDUSTRY_OPTIONS = [
@@ -1406,6 +1416,104 @@ def save_history_entry(query: str, mode_name: str, payload: dict, elapsed_second
     return entry
 
 
+def get_document_analysis_type(query: str) -> str | None:
+    for line in query.splitlines():
+        if line.startswith("Analysis Type:"):
+            analysis_type = line.split(":", 1)[1].strip()
+            if analysis_type in DOCUMENT_PDF_FILENAMES:
+                return analysis_type
+    return None
+
+
+def build_pdf_report(analysis_type: str, report_content: str) -> bytes:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+
+    generated_time = time.strftime("%Y-%m-%d %H:%M:%S")
+    buffer = BytesIO()
+    pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
+
+    document = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=18 * mm,
+        rightMargin=18 * mm,
+        topMargin=16 * mm,
+        bottomMargin=16 * mm,
+    )
+    base_styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "ReportTitle",
+        parent=base_styles["Title"],
+        fontName="STSong-Light",
+        fontSize=18,
+        leading=24,
+        spaceAfter=12,
+    )
+    meta_style = ParagraphStyle(
+        "ReportMeta",
+        parent=base_styles["Normal"],
+        fontName="STSong-Light",
+        fontSize=10,
+        leading=14,
+        spaceAfter=6,
+    )
+    content_style = ParagraphStyle(
+        "ReportContent",
+        parent=base_styles["Normal"],
+        fontName="STSong-Light",
+        fontSize=10,
+        leading=14,
+        spaceAfter=4,
+    )
+    heading_style = ParagraphStyle(
+        "ReportHeading",
+        parent=base_styles["Heading2"],
+        fontName="STSong-Light",
+        fontSize=12,
+        leading=16,
+        spaceBefore=8,
+        spaceAfter=6,
+    )
+
+    story = [
+        Paragraph("Garrett Intelligence Hub", title_style),
+        Paragraph(f"Analysis Type: {escape(analysis_type)}", meta_style),
+        Paragraph(f"Generated Time: {escape(generated_time)}", meta_style),
+        Spacer(1, 8),
+        Paragraph("Report Content", heading_style),
+    ]
+
+    for line in report_content.splitlines():
+        if line.strip():
+            story.append(Paragraph(escape(line), content_style))
+        else:
+            story.append(Spacer(1, 6))
+
+    document.build(story)
+    return buffer.getvalue()
+
+
+def render_pdf_download(entry: dict) -> None:
+    analysis_type = get_document_analysis_type(entry.get("query", ""))
+    report_content = str(entry.get("result", ""))
+    if not analysis_type or not report_content:
+        return
+
+    pdf_bytes = build_pdf_report(analysis_type, report_content)
+    st.download_button(
+        "Download PDF",
+        data=pdf_bytes,
+        file_name=DOCUMENT_PDF_FILENAMES[analysis_type],
+        mime="application/pdf",
+        use_container_width=True,
+    )
+
+
 def display_result(entry: dict) -> None:
     st.subheader("Response")
     st.write(f"Mode: {entry.get('mode', '')}")
@@ -1418,6 +1526,7 @@ def display_result(entry: dict) -> None:
     st.code(str(entry.get("version", "")))
     st.write("result")
     st.write(entry.get("result", ""))
+    render_pdf_download(entry)
 
 
 def format_form_value(value: str | list[str]) -> str:

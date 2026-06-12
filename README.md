@@ -192,6 +192,8 @@ Supported analysis types:
 
 If extracted content exceeds 12000 characters, only the first 12000 characters are inserted into the prompt and the prompt includes a truncation notice.
 
+After a Document Analysis result is generated, the result area shows a `Download PDF` button. PDF export uses `reportlab`, preserves line breaks, paginates long reports, and names the file from the selected analysis type, such as `contract_review.pdf` or `business_analysis.pdf`.
+
 ## Docker
 
 Build the image:
