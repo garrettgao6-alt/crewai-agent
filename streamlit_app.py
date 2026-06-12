@@ -2114,6 +2114,23 @@ def inject_custom_css() -> None:
             color: #0F172A;
         }
 
+        p, span, div, small {
+            letter-spacing: 0;
+        }
+
+        [data-testid="InputInstructions"],
+        div[class*="InputInstructions"],
+        div[class*="inputInstructions"],
+        div[class*="InputInstructions"] *,
+        div[class*="inputInstructions"] * {
+            display: none !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            visibility: hidden !important;
+        }
+
         [data-testid="stSidebar"] {
             background: #FFFFFF !important;
             color: #0F172A !important;
@@ -2169,6 +2186,51 @@ def inject_custom_css() -> None:
             pointer-events: auto !important;
         }
 
+        [data-testid="stSelectbox"] > div,
+        [data-testid="stMultiSelect"] > div,
+        [data-baseweb="select"],
+        [data-baseweb="select"] > div,
+        [data-baseweb="select"] div,
+        [data-baseweb="popover"],
+        [data-baseweb="popover"] div,
+        [role="listbox"],
+        [role="listbox"] div,
+        [role="option"],
+        [data-baseweb="menu"],
+        [data-baseweb="menu"] div {
+            background: #FFFFFF !important;
+            color: #0F172A !important;
+            border-color: #CBD5E1 !important;
+        }
+
+        [data-baseweb="select"] {
+            border: 1px solid #CBD5E1 !important;
+            border-radius: 12px !important;
+            min-height: 44px !important;
+        }
+
+        [data-baseweb="select"] input,
+        [data-baseweb="select"] span,
+        [data-baseweb="select"] svg,
+        [data-baseweb="popover"] span,
+        [role="listbox"] span,
+        [role="option"] span {
+            color: #0F172A !important;
+            fill: #0F172A !important;
+        }
+
+        [data-baseweb="tag"] {
+            background: #EFF6FF !important;
+            border: 1px solid #BFDBFE !important;
+            color: #0F172A !important;
+        }
+
+        [data-baseweb="tag"] span,
+        [data-baseweb="tag"] svg {
+            color: #0F172A !important;
+            fill: #0F172A !important;
+        }
+
         .stTextInput input,
         .stTextArea textarea,
         .stNumberInput input,
@@ -2212,6 +2274,30 @@ def inject_custom_css() -> None:
             opacity: 1 !important;
         }
 
+        [data-testid="stFileUploader"] {
+            background: #F8FAFC !important;
+            border: 1px solid #CBD5E1 !important;
+            border-radius: 12px !important;
+            color: #0F172A !important;
+            padding: 12px !important;
+        }
+
+        [data-testid="stFileUploader"] section,
+        [data-testid="stFileUploader"] section *,
+        [data-testid="stFileUploaderDropzone"],
+        [data-testid="stFileUploaderDropzone"] * {
+            background: #F8FAFC !important;
+            color: #0F172A !important;
+            border-color: #CBD5E1 !important;
+        }
+
+        [data-testid="stFileUploader"] button,
+        [data-testid="stFileUploaderDropzone"] button {
+            background: #FFFFFF !important;
+            border: 1px solid #CBD5E1 !important;
+            color: #0F172A !important;
+        }
+
         div[data-testid="stButton"] > button,
         div[data-testid="stDownloadButton"] > button {
             border-radius: 7px;
@@ -2223,9 +2309,9 @@ def inject_custom_css() -> None:
         }
 
         div[data-testid="stButton"] > button[kind="primary"] {
-            background: var(--hub-accent);
+            background: var(--hub-accent-soft);
             border-color: var(--hub-accent);
-            color: #FFFFFF !important;
+            color: #2563EB !important;
             box-shadow: 0 8px 18px rgba(37, 99, 235, 0.24);
         }
 
@@ -2475,8 +2561,9 @@ def inject_custom_css() -> None:
             }
 
             .hub-hero {
-                padding: 22px 18px;
-                margin-top: 4px;
+                padding: 16px;
+                margin-top: 20px;
+                margin-bottom: 20px;
             }
 
             .hub-hero h1 {
@@ -2497,10 +2584,24 @@ def inject_custom_css() -> None:
 
             .hub-mobile-tabs {
                 display: block;
+                margin-top: 20px;
+                margin-bottom: 20px;
             }
 
             .mobile-guide-wrapper {
                 display: block;
+                margin-top: 20px;
+                margin-bottom: 20px;
+            }
+
+            .mobile-guide-card,
+            [data-testid="stExpander"],
+            div[data-testid="stVerticalBlockBorderWrapper"],
+            [data-testid="stMetric"],
+            .hub-result-body {
+                padding: 16px !important;
+                margin-top: 20px !important;
+                margin-bottom: 20px !important;
             }
 
             .status-card-native {
@@ -2549,6 +2650,15 @@ def inject_custom_css() -> None:
 
             [data-testid="stExpander"] {
                 overflow: hidden;
+            }
+
+            [data-testid="stSelectbox"],
+            [data-testid="stMultiSelect"],
+            [data-testid="stTextInput"],
+            [data-testid="stTextArea"],
+            [data-testid="stFileUploader"] {
+                margin-top: 12px !important;
+                margin-bottom: 12px !important;
             }
         }
         </style>
