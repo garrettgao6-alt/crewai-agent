@@ -4,6 +4,8 @@ import time
 import requests
 import streamlit as st
 
+import prompt_store
+
 
 API_URL = "http://127.0.0.1:8000/analyze"
 REQUEST_TIMEOUT_SECONDS = 60
@@ -98,9 +100,33 @@ if "history" not in st.session_state:
 if "selected_history" not in st.session_state:
     st.session_state.selected_history = None
 
+if "query" not in st.session_state:
+    st.session_state.query = ""
+
+prompt_store.initialize_prompt_store()
+
 st.title("Garrett Intelligence Hub")
 
 with st.sidebar:
+    st.header("Prompt Library")
+
+    categories = prompt_store.list_categories()
+    if categories:
+        selected_category = st.selectbox("Category", categories)
+        prompts = prompt_store.list_prompts(selected_category)
+        prompt_options = {prompt["name"]: prompt["id"] for prompt in prompts}
+
+        selected_prompt_name = st.selectbox("Prompt", list(prompt_options.keys()))
+        selected_prompt_id = prompt_options[selected_prompt_name]
+
+        if st.button("Load Template", use_container_width=True):
+            selected_prompt = prompt_store.get_prompt(selected_prompt_id)
+            if selected_prompt:
+                st.session_state.query = selected_prompt["content"]
+    else:
+        st.caption("No prompts available.")
+
+    st.divider()
     st.header("History")
 
     st.download_button(
@@ -139,7 +165,12 @@ is_fast_mode = mode == "Fast Mode"
 mode_name = "Fast" if is_fast_mode else "Advanced"
 st.write(f"Mode: {mode_name}")
 
-query = st.text_area("Input", height=160, placeholder="Enter a request for the gateway...")
+query = st.text_area(
+    "Input",
+    height=160,
+    placeholder="Enter a request for the gateway...",
+    key="query",
+)
 submitted = st.button("Submit", type="primary")
 display_entry = st.session_state.selected_history
 

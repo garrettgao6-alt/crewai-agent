@@ -18,6 +18,8 @@ crewai-agent/
 ├── intelligent_gateway.py    # Recommended CLI entry point
 ├── gateway.py                # Legacy simple keyword gateway
 ├── main.py                   # Legacy fixed demo workflow
+├── prompt_store.py           # SQLite prompt library setup and query helpers
+├── prompts.db                # SQLite prompt library database
 ├── requirements.txt          # Runtime dependencies
 ├── requirements-dev.txt      # Test/development dependencies
 ├── run_local.sh              # Local script that starts FastAPI and Streamlit
@@ -127,12 +129,28 @@ streamlit run streamlit_app.py
 
 The Streamlit app displays `category`, `confidence`, `version`, `result`, and response time fields. It also keeps a session-local History sidebar with the 10 most recent requests, including each request's query, mode, routing metadata, result, and elapsed time. Use `Clear History` to reset the sidebar.
 
+The sidebar also includes a SQLite-backed Prompt Library. Choose a `Business` or `Construction` category, select a prompt, and click `Load Template` to place the full template into the editable input box. The prompt text remains editable before submitting.
+
 Streamlit supports two modes:
 
 - Fast Mode: enabled by default. It skips the Router Agent and runs the Writer Agent directly from the UI process.
 - Advanced Agent Routing: posts requests to `http://127.0.0.1:8000/analyze` and uses the existing Router Agent to choose the specialist agent.
 
 The FastAPI route contract is unchanged. The CLI behavior in `intelligent_gateway.py` is unchanged.
+
+## Prompt Library
+
+Prompt templates are stored in `prompts.db` using SQLite. The `prompts` table contains:
+
+- `id`
+- `category`
+- `name`
+- `content`
+- `version`
+- `created_at`
+- `updated_at`
+
+If `prompts.db` does not exist, `prompt_store.py` automatically creates it and seeds the default Business and Construction templates. Future template management can be added through `prompt_store.py` without changing `api.py`, `intelligent_gateway.py`, or `run_local.sh`.
 
 ## Docker
 
@@ -167,7 +185,7 @@ python -m pytest -q
 Run syntax compilation checks:
 
 ```bash
-python -m py_compile intelligent_gateway.py config.py agents.py api.py streamlit_app.py test_gateway_routing.py test_api.py
+python -m py_compile intelligent_gateway.py config.py agents.py api.py streamlit_app.py prompt_store.py test_gateway_routing.py test_api.py
 ```
 
 The routing tests mock `crewai` and `langchain_openai` before importing `intelligent_gateway.py`, so tests do not call real OpenAI or Tavily services.
