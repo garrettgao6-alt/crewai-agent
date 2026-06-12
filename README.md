@@ -171,7 +171,7 @@ Clicking `Generate Prompt` updates `st.session_state.query`; the user can still 
 
 ## Document Analysis
 
-Document Analysis reads uploaded files in the Streamlit sidebar and generates a document-specific analysis prompt. Each analysis type uses its own professional report structure instead of a shared generic checklist.
+Document Analysis reads uploaded files in the Streamlit sidebar and generates a document-specific analysis prompt. It supports multiple uploaded files at once, keeps each file name in the generated prompt, and combines the extracted text for analysis. Each analysis type uses its own professional report structure instead of a shared generic checklist.
 
 Supported formats:
 
@@ -190,7 +190,7 @@ Supported analysis types:
 - Safety Inspection
 - Business Analysis
 
-If extracted content exceeds 12000 characters, only the first 12000 characters are inserted into the prompt and the prompt includes a truncation notice.
+Each file is limited to the first 12000 extracted characters, and combined document content is limited to 30000 characters across all uploaded files. The UI shows each file's extracted character count and truncation status. Files that cannot be read show an error and are skipped without blocking other uploaded files.
 
 After a Document Analysis result is generated, the result area shows a `Download PDF` button. PDF export uses `reportlab`, preserves line breaks, paginates long reports, and names the file from the selected analysis type, such as `contract_review.pdf` or `business_analysis.pdf`.
 

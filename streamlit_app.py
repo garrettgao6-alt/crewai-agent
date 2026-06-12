@@ -14,6 +14,7 @@ REQUEST_TIMEOUT_SECONDS = 60
 VERSION = "1.0"
 HISTORY_LIMIT = 10
 DOCUMENT_TEXT_LIMIT = 12000
+DOCUMENT_TOTAL_TEXT_LIMIT = 30000
 DOCUMENT_ANALYSIS_TYPES = [
     "Contract Review",
     "Tender Review",
@@ -1591,21 +1592,47 @@ def extract_uploaded_document_text(file_name: str, file_bytes: bytes) -> str:
     raise ValueError("Unsupported file type.")
 
 
-def truncate_document_text(document_text: str) -> tuple[str, bool]:
-    if len(document_text) <= DOCUMENT_TEXT_LIMIT:
+def truncate_document_text(
+    document_text: str,
+    limit: int = DOCUMENT_TEXT_LIMIT,
+) -> tuple[str, bool]:
+    if len(document_text) <= limit:
         return document_text, False
-    return document_text[:DOCUMENT_TEXT_LIMIT], True
+    return document_text[:limit], True
+
+
+def apply_total_document_limit(documents: list[dict]) -> tuple[list[dict], bool]:
+    remaining_characters = DOCUMENT_TOTAL_TEXT_LIMIT
+    limited_documents = []
+    total_truncated = False
+
+    for document in documents:
+        document_copy = document.copy()
+        text = document_copy["text"]
+
+        if remaining_characters <= 0:
+            document_copy["text"] = ""
+            document_copy["total_truncated"] = True
+            total_truncated = True
+        elif len(text) > remaining_characters:
+            document_copy["text"] = text[:remaining_characters]
+            document_copy["total_truncated"] = True
+            total_truncated = True
+            remaining_characters = 0
+        else:
+            document_copy["total_truncated"] = False
+            remaining_characters -= len(text)
+
+        limited_documents.append(document_copy)
+
+    return limited_documents, total_truncated
 
 
 def build_document_prompt(
     analysis_type: str,
-    file_name: str,
-    document_text: str,
-    truncated: bool,
+    documents: list[dict],
+    total_truncated: bool,
 ) -> str:
-    truncation_notice = ""
-    if truncated:
-        truncation_notice = f"Content truncated to first {DOCUMENT_TEXT_LIMIT} characters.\n\n"
     report_items = DOCUMENT_REPORT_STRUCTURES.get(
         analysis_type,
         DOCUMENT_REPORT_STRUCTURES["Business Analysis"],
@@ -1614,24 +1641,43 @@ def build_document_prompt(
         f"{index}. {item}"
         for index, item in enumerate(report_items, start=1)
     )
+    document_sections = []
+    for document in documents:
+        notices = []
+        if document.get("file_truncated"):
+            notices.append(f"File content truncated to first {DOCUMENT_TEXT_LIMIT} characters.")
+        if document.get("total_truncated"):
+            notices.append(f"Combined document content truncated to first {DOCUMENT_TOTAL_TEXT_LIMIT} characters.")
 
-    return f"""Analyze the following uploaded document.
+        notice_text = ""
+        if notices:
+            notice_text = "\n".join(notices) + "\n"
+
+        document_sections.append(
+            f"=== File: {document['file_name']} ===\n{notice_text}{document['text']}"
+        )
+    documents_text = "\n\n".join(document_sections)
+    total_notice = ""
+    if total_truncated:
+        total_notice = f"\nContent truncated to first {DOCUMENT_TOTAL_TEXT_LIMIT} total characters across uploaded files.\n"
+
+    return f"""Analyze the following uploaded project documents.
 
 Analysis Type: {analysis_type}
-File Name: {file_name}
 
-Document Content:
-{truncation_notice}{document_text}
+Documents:
+{documents_text}{total_notice}
 
 Provide:
 {report_structure}"""
 
 
 def render_document_analysis() -> None:
-    uploaded_file = st.file_uploader(
-        "Upload Document",
+    uploaded_files = st.file_uploader(
+        "Upload Documents",
         type=["pdf", "txt", "docx", "xlsx"],
         key="document_analysis_upload",
+        accept_multiple_files=True,
     )
     analysis_type = st.selectbox(
         "Analysis Type",
@@ -1639,37 +1685,50 @@ def render_document_analysis() -> None:
         key="document_analysis_type",
     )
 
-    document_text = ""
-    truncated_text = ""
-    truncated = False
-    read_failed = False
+    documents = []
+    had_file_error = False
 
-    if uploaded_file:
-        try:
-            document_text = extract_uploaded_document_text(
-                uploaded_file.name,
-                uploaded_file.getvalue(),
-            )
-            truncated_text, truncated = truncate_document_text(document_text)
-        except Exception as exc:
-            read_failed = True
-            st.error(f"Could not read uploaded file: {exc}")
-        else:
-            st.write(f"File name: {uploaded_file.name}")
-            st.write(f"Extracted character count: {len(document_text)}")
-            st.write(f"Truncated: {'Yes' if truncated else 'No'}")
+    if uploaded_files:
+        for uploaded_file in uploaded_files:
+            try:
+                document_text = extract_uploaded_document_text(
+                    uploaded_file.name,
+                    uploaded_file.getvalue(),
+                )
+                truncated_text, file_truncated = truncate_document_text(document_text)
+            except Exception as exc:
+                had_file_error = True
+                st.error(f"Could not read {uploaded_file.name}: {exc}")
+            else:
+                st.write(f"File name: {uploaded_file.name}")
+                st.write(f"Extracted character count: {len(document_text)}")
+                st.write(f"Truncated: {'Yes' if file_truncated else 'No'}")
+                documents.append(
+                    {
+                        "file_name": uploaded_file.name,
+                        "text": truncated_text,
+                        "file_truncated": file_truncated,
+                    }
+                )
+
+        if any(document["file_truncated"] for document in documents):
+            st.warning(f"One or more files were truncated to first {DOCUMENT_TEXT_LIMIT} characters.")
 
     if st.button("Generate Document Prompt", use_container_width=True):
-        if not uploaded_file:
-            st.warning("Please upload a document first.")
-        elif read_failed:
-            st.error("Could not generate a prompt because the uploaded file could not be read.")
+        if not uploaded_files:
+            st.warning("Please upload at least one document first.")
+        elif not documents:
+            st.error("No uploaded documents could be read.")
         else:
+            limited_documents, total_truncated = apply_total_document_limit(documents)
+            if total_truncated:
+                st.warning(f"Combined document content was truncated to first {DOCUMENT_TOTAL_TEXT_LIMIT} characters.")
+            if had_file_error:
+                st.warning("Some files could not be read and were excluded from the prompt.")
             st.session_state.query = build_document_prompt(
                 analysis_type,
-                uploaded_file.name,
-                truncated_text,
-                truncated,
+                limited_documents,
+                total_truncated,
             )
 
 
