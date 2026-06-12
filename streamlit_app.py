@@ -22,6 +22,78 @@ DOCUMENT_ANALYSIS_TYPES = [
     "Safety Inspection",
     "Business Analysis",
 ]
+DOCUMENT_REPORT_STRUCTURES = {
+    "Contract Review": [
+        "Executive summary",
+        "Key contract obligations",
+        "Risk clauses and exposure areas",
+        "Payment, variation, delay, and EOT considerations",
+        "Ambiguous or unfavorable terms",
+        "Required clarifications or missing documents",
+        "Practical negotiation recommendations",
+        "Items requiring legal review",
+    ],
+    "Tender Review": [
+        "Tender summary",
+        "Commercial risks",
+        "Technical risks",
+        "Scope gaps and exclusions",
+        "Programme and delivery risks",
+        "Pricing assumptions and cost exposure",
+        "Clarification questions",
+        "Recommendation: proceed, proceed with conditions, or do not proceed",
+    ],
+    "Risk Assessment": [
+        "Executive risk summary",
+        "Safety risks",
+        "Cost risks",
+        "Schedule risks",
+        "Quality risks",
+        "Legal, compliance, and environmental risks",
+        "Mitigation measures and responsible parties",
+        "Priority risk matrix",
+    ],
+    "Meeting Minutes": [
+        "Meeting summary",
+        "Attendees and roles if available",
+        "Key discussion points",
+        "Decisions made",
+        "Action items with owners and due dates",
+        "Open issues",
+        "Risks or blockers raised",
+        "Next meeting or follow-up requirements",
+    ],
+    "Progress Report": [
+        "Executive progress summary",
+        "Completed works",
+        "Current activities",
+        "Delays, blockers, and causes",
+        "Safety and quality observations",
+        "Upcoming works",
+        "Required decisions or support",
+        "Action items and priority status",
+    ],
+    "Safety Inspection": [
+        "Safety inspection summary",
+        "Hazards identified",
+        "Risk ratings",
+        "Immediate corrective actions",
+        "Responsible persons",
+        "Due dates and follow-up requirements",
+        "Recurring safety issues",
+        "Overall safety recommendations",
+    ],
+    "Business Analysis": [
+        "Executive business summary",
+        "SWOT analysis",
+        "Revenue and growth opportunities",
+        "Operational weaknesses",
+        "Cost improvement areas",
+        "Customer, market, and competitive risks",
+        "Strategic options",
+        "Recommended action plan and priority matrix",
+    ],
+}
 
 INDUSTRY_OPTIONS = [
     "Construction",
@@ -1435,6 +1507,14 @@ def build_document_prompt(
     truncation_notice = ""
     if truncated:
         truncation_notice = f"Content truncated to first {DOCUMENT_TEXT_LIMIT} characters.\n\n"
+    report_items = DOCUMENT_REPORT_STRUCTURES.get(
+        analysis_type,
+        DOCUMENT_REPORT_STRUCTURES["Business Analysis"],
+    )
+    report_structure = "\n".join(
+        f"{index}. {item}"
+        for index, item in enumerate(report_items, start=1)
+    )
 
     return f"""Analyze the following uploaded document.
 
@@ -1445,12 +1525,7 @@ Document Content:
 {truncation_notice}{document_text}
 
 Provide:
-1. Executive Summary
-2. Key Findings
-3. Risks
-4. Opportunities
-5. Recommended Actions
-6. Priority Matrix"""
+{report_structure}"""
 
 
 def render_document_analysis() -> None:
