@@ -6,3 +6,6 @@ fastapi
 uvicorn
 streamlit
 requests
+pypdf
+python-docx
+openpyxl

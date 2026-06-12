@@ -129,9 +129,11 @@ streamlit run streamlit_app.py
 
 The Streamlit app displays `category`, `confidence`, `version`, `result`, and response time fields. It also keeps a session-local History sidebar with the 10 most recent requests, including each request's query, mode, routing metadata, result, and elapsed time. Use `Clear History` to reset the sidebar.
 
-The sidebar is organized into `Prompt Library`, `Form Builder`, and `History` sections. The SQLite-backed Prompt Library section lets you choose a `Business` or `Construction` category, select a prompt, and click `Load Template` to place the full template into the editable input box. The prompt text remains editable before submitting.
+The sidebar is organized into `Prompt Library`, `Form Builder`, `Document Analysis`, and `History` sections. The SQLite-backed Prompt Library section lets you choose a `Business` or `Construction` category, select a prompt, and click `Load Template` to place the full template into the editable input box. The prompt text remains editable before submitting.
 
 The Form Builder section is collapsed by default and covers all Business and Construction prompt templates. Choose a form category and template, complete the structured fields, and click `Generate Prompt` to write a professional prompt into the same editable input box. Form fields support text inputs, larger text areas, dropdowns, and multi-select focus areas.
+
+The Document Analysis section is collapsed by default and supports PDF, TXT, DOCX, and XLSX uploads. Choose an analysis type, upload a document, and click `Generate Document Prompt` to place the extracted document text and requested analysis task into the editable input box. Uploaded content is limited to the first 12000 characters when needed, and the generated prompt states when truncation occurred.
 
 Streamlit supports two modes:
 
@@ -166,6 +168,29 @@ Supported field types:
 - `multiselect`
 
 Clicking `Generate Prompt` updates `st.session_state.query`; the user can still edit the generated prompt before submitting it in Fast Mode or Advanced Agent Routing.
+
+## Document Analysis
+
+Document Analysis reads uploaded files in the Streamlit sidebar and generates a document-specific analysis prompt.
+
+Supported formats:
+
+- PDF through `pypdf`
+- TXT through UTF-8 decoding
+- DOCX through `python-docx`
+- XLSX through `openpyxl`
+
+Supported analysis types:
+
+- Contract Review
+- Tender Review
+- Risk Assessment
+- Meeting Minutes
+- Progress Report
+- Safety Inspection
+- Business Analysis
+
+If extracted content exceeds 12000 characters, only the first 12000 characters are inserted into the prompt and the prompt includes a truncation notice.
 
 ## Docker
 

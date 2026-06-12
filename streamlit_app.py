@@ -1,4 +1,5 @@
 import json
+from io import BytesIO
 import time
 
 import requests
@@ -11,6 +12,16 @@ API_URL = "http://127.0.0.1:8000/analyze"
 REQUEST_TIMEOUT_SECONDS = 60
 VERSION = "1.0"
 HISTORY_LIMIT = 10
+DOCUMENT_TEXT_LIMIT = 12000
+DOCUMENT_ANALYSIS_TYPES = [
+    "Contract Review",
+    "Tender Review",
+    "Risk Assessment",
+    "Meeting Minutes",
+    "Progress Report",
+    "Safety Inspection",
+    "Business Analysis",
+]
 
 INDUSTRY_OPTIONS = [
     "Construction",
@@ -1361,6 +1372,133 @@ def build_prompt_from_form(form_definition: dict, values: dict[str, str | list[s
     return form_definition["template"].format(**formatted_values)
 
 
+def extract_pdf_text(file_bytes: bytes) -> str:
+    from pypdf import PdfReader
+
+    reader = PdfReader(BytesIO(file_bytes))
+    return "\n".join(page.extract_text() or "" for page in reader.pages)
+
+
+def extract_docx_text(file_bytes: bytes) -> str:
+    from docx import Document
+
+    document = Document(BytesIO(file_bytes))
+    parts = [paragraph.text for paragraph in document.paragraphs if paragraph.text]
+    for table in document.tables:
+        for row in table.rows:
+            row_text = " | ".join(cell.text.strip() for cell in row.cells)
+            if row_text.strip():
+                parts.append(row_text)
+    return "\n".join(parts)
+
+
+def extract_xlsx_text(file_bytes: bytes) -> str:
+    from openpyxl import load_workbook
+
+    workbook = load_workbook(BytesIO(file_bytes), read_only=True, data_only=True)
+    parts = []
+    for worksheet in workbook.worksheets:
+        parts.append(f"Sheet: {worksheet.title}")
+        for row in worksheet.iter_rows(values_only=True):
+            row_values = [str(value) for value in row if value is not None]
+            if row_values:
+                parts.append(" | ".join(row_values))
+    workbook.close()
+    return "\n".join(parts)
+
+
+def extract_uploaded_document_text(file_name: str, file_bytes: bytes) -> str:
+    suffix = file_name.rsplit(".", 1)[-1].lower()
+    if suffix == "pdf":
+        return extract_pdf_text(file_bytes)
+    if suffix == "txt":
+        return file_bytes.decode("utf-8")
+    if suffix == "docx":
+        return extract_docx_text(file_bytes)
+    if suffix == "xlsx":
+        return extract_xlsx_text(file_bytes)
+    raise ValueError("Unsupported file type.")
+
+
+def truncate_document_text(document_text: str) -> tuple[str, bool]:
+    if len(document_text) <= DOCUMENT_TEXT_LIMIT:
+        return document_text, False
+    return document_text[:DOCUMENT_TEXT_LIMIT], True
+
+
+def build_document_prompt(
+    analysis_type: str,
+    file_name: str,
+    document_text: str,
+    truncated: bool,
+) -> str:
+    truncation_notice = ""
+    if truncated:
+        truncation_notice = f"Content truncated to first {DOCUMENT_TEXT_LIMIT} characters.\n\n"
+
+    return f"""Analyze the following uploaded document.
+
+Analysis Type: {analysis_type}
+File Name: {file_name}
+
+Document Content:
+{truncation_notice}{document_text}
+
+Provide:
+1. Executive Summary
+2. Key Findings
+3. Risks
+4. Opportunities
+5. Recommended Actions
+6. Priority Matrix"""
+
+
+def render_document_analysis() -> None:
+    uploaded_file = st.file_uploader(
+        "Upload Document",
+        type=["pdf", "txt", "docx", "xlsx"],
+        key="document_analysis_upload",
+    )
+    analysis_type = st.selectbox(
+        "Analysis Type",
+        DOCUMENT_ANALYSIS_TYPES,
+        key="document_analysis_type",
+    )
+
+    document_text = ""
+    truncated_text = ""
+    truncated = False
+    read_failed = False
+
+    if uploaded_file:
+        try:
+            document_text = extract_uploaded_document_text(
+                uploaded_file.name,
+                uploaded_file.getvalue(),
+            )
+            truncated_text, truncated = truncate_document_text(document_text)
+        except Exception as exc:
+            read_failed = True
+            st.error(f"Could not read uploaded file: {exc}")
+        else:
+            st.write(f"File name: {uploaded_file.name}")
+            st.write(f"Extracted character count: {len(document_text)}")
+            st.write(f"Truncated: {'Yes' if truncated else 'No'}")
+
+    if st.button("Generate Document Prompt", use_container_width=True):
+        if not uploaded_file:
+            st.warning("Please upload a document first.")
+        elif read_failed:
+            st.error("Could not generate a prompt because the uploaded file could not be read.")
+        else:
+            st.session_state.query = build_document_prompt(
+                analysis_type,
+                uploaded_file.name,
+                truncated_text,
+                truncated,
+            )
+
+
 def render_form_builder() -> None:
     selected_category = st.selectbox(
         "Form Category",
@@ -1453,6 +1591,9 @@ with st.sidebar:
 
     with st.expander("Form Builder", expanded=False):
         render_form_builder()
+
+    with st.expander("Document Analysis", expanded=False):
+        render_document_analysis()
 
     with st.expander("History", expanded=True):
         st.download_button(
