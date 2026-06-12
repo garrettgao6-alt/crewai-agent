@@ -135,7 +135,7 @@ The Form Builder section is collapsed by default and covers all Business and Con
 
 The Document Analysis section is collapsed by default and supports single-file PDF, TXT, DOCX, and XLSX uploads. Choose an analysis type, upload a document, and click `Generate Document Prompt` to place the extracted document text and requested analysis task into the editable input box. Uploaded content is limited to the first 12000 characters when needed, and the generated prompt states when truncation occurred.
 
-The Executive Intelligence Board section is collapsed by default and supports multi-file project reviews for construction and business workflows. Upload multiple project documents, choose a review type, and click `Generate Executive Review` to combine the extracted content into one professional cross-document review prompt. Click `Run Agent Team` to run the real CrewAI executive agent workflow and save the board-level result to History.
+The Executive Intelligence Board section is collapsed by default and supports multi-file project reviews for construction and business workflows. Upload multiple project documents, choose a review type and agent mode, then click `Generate Executive Review` to combine the extracted content into one professional cross-document review prompt. Click `Run Agent Team` to run the selected CrewAI executive agent workflow and save the board-level result to History.
 
 Streamlit supports two modes:
 
@@ -216,7 +216,15 @@ Each uploaded file is limited to the first 12000 extracted characters, and combi
 
 `executive_agents.py` defines a real CrewAI executive review team that analyzes uploaded project document text without Tavily search. The team includes Contract, Tender, Risk, NCC Compliance, Finance, BIM, and Executive Coordinator agents. Each agent has its own role, goal, backstory, and task, and the Executive Coordinator combines the specialist outputs into a board-level report.
 
-The Streamlit UI keeps the generated executive review prompt editable, and `Run Agent Team` executes the multi-agent workflow directly from the Project Intelligence Review section. Executive results are saved to History and support `Download Executive PDF`.
+The Streamlit UI keeps the generated executive review prompt editable, and `Run Agent Team` executes the multi-agent workflow directly from the Executive Intelligence Board section. Executive results are saved to History and support `Download Executive PDF`.
+
+Executive agent modes:
+
+- Fast Executive Review: runs only the Executive Coordinator Agent for the fastest, lowest-cost review.
+- Full Board Review: runs Contract, Risk, Finance, and Executive Coordinator agents for balanced speed and quality.
+- Deep Due Diligence: runs Contract, Tender, Risk, NCC, Finance, BIM, and Executive Coordinator agents for the strongest analysis.
+
+History entries and exported Executive PDFs include the selected `agent_mode`.
 
 ## Docker
 

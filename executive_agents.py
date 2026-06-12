@@ -10,6 +10,29 @@ EXECUTIVE_ERROR_MESSAGE = (
     "Executive agent team failed: unable to reach the LLM provider. "
     "Please try again later."
 )
+FAST_EXECUTIVE_REVIEW = "Fast Executive Review"
+FULL_BOARD_REVIEW = "Full Board Review"
+DEEP_DUE_DILIGENCE = "Deep Due Diligence"
+AGENT_MODES = [FAST_EXECUTIVE_REVIEW, FULL_BOARD_REVIEW, DEEP_DUE_DILIGENCE]
+
+AGENT_MODE_ROLES = {
+    FAST_EXECUTIVE_REVIEW: ["Executive Coordinator Agent"],
+    FULL_BOARD_REVIEW: [
+        "Contract Intelligence Agent",
+        "Risk Intelligence Agent",
+        "Finance Intelligence Agent",
+        "Executive Coordinator Agent",
+    ],
+    DEEP_DUE_DILIGENCE: [
+        "Contract Intelligence Agent",
+        "Tender Intelligence Agent",
+        "Risk Intelligence Agent",
+        "NCC Compliance Agent",
+        "Finance Intelligence Agent",
+        "BIM Intelligence Agent",
+        "Executive Coordinator Agent",
+    ],
+}
 
 
 def build_agent(role: str, goal: str, backstory: str, llm) -> Agent:
@@ -40,7 +63,11 @@ Focus:
     )
 
 
-def run_executive_agent_team(review_type: str, documents_text: str) -> dict:
+def run_executive_agent_team(
+    review_type: str,
+    documents_text: str,
+    agent_mode: str = DEEP_DUE_DILIGENCE,
+) -> dict:
     load_environment()
     llm = create_llm()
 
@@ -108,47 +135,61 @@ def run_executive_agent_team(review_type: str, documents_text: str) -> dict:
         llm=llm,
     )
 
-    contract_task = build_task(
-        contract_agent,
-        review_type,
-        documents_text,
-        "- contract obligations\n- payment terms\n- variation clauses\n- EOT\n- delay damages\n- dispute clauses",
-    )
-    tender_task = build_task(
-        tender_agent,
-        review_type,
-        documents_text,
-        "- scope gaps\n- tender risks\n- exclusions\n- commercial qualifications\n- clarification questions",
-    )
-    risk_task = build_task(
-        risk_agent,
-        review_type,
-        documents_text,
-        "- commercial risks\n- programme risks\n- safety risks\n- procurement risks\n- risk matrix",
-    )
-    ncc_task = build_task(
-        ncc_agent,
-        review_type,
-        documents_text,
-        "- NCC compliance\n- building class\n- fire safety\n- accessibility\n- energy efficiency\n- documentation risks",
-    )
-    finance_task = build_task(
-        finance_agent,
-        review_type,
-        documents_text,
-        "- cash flow\n- cost exposure\n- margin risk\n- contingency\n- financial implications",
-    )
-    bim_task = build_task(
-        bim_agent,
-        review_type,
-        documents_text,
-        "- BIM opportunities\n- digital twin\n- clash detection\n- quantity takeoff\n- site reporting automation",
-    )
+    agent_mode = agent_mode if agent_mode in AGENT_MODE_ROLES else DEEP_DUE_DILIGENCE
+    selected_roles = AGENT_MODE_ROLES[agent_mode]
+    specialist_definitions = [
+        (
+            contract_agent,
+            "Contract Intelligence Agent",
+            "- contract obligations\n- payment terms\n- variation clauses\n- EOT\n- delay damages\n- dispute clauses",
+        ),
+        (
+            tender_agent,
+            "Tender Intelligence Agent",
+            "- scope gaps\n- tender risks\n- exclusions\n- commercial qualifications\n- clarification questions",
+        ),
+        (
+            risk_agent,
+            "Risk Intelligence Agent",
+            "- commercial risks\n- programme risks\n- safety risks\n- procurement risks\n- risk matrix",
+        ),
+        (
+            ncc_agent,
+            "NCC Compliance Agent",
+            "- NCC compliance\n- building class\n- fire safety\n- accessibility\n- energy efficiency\n- documentation risks",
+        ),
+        (
+            finance_agent,
+            "Finance Intelligence Agent",
+            "- cash flow\n- cost exposure\n- margin risk\n- contingency\n- financial implications",
+        ),
+        (
+            bim_agent,
+            "BIM Intelligence Agent",
+            "- BIM opportunities\n- digital twin\n- clash detection\n- quantity takeoff\n- site reporting automation",
+        ),
+    ]
+    specialist_tasks = [
+        build_task(agent, review_type, documents_text, focus)
+        for agent, role, focus in specialist_definitions
+        if role in selected_roles
+    ]
+
+    coordinator_context = specialist_tasks
+    coordinator_source = "the specialist agent outputs"
+    if not specialist_tasks:
+        coordinator_context = []
+        coordinator_source = "the uploaded project documents"
+
     coordinator_task = Task(
         description=f"""
 Review Type: {review_type}
+Agent Mode: {agent_mode}
 
-Create a final board-level executive report from the specialist agent outputs.
+Project Documents:
+{documents_text}
+
+Create a final board-level executive report from {coordinator_source}.
 Remove duplication, resolve conflicts, prioritize risks, and provide final recommendations.
 
 Required structure:
@@ -165,37 +206,20 @@ Required structure:
 """.strip(),
         expected_output="A complete board-level executive intelligence report.",
         agent=coordinator_agent,
-        context=[
-            contract_task,
-            tender_task,
-            risk_task,
-            ncc_task,
-            finance_task,
-            bim_task,
-        ],
+        context=coordinator_context,
     )
-
-    crew = Crew(
-        agents=[
-            contract_agent,
-            tender_agent,
-            risk_agent,
-            ncc_agent,
-            finance_agent,
-            bim_agent,
-            coordinator_agent,
-        ],
-        tasks=[
-            contract_task,
-            tender_task,
-            risk_task,
-            ncc_task,
-            finance_task,
-            bim_task,
-            coordinator_task,
-        ],
-        verbose=True,
-    )
+    agent_lookup = {
+        "Contract Intelligence Agent": contract_agent,
+        "Tender Intelligence Agent": tender_agent,
+        "Risk Intelligence Agent": risk_agent,
+        "NCC Compliance Agent": ncc_agent,
+        "Finance Intelligence Agent": finance_agent,
+        "BIM Intelligence Agent": bim_agent,
+        "Executive Coordinator Agent": coordinator_agent,
+    }
+    selected_agents = [agent_lookup[role] for role in selected_roles]
+    selected_tasks = [*specialist_tasks, coordinator_task]
+    crew = Crew(agents=selected_agents, tasks=selected_tasks, verbose=True)
 
     try:
         result = crew.kickoff()
@@ -205,6 +229,7 @@ Required structure:
             "confidence": 0.0,
             "result": EXECUTIVE_ERROR_MESSAGE,
             "version": VERSION,
+            "agent_mode": agent_mode,
         }
 
     try:
@@ -217,4 +242,5 @@ Required structure:
         "confidence": 0.95,
         "result": output,
         "version": VERSION,
+        "agent_mode": agent_mode,
     }

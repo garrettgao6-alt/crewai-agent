@@ -96,11 +96,49 @@ def test_run_executive_agent_team_returns_payload(monkeypatch):
         "confidence": 0.95,
         "result": "executive report",
         "version": "1.0",
+        "agent_mode": executive_agents.DEEP_DUE_DILIGENCE,
     }
     assert len(FakeCrew.last_agents) == 7
     assert len(FakeCrew.last_tasks) == 7
     assert FakeCrew.last_agents[-1].role == "Executive Coordinator Agent"
     assert len(FakeCrew.last_tasks[-1].context) == 6
+
+
+def test_fast_executive_review_runs_only_coordinator(monkeypatch):
+    reset_fakes()
+    executive_agents = import_executive_agents(monkeypatch)
+
+    result = executive_agents.run_executive_agent_team(
+        "Full Project Review",
+        "=== File: contract.pdf ===\nContract text",
+        executive_agents.FAST_EXECUTIVE_REVIEW,
+    )
+
+    assert result["agent_mode"] == executive_agents.FAST_EXECUTIVE_REVIEW
+    assert [agent.role for agent in FakeCrew.last_agents] == ["Executive Coordinator Agent"]
+    assert len(FakeCrew.last_tasks) == 1
+    assert FakeCrew.last_tasks[-1].context == []
+
+
+def test_full_board_review_runs_balanced_agent_set(monkeypatch):
+    reset_fakes()
+    executive_agents = import_executive_agents(monkeypatch)
+
+    result = executive_agents.run_executive_agent_team(
+        "Full Project Review",
+        "=== File: contract.pdf ===\nContract text",
+        executive_agents.FULL_BOARD_REVIEW,
+    )
+
+    assert result["agent_mode"] == executive_agents.FULL_BOARD_REVIEW
+    assert [agent.role for agent in FakeCrew.last_agents] == [
+        "Contract Intelligence Agent",
+        "Risk Intelligence Agent",
+        "Finance Intelligence Agent",
+        "Executive Coordinator Agent",
+    ]
+    assert len(FakeCrew.last_tasks) == 4
+    assert len(FakeCrew.last_tasks[-1].context) == 3
 
 
 def test_run_executive_agent_team_failure_returns_friendly_error(monkeypatch):
@@ -118,4 +156,5 @@ def test_run_executive_agent_team_failure_returns_friendly_error(monkeypatch):
         "confidence": 0.0,
         "result": executive_agents.EXECUTIVE_ERROR_MESSAGE,
         "version": "1.0",
+        "agent_mode": executive_agents.DEEP_DUE_DILIGENCE,
     }

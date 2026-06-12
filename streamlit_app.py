@@ -33,6 +33,16 @@ PROJECT_REVIEW_TYPES = [
     "Procurement Review",
     "Progress & Meeting Review",
 ]
+EXECUTIVE_AGENT_MODES = [
+    "Fast Executive Review",
+    "Full Board Review",
+    "Deep Due Diligence",
+]
+EXECUTIVE_AGENT_MODE_DESCRIPTIONS = {
+    "Fast Executive Review": "Runs only the Executive Coordinator Agent. Fastest and lowest cost.",
+    "Full Board Review": "Runs Contract, Risk, Finance, and Executive Coordinator agents. Balanced speed and quality.",
+    "Deep Due Diligence": "Runs all executive agents. Strongest analysis and highest cost for important projects.",
+}
 DOCUMENT_REPORT_STRUCTURES = {
     "Contract Review": [
         "Executive Summary",
@@ -1419,7 +1429,13 @@ def run_advanced_mode(query: str) -> dict:
     return response.json()
 
 
-def save_history_entry(query: str, mode_name: str, payload: dict, elapsed_seconds: float) -> dict:
+def save_history_entry(
+    query: str,
+    mode_name: str,
+    payload: dict,
+    elapsed_seconds: float,
+    metadata: dict | None = None,
+) -> dict:
     entry = {
         "query": query,
         "mode": mode_name,
@@ -1429,6 +1445,10 @@ def save_history_entry(query: str, mode_name: str, payload: dict, elapsed_second
         "result": payload.get("result", ""),
         "elapsed_seconds": elapsed_seconds,
     }
+    if metadata:
+        entry.update(metadata)
+    if payload.get("agent_mode"):
+        entry["agent_mode"] = payload["agent_mode"]
     st.session_state.history.insert(0, entry)
     st.session_state.history = st.session_state.history[:HISTORY_LIMIT]
     st.session_state.selected_history = entry
@@ -1453,7 +1473,11 @@ def get_project_review_type(query: str) -> str | None:
     return None
 
 
-def build_pdf_report(analysis_type: str, report_content: str) -> bytes:
+def build_pdf_report(
+    analysis_type: str,
+    report_content: str,
+    agent_mode: str | None = None,
+) -> bytes:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import mm
@@ -1512,9 +1536,10 @@ def build_pdf_report(analysis_type: str, report_content: str) -> bytes:
         Paragraph("Garrett Intelligence Hub", title_style),
         Paragraph(f"Analysis Type: {escape(analysis_type)}", meta_style),
         Paragraph(f"Generated Time: {escape(generated_time)}", meta_style),
-        Spacer(1, 8),
-        Paragraph("Report Content", heading_style),
     ]
+    if agent_mode:
+        story.append(Paragraph(f"Agent Mode: {escape(agent_mode)}", meta_style))
+    story.extend([Spacer(1, 8), Paragraph("Report Content", heading_style)])
 
     for line in report_content.splitlines():
         if line.strip():
@@ -1534,7 +1559,11 @@ def render_pdf_download(entry: dict) -> None:
     if not report_type or not report_content:
         return
 
-    pdf_bytes = build_pdf_report(report_type, report_content)
+    pdf_bytes = build_pdf_report(
+        report_type,
+        report_content,
+        entry.get("agent_mode"),
+    )
     file_name = DOCUMENT_PDF_FILENAMES.get(
         report_type,
         PROJECT_REVIEW_PDF_FILENAMES.get(report_type, "executive_review.pdf"),
@@ -1559,6 +1588,9 @@ def display_result(entry: dict) -> None:
     st.code(str(entry.get("confidence", "")))
     st.write("version")
     st.code(str(entry.get("version", "")))
+    if entry.get("agent_mode"):
+        st.write("agent_mode")
+        st.code(str(entry.get("agent_mode", "")))
     st.write("result")
     st.write(entry.get("result", ""))
     render_pdf_download(entry)
@@ -1801,6 +1833,12 @@ def render_project_intelligence_review() -> None:
         PROJECT_REVIEW_TYPES,
         key="project_review_type",
     )
+    agent_mode = st.selectbox(
+        "Agent Mode",
+        EXECUTIVE_AGENT_MODES,
+        key="executive_agent_mode",
+    )
+    st.caption(EXECUTIVE_AGENT_MODE_DESCRIPTIONS[agent_mode])
 
     documents = []
     had_file_error = False
@@ -1869,7 +1907,11 @@ def render_project_intelligence_review() -> None:
 
                 with st.spinner("Running executive agent team..."):
                     started_at = time.perf_counter()
-                    payload = run_executive_agent_team(review_type, ready_documents_text)
+                    payload = run_executive_agent_team(
+                        review_type,
+                        ready_documents_text,
+                        agent_mode,
+                    )
                     elapsed_seconds = time.perf_counter() - started_at
             except Exception:
                 payload = {
@@ -1877,6 +1919,7 @@ def render_project_intelligence_review() -> None:
                     "confidence": 0.0,
                     "result": "Executive agent team failed: unable to reach the LLM provider. Please try again later.",
                     "version": VERSION,
+                    "agent_mode": agent_mode,
                 }
                 elapsed_seconds = 0.0
 
@@ -1890,6 +1933,7 @@ def render_project_intelligence_review() -> None:
                 "Executive Agent Team",
                 payload,
                 elapsed_seconds,
+                {"agent_mode": agent_mode},
             )
 
 
