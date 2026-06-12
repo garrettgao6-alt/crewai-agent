@@ -116,7 +116,14 @@ Run the Streamlit web UI in a second terminal after FastAPI is running:
 streamlit run streamlit_app.py
 ```
 
-The Streamlit app posts requests to `http://127.0.0.1:8000/analyze` and displays the returned `category`, `confidence`, `version`, and `result` fields.
+The Streamlit app displays `category`, `confidence`, `version`, and `result` fields.
+
+Streamlit supports two modes:
+
+- Fast Mode: enabled by default. It skips the Router Agent and runs the Writer Agent directly from the UI process.
+- Advanced Agent Routing: posts requests to `http://127.0.0.1:8000/analyze` and uses the existing Router Agent to choose the specialist agent.
+
+The FastAPI route contract is unchanged. The CLI behavior in `intelligent_gateway.py` is unchanged.
 
 ## Docker
 
