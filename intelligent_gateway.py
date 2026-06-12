@@ -1,14 +1,27 @@
 import json
+import logging
+import os
 from crewai import Task, Crew
 
 from agents import create_agents
 from config import build_search_tools, create_llm, load_environment
 
 
+logger = logging.getLogger(__name__)
+
+
+def configure_logging():
+    logging.basicConfig(
+        level=os.getenv("LOG_LEVEL", "INFO").upper(),
+        format="%(levelname)s:%(name)s:%(message)s",
+    )
+
+
 # =====================================================
 # GATEWAY SETUP
 # =====================================================
 
+configure_logging()
 load_environment()
 llm = create_llm()
 search_tools = build_search_tools()
@@ -43,7 +56,11 @@ Respond ONLY in valid JSON.
         verbose=False
     )
 
-    result = crew.kickoff()
+    try:
+        result = crew.kickoff()
+    except Exception:
+        logger.exception("Router crew kickoff failed; falling back to writing.")
+        return "writing", 0.0
 
     # SAFE extraction
     try:
@@ -53,21 +70,21 @@ Respond ONLY in valid JSON.
 
     raw_output = raw_output.strip()
 
-    print("\nRouter Raw Output:")
-    print(raw_output)
+    logger.debug("Router raw output: %s", raw_output)
 
     # SAFE JSON parsing
     try:
         parsed = json.loads(raw_output)
         category = parsed.get("category", "writing").lower()
         confidence = parsed.get("confidence", 0.5)
-    except Exception:
-        print("⚠ JSON parsing failed. Using fallback.")
+    except (json.JSONDecodeError, TypeError, AttributeError):
+        logger.warning("JSON parsing failed. Using writing fallback.")
         category = "writing"
         confidence = 0.5
 
     # Extra safety
     if category not in ["market", "technical", "writing"]:
+        logger.warning("Unknown router category '%s'. Using writing fallback.", category)
         category = "writing"
 
     return category, confidence
@@ -92,12 +109,12 @@ def select_agent(category: str):
 
 def run_gateway(user_input: str):
 
-    print("\n--- Routing Decision ---\n")
+    logger.info("Routing request.")
 
     category, confidence = classify_request(user_input)
 
-    print(f"\nFinal Classification: {category}")
-    print(f"Confidence: {confidence}\n")
+    logger.info("Final classification: %s", category)
+    logger.info("Confidence: %s", confidence)
 
     selected_agent = select_agent(category)
 
@@ -113,7 +130,11 @@ def run_gateway(user_input: str):
         verbose=True
     )
 
-    result = crew.kickoff()
+    try:
+        result = crew.kickoff()
+    except Exception:
+        logger.exception("Specialist crew kickoff failed.")
+        return "Gateway execution failed: unable to reach the LLM provider. Please try again later."
 
     try:
         return result.raw

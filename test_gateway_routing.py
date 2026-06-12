@@ -21,6 +21,7 @@ class FakeTask:
 
 class FakeCrew:
     next_raw = '{"category": "writing", "confidence": 0.5}'
+    next_exception = None
     kickoff_agents = []
 
     def __init__(self, agents, tasks, verbose):
@@ -30,6 +31,8 @@ class FakeCrew:
 
     def kickoff(self):
         FakeCrew.kickoff_agents.append(self.agents[0])
+        if FakeCrew.next_exception is not None:
+            raise FakeCrew.next_exception
         return FakeResult(FakeCrew.next_raw)
 
 
@@ -40,6 +43,7 @@ class NamedAgent:
 
 def reset_fakes():
     FakeCrew.next_raw = '{"category": "writing", "confidence": 0.5}'
+    FakeCrew.next_exception = None
     FakeCrew.kickoff_agents = []
 
 
@@ -80,6 +84,17 @@ def test_classify_request_invalid_json_fallback():
     assert confidence == 0.5
 
 
+def test_classify_request_kickoff_failure_fallback():
+    reset_fakes()
+    FakeCrew.next_exception = RuntimeError("OpenAI unavailable")
+
+    category, confidence = gateway.classify_request("Router provider failure")
+
+    assert category == "writing"
+    assert confidence == 0.0
+    assert FakeCrew.kickoff_agents == [gateway.router_agent]
+
+
 def test_classify_request_unknown_category_fallback():
     reset_fakes()
     FakeCrew.next_raw = '{"category": "finance", "confidence": 0.88}'
@@ -117,15 +132,32 @@ def test_run_gateway_writing_route():
     assert_run_gateway_routes("writing", "writer")
 
 
+def test_run_gateway_specialist_failure_returns_friendly_error():
+    reset_fakes()
+    original_classifier = gateway.classify_request
+    gateway.classify_request = lambda user_input: ("technical", 0.99)
+    FakeCrew.next_exception = RuntimeError("OpenAI unavailable")
+
+    try:
+        result = gateway.run_gateway("Route to technical")
+    finally:
+        gateway.classify_request = original_classifier
+
+    assert result == "Gateway execution failed: unable to reach the LLM provider. Please try again later."
+    assert FakeCrew.kickoff_agents == [gateway.tech_agent]
+
+
 def main():
     install_fakes()
     test_select_agent_routes()
     test_classify_request_valid_json()
     test_classify_request_invalid_json_fallback()
+    test_classify_request_kickoff_failure_fallback()
     test_classify_request_unknown_category_fallback()
     test_run_gateway_market_route()
     test_run_gateway_technical_route()
     test_run_gateway_writing_route()
+    test_run_gateway_specialist_failure_returns_friendly_error()
     print("All mock gateway routing tests passed.", flush=True)
 
 

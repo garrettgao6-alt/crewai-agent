@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 
@@ -9,11 +10,14 @@ except ImportError:
     load_dotenv = None
 
 
+logger = logging.getLogger(__name__)
+
+
 def load_environment():
     if load_dotenv is not None:
         load_dotenv(Path(__file__).resolve().parent / ".env")
     else:
-        print("Warning: python-dotenv is not installed; .env auto-load skipped.")
+        logger.warning("python-dotenv is not installed; .env auto-load skipped.")
 
 
 def create_llm():
@@ -25,17 +29,20 @@ def create_llm():
 
 def build_search_tools():
     if not os.getenv("TAVILY_API_KEY"):
-        print("Warning: TAVILY_API_KEY is not set; Tavily search disabled.")
+        logger.warning("TAVILY_API_KEY is not set; Tavily search disabled.")
         return []
 
     try:
         from crewai_tools import TavilySearchTool
     except ImportError:
-        print("Warning: crewai_tools.TavilySearchTool is unavailable; Tavily search disabled.")
+        logger.warning("crewai_tools.TavilySearchTool is unavailable; Tavily search disabled.")
         return []
 
     try:
         return [TavilySearchTool()]
     except Exception as exc:
-        print(f"Warning: TavilySearchTool initialization failed; Tavily search disabled. Details: {exc}")
+        logger.warning(
+            "TavilySearchTool initialization failed; Tavily search disabled. Details: %s",
+            exc,
+        )
         return []
