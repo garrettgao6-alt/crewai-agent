@@ -125,7 +125,7 @@ Run the Streamlit web UI in a second terminal after FastAPI is running:
 streamlit run streamlit_app.py
 ```
 
-The Streamlit app displays `category`, `confidence`, `version`, and `result` fields.
+The Streamlit app displays `category`, `confidence`, `version`, `result`, and response time fields. It also keeps a session-local History sidebar with the 10 most recent requests, including each request's query, mode, routing metadata, result, and elapsed time. Use `Clear History` to reset the sidebar.
 
 Streamlit supports two modes:
 
