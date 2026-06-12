@@ -2205,23 +2205,24 @@ def inject_custom_css() -> None:
             margin: 0 0 18px;
         }
 
-        .hub-status-card {
+        .hub-card {
             background: #FFFFFF;
-            border: 0;
+            border: 1px solid #E2E8F0;
             border-radius: 18px;
+            box-sizing: border-box;
             display: flex;
             flex-direction: column;
-            height: 170px;
+            height: 260px;
             justify-content: space-between;
-            min-height: 170px;
-            padding: 4px 2px;
+            min-height: 260px;
+            overflow: hidden;
+            padding: 24px;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .hub-card-top {
-            align-items: center;
+            align-items: flex-start;
             display: flex;
-            height: 48px;
             justify-content: space-between;
         }
 
@@ -2231,19 +2232,21 @@ def inject_custom_css() -> None:
             border: 1px solid #DBEAFE;
             border-radius: 12px;
             display: inline-flex;
+            flex-shrink: 0;
             font-size: 22px;
             height: 48px;
             justify-content: center;
             width: 48px;
         }
 
-        .hub-badge {
+        .hub-card-badge {
             align-items: center;
             background: #DCFCE7;
             border: 1px solid #BBF7D0;
             border-radius: 999px;
             color: #15803D !important;
             display: inline-flex;
+            flex-shrink: 0;
             font-size: 12px;
             font-weight: 700;
             height: 36px;
@@ -2252,36 +2255,36 @@ def inject_custom_css() -> None:
             padding: 0 12px;
         }
 
-        .hub-status-card .title {
+        .hub-card-title {
             color: #0F172A !important;
-            font-size: 18px;
-            font-weight: 760;
+            font-size: 1.1rem;
+            font-weight: 800;
             line-height: 1.25;
+            margin-top: 16px;
             min-height: 72px;
         }
 
-        .hub-status-card .body {
+        .hub-card-description {
             color: #475569 !important;
-            font-size: 14px;
-            line-height: 1.5;
-            min-height: 80px;
+            font-size: 0.9rem;
+            line-height: 1.55;
+            margin-top: 12px;
+            overflow-wrap: break-word;
+            word-break: normal;
         }
 
         @media (hover: hover) and (pointer: fine) {
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.hub-status-card):hover {
+            .hub-card:hover {
                 box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
                 transform: translateY(-4px);
             }
         }
 
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(.hub-status-card) {
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.hub-card) {
             background: #FFFFFF;
-            border: 1px solid #E2E8F0 !important;
+            border: 0 !important;
             border-radius: 18px !important;
-            height: 220px;
-            min-height: 220px;
-            padding: 20px 22px !important;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            padding: 0 !important;
         }
 
         @media (max-width: 1024px) {
@@ -2388,8 +2391,10 @@ def inject_custom_css() -> None:
                 display: block;
             }
 
-            .hub-status-card {
+            .hub-card {
+                height: auto;
                 margin-bottom: 10px;
+                min-height: 220px;
             }
 
             .hub-status-grid {
@@ -2454,13 +2459,13 @@ def render_status_cards() -> None:
             with st.container(border=True):
                 st.markdown(
                     f"""
-                    <div class="hub-status-card">
+                    <div class="hub-card">
                         <div class="hub-card-top">
                             <div class="hub-card-icon">{icon}</div>
-                            <div class="hub-badge">Active</div>
+                            <div class="hub-card-badge">Active</div>
                         </div>
-                        <div class="title">{title}</div>
-                        <div class="body">{body}</div>
+                        <div class="hub-card-title">{title}</div>
+                        <div class="hub-card-description">{body}</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
