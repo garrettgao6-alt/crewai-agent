@@ -248,6 +248,61 @@ curl http://127.0.0.1:8000/health
 
 The Docker build excludes `.env`, local virtual environments, caches, and git metadata through `.dockerignore`.
 
+## VPS Production Run
+
+For a VPS deployment where Garrett Intelligence Hub must keep running after SSH disconnects and automatically recover after server restarts, install the systemd services in `deploy/`.
+
+Expected production path:
+
+```text
+/root/crewai-agent
+```
+
+Before installing services, make sure the project is deployed at that path, `.env` is configured, dependencies are installed into `venv`, and the app can start manually.
+
+Install systemd services:
+
+```bash
+sudo bash deploy/install_systemd.sh
+```
+
+The installer:
+
+- copies `deploy/garrett-api.service` to `/etc/systemd/system/`
+- copies `deploy/garrett-streamlit.service` to `/etc/systemd/system/`
+- runs `systemctl daemon-reload`
+- enables both services at boot
+- restarts both services
+- prints status and log commands
+
+Check service status:
+
+```bash
+systemctl status garrett-api
+systemctl status garrett-streamlit
+```
+
+Restart services:
+
+```bash
+systemctl restart garrett-api
+systemctl restart garrett-streamlit
+```
+
+View live logs:
+
+```bash
+journalctl -u garrett-api -f
+journalctl -u garrett-streamlit -f
+```
+
+Service details:
+
+- FastAPI runs on `127.0.0.1:8000`
+- Streamlit runs on `0.0.0.0:8501`
+- Streamlit uses `API_URL=http://127.0.0.1:8000/analyze`
+- both services use `Restart=always` and `RestartSec=5`
+
 ## Tests
 
 Run the local test suite:

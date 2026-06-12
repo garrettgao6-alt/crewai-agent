@@ -1,0 +1,16 @@
+[Unit]
+Description=Garrett Intelligence Hub Streamlit
+After=network.target garrett-api.service
+Requires=garrett-api.service
+
+[Service]
+Type=simple
+WorkingDirectory=/root/crewai-agent
+ExecStart=/root/crewai-agent/venv/bin/streamlit run streamlit_app.py --server.address 0.0.0.0 --server.port 8501
+Environment=API_URL=http://127.0.0.1:8000/analyze
+Environment=OTEL_SDK_DISABLED=true
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
