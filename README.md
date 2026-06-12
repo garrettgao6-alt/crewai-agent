@@ -133,6 +133,8 @@ The Streamlit UI uses a premium SaaS design for a scientific intelligence platfo
 
 The Mobile Quick Guide appears below the hero section as a compact `📱 Mobile Quick Guide` expander. It gives iPhone and Android users a clear onboarding path: open the sidebar, select a tool, generate a prompt, submit the analysis, and download the PDF report.
 
+The app requires local account authentication before the workspace is available. Users can sign in or create an account with username/email and password. Passwords are hashed with bcrypt and stored in `users.db`; the local database is ignored by git so real user records are not committed. Google and Apple login buttons are visible as disabled `Coming soon` placeholders only, with no OAuth API calls and no third-party token storage.
+
 The Form Builder section is collapsed by default and covers all Business and Construction prompt templates. Choose a form category and template, complete the structured fields, and click `Generate Professional Prompt` to write a professional prompt into the same editable input box. Form fields support text inputs, larger text areas, dropdowns, and multi-select focus areas.
 
 The Document Intelligence section is collapsed by default and supports single-file PDF, TXT, DOCX, and XLSX uploads. Choose an analysis type, upload a document, and click `Generate Document Intelligence Prompt` to place the extracted document text and requested analysis task into the editable input box. Uploaded content is limited to the first 12000 characters when needed, and the generated prompt states when truncation occurred.

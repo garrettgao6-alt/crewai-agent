@@ -8,6 +8,7 @@ import requests
 import streamlit as st
 
 import prompt_store
+import user_store
 
 
 API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/analyze")
@@ -2371,6 +2372,34 @@ def inject_custom_css() -> None:
             font-weight: 800;
         }
 
+        .auth-panel {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .auth-title {
+            color: #0F172A !important;
+            font-size: 28px;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 6px;
+        }
+
+        .auth-subtitle {
+            color: #475569 !important;
+            font-size: 15px;
+            line-height: 1.5;
+            margin-bottom: 18px;
+        }
+
+        .auth-coming-soon {
+            color: #64748B !important;
+            font-size: 13px;
+            margin-top: 8px;
+        }
+
         .hub-section-title {
             color: #0F172A !important;
             font-size: 19px;
@@ -2638,6 +2667,86 @@ def render_mobile_navigation_tabs() -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+def initialize_auth_state() -> None:
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    if "current_user" not in st.session_state:
+        st.session_state.current_user = None
+
+
+def render_auth_page() -> None:
+    st.markdown(
+        """
+        <div class="hub-hero">
+            <h1>Gao Intelligence Hub</h1>
+            <h2 class="hero-subtitle">Business, Construction &amp; Executive AI Intelligence Platform</h2>
+            <p>Sign in to transform project documents, business data, and executive workflows into decision-ready intelligence.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    left_column, center_column, right_column = st.columns([1, 1.25, 1])
+    with center_column:
+        with st.container(border=True):
+            st.markdown(
+                """
+                <div class="auth-title">Account Access</div>
+                <div class="auth-subtitle">Use a local account to access Gao Intelligence Hub.</div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            sign_in_tab, create_account_tab = st.tabs(["Sign In", "Create Account"])
+
+            with sign_in_tab:
+                with st.form("sign_in_form"):
+                    identifier = st.text_input("Username or Email", key="auth_sign_in_identifier")
+                    password = st.text_input("Password", type="password", key="auth_sign_in_password")
+                    submitted = st.form_submit_button("Sign In", type="primary", use_container_width=True)
+
+                if submitted:
+                    user = user_store.authenticate_user(identifier, password)
+                    if user is None:
+                        st.error("Invalid username/email or password.")
+                    else:
+                        st.session_state.authenticated = True
+                        st.session_state.current_user = user
+                        st.rerun()
+
+            with create_account_tab:
+                with st.form("create_account_form"):
+                    username = st.text_input("Username", key="auth_create_username")
+                    email = st.text_input("Email", key="auth_create_email")
+                    password = st.text_input("Password", type="password", key="auth_create_password")
+                    confirm_password = st.text_input(
+                        "Confirm Password",
+                        type="password",
+                        key="auth_create_confirm_password",
+                    )
+                    submitted = st.form_submit_button("Create Account", type="primary", use_container_width=True)
+
+                if submitted:
+                    if password != confirm_password:
+                        st.error("Passwords do not match.")
+                    else:
+                        try:
+                            user = user_store.create_user(username, email, password)
+                        except ValueError as exc:
+                            st.error(str(exc))
+                        else:
+                            st.session_state.authenticated = True
+                            st.session_state.current_user = user
+                            st.rerun()
+
+            st.button("Continue with Google - Coming soon", disabled=True, use_container_width=True)
+            st.button("Continue with Apple - Coming soon", disabled=True, use_container_width=True)
+            st.markdown(
+                '<div class="auth-coming-soon">OAuth providers are placeholders only. No third-party tokens are saved.</div>',
+                unsafe_allow_html=True,
+            )
 
 
 def display_result(entry: dict) -> None:
@@ -3125,6 +3234,12 @@ def render_automation_intelligence() -> None:
 
 st.set_page_config(page_title="Gao Intelligence Hub", page_icon=":material/hub:")
 inject_custom_css()
+user_store.initialize_user_store()
+initialize_auth_state()
+
+if not st.session_state.authenticated:
+    render_auth_page()
+    st.stop()
 
 if "history" not in st.session_state:
     st.session_state.history = []
@@ -3143,6 +3258,14 @@ render_mobile_navigation_tabs()
 render_status_cards()
 
 with st.sidebar:
+    current_user = st.session_state.current_user or {}
+    st.caption(f"Logged in as: {current_user.get('username', 'User')}")
+    if st.button("Sign Out", use_container_width=True):
+        st.session_state.authenticated = False
+        st.session_state.current_user = None
+        st.session_state.selected_history = None
+        st.rerun()
+
     with st.expander("📚 Prompt Library", expanded=True):
         categories = prompt_store.list_categories()
         if categories:
