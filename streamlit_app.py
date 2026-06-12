@@ -2198,107 +2198,75 @@ def inject_custom_css() -> None:
             margin: 0;
         }
 
-        .hub-status-grid {
-            display: grid;
-            gap: 16px;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            margin: 0 0 18px;
-        }
-
-        .hub-card {
-            background: #FFFFFF;
-            border: 1px solid #E2E8F0;
-            border-radius: 18px;
+        .status-card-native {
             box-sizing: border-box;
-            height: 280px;
-            min-height: 280px;
-            overflow: hidden;
-            padding: 20px;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            min-height: 190px;
+            padding: 8px 4px;
         }
 
-        .hub-card-inner {
-            background: #FFFFFF;
-            border-radius: 16px;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            justify-content: space-between;
-            padding: 24px;
-        }
-
-        .hub-card-top {
-            align-items: flex-start;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .hub-card-icon {
+        .status-card-top {
             align-items: center;
-            background: linear-gradient(135deg, #EFF6FF, #F5F3FF);
-            border: 1px solid #DBEAFE;
+            display: flex;
+            gap: 12px;
+            justify-content: space-between;
+            margin-bottom: 18px;
+        }
+
+        .status-card-icon {
+            align-items: center;
+            background: #EEF2FF;
             border-radius: 12px;
-            display: inline-flex;
+            display: flex;
             flex-shrink: 0;
             font-size: 22px;
-            height: 48px;
+            height: 44px;
             justify-content: center;
-            width: 48px;
+            width: 44px;
         }
 
-        .hub-card-badge {
-            align-items: center;
+        .status-card-badge {
             background: #DCFCE7;
-            border: 1px solid #BBF7D0;
+            border: 1px solid #86EFAC;
             border-radius: 999px;
             color: #15803D !important;
-            display: inline-flex;
             flex-shrink: 0;
             font-size: 12px;
-            font-weight: 700;
-            height: 36px;
-            justify-content: center;
-            line-height: 1;
-            padding: 0 12px;
+            font-weight: 800;
+            padding: 6px 12px;
+            white-space: nowrap;
         }
 
-        .hub-card-title {
+        .status-card-title {
             color: #0F172A !important;
-            font-size: 1.1rem;
+            font-size: 18px;
             font-weight: 800;
             line-height: 1.25;
-            margin-top: 16px;
-            min-height: 72px;
+            margin-bottom: 14px;
+            hyphens: none;
+            overflow-wrap: normal;
+            word-break: normal;
         }
 
-        .hub-card-description {
+        .status-card-description {
             color: #475569 !important;
-            font-size: 0.9rem;
+            font-size: 14px;
             line-height: 1.55;
-            margin-top: 12px;
-            overflow-wrap: break-word;
+            hyphens: none;
+            overflow-wrap: normal;
             word-break: normal;
         }
 
         @media (hover: hover) and (pointer: fine) {
-            .hub-card:hover {
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.status-card-native):hover {
                 box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
                 transform: translateY(-4px);
             }
         }
 
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(.hub-card) {
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.status-card-native) {
             background: #FFFFFF;
-            border: 0 !important;
             border-radius: 18px !important;
-            padding: 0 !important;
-        }
-
-        @media (max-width: 1024px) {
-            .hub-status-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .hub-section-title {
@@ -2399,14 +2367,16 @@ def inject_custom_css() -> None:
                 display: block;
             }
 
-            .hub-card {
-                height: auto;
-                margin-bottom: 10px;
-                min-height: 240px;
+            .status-card-native {
+                min-height: auto;
             }
 
-            .hub-status-grid {
-                grid-template-columns: 1fr;
+            .status-card-title {
+                font-size: 17px;
+            }
+
+            .status-card-description {
+                font-size: 14px;
             }
 
             section[data-testid="stSidebar"] {
@@ -2456,26 +2426,40 @@ def render_hero() -> None:
 
 def render_status_cards() -> None:
     cards = [
-        ("🔬", "Business Intelligence", "Market, sales, financial, and operating intelligence."),
-        ("🏗️", "Construction Intelligence", "Project, contract, compliance, and delivery analysis."),
-        ("📄", "Document Intelligence", "Extract and analyze PDF, DOCX, XLSX, and TXT files."),
-        ("🧠", "Executive Decision Support", "Board-ready reports powered by executive agent modes."),
+        {
+            "icon": "🔬",
+            "title": "Business Intelligence",
+            "description": "Market, sales, financial, and operating intelligence.",
+        },
+        {
+            "icon": "🏗️",
+            "title": "Construction Intelligence",
+            "description": "Project, contract, compliance, and delivery analysis.",
+        },
+        {
+            "icon": "📄",
+            "title": "Document Intelligence",
+            "description": "Extract and analyze PDF, DOCX, XLSX, and TXT files.",
+        },
+        {
+            "icon": "🧠",
+            "title": "Executive Decision Support",
+            "description": "Board-ready reports powered by executive agent modes.",
+        },
     ]
-    columns = st.columns(4)
-    for column, (icon, title, body) in zip(columns, cards):
+    columns = st.columns(4, gap="medium")
+    for column, card in zip(columns, cards):
         with column:
             with st.container(border=True):
                 st.markdown(
                     f"""
-                    <div class="hub-card">
-                        <div class="hub-card-inner">
-                            <div class="hub-card-top">
-                                <div class="hub-card-icon">{icon}</div>
-                                <div class="hub-card-badge">Active</div>
-                            </div>
-                            <div class="hub-card-title">{title}</div>
-                            <div class="hub-card-description">{body}</div>
+                    <div class="status-card-native">
+                        <div class="status-card-top">
+                            <div class="status-card-icon">{card["icon"]}</div>
+                            <div class="status-card-badge">Active</div>
                         </div>
+                        <div class="status-card-title">{card["title"]}</div>
+                        <div class="status-card-description">{card["description"]}</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
