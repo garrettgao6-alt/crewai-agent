@@ -1,104 +1,22 @@
 import json
-import os
-from pathlib import Path
-from crewai import Agent, Task, Crew
-from langchain_openai import ChatOpenAI
+from crewai import Task, Crew
 
-try:
-    from dotenv import load_dotenv
-except ImportError:
-    load_dotenv = None
-
-
-if load_dotenv is not None:
-    load_dotenv(Path(__file__).resolve().parent / ".env")
-else:
-    print("Warning: python-dotenv is not installed; .env auto-load skipped.")
+from agents import create_agents
+from config import build_search_tools, create_llm, load_environment
 
 
 # =====================================================
-# LLM CONFIG
+# GATEWAY SETUP
 # =====================================================
 
-llm = ChatOpenAI(
-    model="gpt-4o-mini",
-    temperature=0
-)
-
-
-# =====================================================
-# ROUTER AGENT (JSON OUTPUT)
-# =====================================================
-
-router_agent = Agent(
-    role="AI Task Router",
-    goal="Classify user requests into categories and return JSON.",
-    backstory="""
-You are an expert intent classifier.
-
-You MUST respond in valid JSON format only:
-
-{
-  "category": "market" OR "technical" OR "writing",
-  "confidence": a number between 0 and 1
-}
-
-No explanations.
-No text outside JSON.
-""",
-    llm=llm,
-    verbose=False
-)
-
-
-# =====================================================
-# SPECIALIST AGENTS
-# =====================================================
-
-def build_search_tools():
-    if not os.getenv("TAVILY_API_KEY"):
-        print("Warning: TAVILY_API_KEY is not set; Tavily search disabled.")
-        return []
-
-    try:
-        from crewai_tools import TavilySearchTool
-    except ImportError:
-        print("Warning: crewai_tools.TavilySearchTool is unavailable; Tavily search disabled.")
-        return []
-
-    try:
-        return [TavilySearchTool()]
-    except Exception as exc:
-        print(f"Warning: TavilySearchTool initialization failed; Tavily search disabled. Details: {exc}")
-        return []
-
-
+load_environment()
+llm = create_llm()
 search_tools = build_search_tools()
-
-market_agent = Agent(
-    role="Market Analyst",
-    goal="Analyze market trends using real-time search data.",
-    backstory="Expert in global markets and AI business strategy.",
-    tools=search_tools,
-    llm=llm,
-    verbose=True
-)
-
-tech_agent = Agent(
-    role="Technical Architect",
-    goal="Design scalable system architectures.",
-    backstory="Expert in distributed systems and AI engineering.",
-    llm=llm,
-    verbose=True
-)
-
-writer_agent = Agent(
-    role="Professional Writer",
-    goal="Write clear executive-level documents.",
-    backstory="Expert business writer.",
-    llm=llm,
-    verbose=True
-)
+gateway_agents = create_agents(llm, search_tools)
+router_agent = gateway_agents.router
+market_agent = gateway_agents.market
+tech_agent = gateway_agents.technical
+writer_agent = gateway_agents.writer
 
 
 # =====================================================
