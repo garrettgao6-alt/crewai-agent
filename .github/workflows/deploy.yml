@@ -1,0 +1,29 @@
+name: Auto Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to DigitalOcean
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DO_SSH_KEY }}" > ~/.ssh/do_key
+          chmod 600 ~/.ssh/do_key
+          ssh-keyscan -H "${{ secrets.DO_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Pull latest code and restart services
+        run: |
+          ssh -i ~/.ssh/do_key "${{ secrets.DO_USER }}@${{ secrets.DO_HOST }}" <<'EOF'
+            set -e
+            cd /root/crewai-agent
+            git pull
+            systemctl restart garrett-api
+            systemctl restart garrett-streamlit
+          EOF
