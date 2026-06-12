@@ -1,5 +1,5 @@
 [Unit]
-Description=Garrett Intelligence Hub FastAPI
+Description=Gao Intelligence Hub FastAPI
 After=network.target
 
 [Service]

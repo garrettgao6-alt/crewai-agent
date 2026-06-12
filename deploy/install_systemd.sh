@@ -19,7 +19,7 @@ systemctl restart garrett-api
 systemctl restart garrett-streamlit
 
 echo
-echo "Garrett Intelligence Hub systemd services installed."
+echo "Gao Intelligence Hub systemd services installed."
 echo
 echo "Check status:"
 echo "  systemctl status garrett-api"

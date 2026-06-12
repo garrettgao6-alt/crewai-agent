@@ -2025,7 +2025,7 @@ def build_pdf_report(
     )
 
     story = [
-        Paragraph("Garrett Intelligence Hub", title_style),
+        Paragraph("Gao Intelligence Hub", title_style),
         Paragraph(f"Analysis Type: {escape(analysis_type)}", meta_style),
         Paragraph(f"Generated Time: {escape(generated_time)}", meta_style),
     ]
@@ -2450,7 +2450,7 @@ def render_hero() -> None:
     st.markdown(
         """
         <div class="hub-hero">
-            <h1>Garrett Intelligence Hub</h1>
+            <h1>Gao Intelligence Hub</h1>
             <h2 class="hero-subtitle">Business, Construction &amp; Executive AI Intelligence Platform</h2>
             <p>Transform project documents, business data, and executive workflows into decision-ready intelligence.</p>
         </div>
@@ -3034,7 +3034,7 @@ def render_automation_intelligence() -> None:
             st.session_state.query = build_automation_prompt(selected_automation, values)
 
 
-st.set_page_config(page_title="Garrett Intelligence Hub", page_icon=":material/hub:")
+st.set_page_config(page_title="Gao Intelligence Hub", page_icon=":material/hub:")
 inject_custom_css()
 
 if "history" not in st.session_state:

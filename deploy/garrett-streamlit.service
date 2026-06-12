@@ -1,5 +1,5 @@
 [Unit]
-Description=Garrett Intelligence Hub Streamlit
+Description=Gao Intelligence Hub Streamlit
 After=network.target garrett-api.service
 Requires=garrett-api.service
 

@@ -282,7 +282,7 @@ The Docker build excludes `.env`, local virtual environments, caches, and git me
 
 ## VPS Production Run
 
-For a VPS deployment where Garrett Intelligence Hub must keep running after SSH disconnects and automatically recover after server restarts, install the systemd services in `deploy/`.
+For a VPS deployment where Gao Intelligence Hub must keep running after SSH disconnects and automatically recover after server restarts, install the systemd services in `deploy/`.
 
 Expected production path:
 
