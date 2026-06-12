@@ -139,6 +139,10 @@ def can_create_user(max_users: int = 3) -> bool:
     return count_active_users() < max_users
 
 
+def get_user_limit_status() -> tuple[int, int]:
+    return count_active_users(), get_max_users()
+
+
 def hash_password(password: str) -> str:
     salt = secrets.token_hex(16)
     password_hash = hashlib.pbkdf2_hmac(

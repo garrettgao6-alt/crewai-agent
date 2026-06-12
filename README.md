@@ -24,6 +24,7 @@ crewai-agent/
 ├── requirements-dev.txt      # Test/development dependencies
 ├── run_local.sh              # Local script that starts FastAPI and Streamlit
 ├── streamlit_app.py          # Streamlit web UI for the FastAPI gateway
+├── user_store.py             # Local account store, password hashing, and account limits
 ├── test_gateway_routing.py   # Pytest routing and error-handling tests
 └── README.md
 ```
@@ -69,11 +70,16 @@ Optional:
 TAVILY_API_KEY=your_tavily_api_key
 LOG_LEVEL=INFO
 OTEL_SDK_DISABLED=true
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=change-me
+MAX_USERS=3
 ```
 
 `intelligent_gateway.py` automatically loads `.env` from the project directory. You do not need to manually `source .env`.
 
 `TAVILY_API_KEY` is optional. When it is missing, or when `TavilySearchTool` cannot be imported or initialized, the gateway logs a warning and disables search instead of failing startup.
+
+`ADMIN_USERNAME` and `ADMIN_PASSWORD` are used only to create the first local admin account when `users.db` is empty. Set a strong admin password in your real `.env`; the default example password is not hard-coded in the application. `MAX_USERS` controls active local accounts. `MAX_USERS=3` allows up to three active users, and `MAX_USERS=0` allows unlimited users.
 
 ## Run
 
@@ -133,7 +139,9 @@ The Streamlit UI uses a premium SaaS design for a scientific intelligence platfo
 
 The Mobile Quick Guide appears below the hero section as a compact `📱 Mobile Quick Guide` expander. It gives iPhone and Android users a clear onboarding path: open the sidebar, select a tool, generate a prompt, submit the analysis, and download the PDF report.
 
-The app requires local account authentication before the workspace is available. Users can sign in or create an account with username/email and password. Passwords are hashed with bcrypt and stored in `users.db`; the local database is ignored by git so real user records are not committed. Google and Apple login buttons are visible as disabled `Coming soon` placeholders only, with no OAuth API calls and no third-party token storage.
+The app requires local account authentication before the workspace is available. Users can sign in or create an account with username/email and password. Passwords are hashed with `hashlib.pbkdf2_hmac` and stored in `users.db`; the local database is ignored by git so real user records are not committed. New registrations require a unique username, a unique email address, matching password confirmation, and a password of at least eight characters.
+
+Local accounts are limited by `MAX_USERS`, which defaults to `3`. The app counts active users only. When the active user count reaches the configured limit, registration is blocked with `Account limit reached. Please contact the administrator.` Set `MAX_USERS=0` to remove the account limit.
 
 The app includes subscription and usage management for commercial plans. New local accounts start on `Starter`, and the sidebar shows the current plan, monthly AI request usage, monthly document analysis usage, and renewal date. Usage is stored in `users.db` and resets when the monthly subscription period renews.
 

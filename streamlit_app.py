@@ -2675,6 +2675,29 @@ def initialize_auth_state() -> None:
         st.session_state.authenticated = False
     if "current_user" not in st.session_state:
         st.session_state.current_user = None
+    if "user_id" not in st.session_state:
+        st.session_state.user_id = None
+    if "username" not in st.session_state:
+        st.session_state.username = None
+    if "role" not in st.session_state:
+        st.session_state.role = None
+
+
+def set_authenticated_user(user: dict) -> None:
+    st.session_state.authenticated = True
+    st.session_state.current_user = user
+    st.session_state.user_id = user["id"]
+    st.session_state.username = user["username"]
+    st.session_state.role = user["role"]
+
+
+def clear_authenticated_user() -> None:
+    st.session_state.authenticated = False
+    st.session_state.current_user = None
+    st.session_state.user_id = None
+    st.session_state.username = None
+    st.session_state.role = None
+    st.session_state.selected_history = None
 
 
 def render_auth_page() -> None:
@@ -2683,7 +2706,6 @@ def render_auth_page() -> None:
         <div class="hub-hero">
             <h1>Gao Intelligence Hub</h1>
             <h2 class="hero-subtitle">Business, Construction &amp; Executive AI Intelligence Platform</h2>
-            <p>Sign in to transform project documents, business data, and executive workflows into decision-ready intelligence.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -2692,14 +2714,6 @@ def render_auth_page() -> None:
     left_column, center_column, right_column = st.columns([1, 1.25, 1])
     with center_column:
         with st.container(border=True):
-            st.markdown(
-                """
-                <div class="auth-title">Account Access</div>
-                <div class="auth-subtitle">Use a local account to access Gao Intelligence Hub.</div>
-                """,
-                unsafe_allow_html=True,
-            )
-
             sign_in_tab, create_account_tab = st.tabs(["Sign In", "Create Account"])
 
             with sign_in_tab:
@@ -2709,13 +2723,16 @@ def render_auth_page() -> None:
                     submitted = st.form_submit_button("Sign In", type="primary", use_container_width=True)
 
                 if submitted:
-                    user = user_store.authenticate_user(identifier, password)
-                    if user is None:
-                        st.error("Invalid username/email or password.")
+                    try:
+                        user = user_store.authenticate_user(identifier, password)
+                    except user_store.UserStoreError:
+                        st.error("Could not sign in right now. Please try again later.")
                     else:
-                        st.session_state.authenticated = True
-                        st.session_state.current_user = user
-                        st.rerun()
+                        if user is None:
+                            st.error("Invalid username/email or password.")
+                        else:
+                            set_authenticated_user(user)
+                            st.rerun()
 
             with create_account_tab:
                 with st.form("create_account_form"):
@@ -2737,20 +2754,16 @@ def render_auth_page() -> None:
                             user = user_store.create_user(username, email, password)
                         except ValueError as exc:
                             st.error(str(exc))
+                        except user_store.UserStoreError:
+                            st.error("Could not create account right now. Please try again later.")
                         else:
-                            st.session_state.authenticated = True
-                            st.session_state.current_user = user
+                            set_authenticated_user(user)
                             st.rerun()
-
-            st.button("Continue with Google - Coming soon", disabled=True, use_container_width=True)
-            st.button("Continue with Apple - Coming soon", disabled=True, use_container_width=True)
-            st.markdown(
-                '<div class="auth-coming-soon">OAuth providers are placeholders only. No third-party tokens are saved.</div>',
-                unsafe_allow_html=True,
-            )
 
 
 def get_current_user_id() -> int:
+    if st.session_state.user_id is not None:
+        return int(st.session_state.user_id)
     current_user = st.session_state.current_user or {}
     return int(current_user["id"])
 
@@ -2843,6 +2856,17 @@ def render_subscription_summary() -> None:
         f'{usage["current_document_count"]} / {format_limit(usage["monthly_document_limit"])}',
     )
     st.metric("Renewal Date", format_renewal_date(usage["subscription_end"]))
+
+
+def render_user_limit_summary() -> None:
+    try:
+        active_users, max_users = user_store.get_user_limit_status()
+    except user_store.UserStoreError:
+        st.error("Could not load user count.")
+        return
+
+    max_users_label = "Unlimited" if max_users == 0 else str(max_users)
+    st.caption(f"Users: {active_users} / {max_users_label}")
 
 
 def display_result(entry: dict) -> None:
@@ -3336,8 +3360,13 @@ def render_automation_intelligence() -> None:
 
 st.set_page_config(page_title="Gao Intelligence Hub", page_icon=":material/hub:")
 inject_custom_css()
-user_store.initialize_user_store()
 initialize_auth_state()
+try:
+    user_store.initialize_user_store()
+except user_store.UserStoreError:
+    render_auth_page()
+    st.error("Could not start the user database. Please contact the administrator.")
+    st.stop()
 
 if not st.session_state.authenticated:
     render_auth_page()
@@ -3361,12 +3390,12 @@ render_status_cards()
 
 with st.sidebar:
     current_user = st.session_state.current_user or {}
-    st.caption(f"Logged in as: {current_user.get('username', 'User')}")
+    st.caption(f"Logged in as: {st.session_state.username or current_user.get('username', 'User')}")
+    st.caption(f"Role: {st.session_state.role or current_user.get('role', 'User')}")
+    render_user_limit_summary()
     render_subscription_summary()
     if st.button("Sign Out", use_container_width=True):
-        st.session_state.authenticated = False
-        st.session_state.current_user = None
-        st.session_state.selected_history = None
+        clear_authenticated_user()
         st.rerun()
 
     with st.expander("📚 Prompt Library", expanded=True):
