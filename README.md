@@ -20,6 +20,7 @@ crewai-agent/
 ├── main.py                   # Legacy fixed demo workflow
 ├── requirements.txt          # Runtime dependencies
 ├── requirements-dev.txt      # Test/development dependencies
+├── streamlit_app.py          # Streamlit web UI for the FastAPI gateway
 ├── test_gateway_routing.py   # Pytest routing and error-handling tests
 └── README.md
 ```
@@ -109,6 +110,14 @@ curl -X POST http://127.0.0.1:8000/analyze \
   -d '{"query":"用户问题"}'
 ```
 
+Run the Streamlit web UI in a second terminal after FastAPI is running:
+
+```bash
+streamlit run streamlit_app.py
+```
+
+The Streamlit app posts requests to `http://127.0.0.1:8000/analyze` and displays the returned `category`, `confidence`, `version`, and `result` fields.
+
 ## Docker
 
 Build the image:
@@ -142,7 +151,7 @@ python -m pytest -q
 Run syntax compilation checks:
 
 ```bash
-python -m py_compile intelligent_gateway.py config.py agents.py test_gateway_routing.py
+python -m py_compile intelligent_gateway.py config.py agents.py api.py streamlit_app.py test_gateway_routing.py test_api.py
 ```
 
 The routing tests mock `crewai` and `langchain_openai` before importing `intelligent_gateway.py`, so tests do not call real OpenAI or Tavily services.
