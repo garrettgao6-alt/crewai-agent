@@ -140,6 +140,7 @@ def can_create_user(max_users: int = 3) -> bool:
 
 
 def get_user_limit_status() -> tuple[int, int]:
+    """Return active user count and configured maximum user count."""
     return count_active_users(), get_max_users()
 
 
