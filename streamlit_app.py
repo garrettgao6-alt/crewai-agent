@@ -56,9 +56,9 @@ def run_advanced_mode(query: str) -> dict:
     return response.json()
 
 
-st.set_page_config(page_title="CrewAI Agent Gateway", page_icon=":material/hub:")
+st.set_page_config(page_title="Garrett Intelligence Hub", page_icon=":material/hub:")
 
-st.title("CrewAI Agent Gateway")
+st.title("Garrett Intelligence Hub")
 
 mode = st.radio(
     "Routing",
