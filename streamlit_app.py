@@ -2207,15 +2207,14 @@ def inject_custom_css() -> None:
 
         .hub-status-card {
             background: #FFFFFF;
-            border: 1px solid #E2E8F0;
+            border: 0;
             border-radius: 18px;
-            box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
             display: flex;
             flex-direction: column;
-            height: 220px;
+            height: 170px;
             justify-content: space-between;
-            min-height: 220px;
-            padding: 24px;
+            min-height: 170px;
+            padding: 4px 2px;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
@@ -2269,10 +2268,20 @@ def inject_custom_css() -> None:
         }
 
         @media (hover: hover) and (pointer: fine) {
-            .hub-status-card:hover {
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.hub-status-card):hover {
                 box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
                 transform: translateY(-4px);
             }
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.hub-status-card) {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0 !important;
+            border-radius: 18px !important;
+            height: 220px;
+            min-height: 220px;
+            padding: 20px 22px !important;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         @media (max-width: 1024px) {
@@ -2439,23 +2448,23 @@ def render_status_cards() -> None:
         ("📄", "Document Intelligence", "Extract and analyze PDF, DOCX, XLSX, and TXT files."),
         ("🧠", "Executive Decision Support", "Board-ready reports powered by executive agent modes."),
     ]
-    card_markup = "\n".join(
-        f"""
-        <div class="hub-status-card">
-            <div class="hub-card-top">
-                <div class="hub-card-icon">{icon}</div>
-                <div class="hub-badge">Active</div>
-            </div>
-            <div class="title">{title}</div>
-            <div class="body">{body}</div>
-        </div>
-        """
-        for icon, title, body in cards
-    )
-    st.markdown(
-        f'<div class="hub-status-grid">{card_markup}</div>',
-        unsafe_allow_html=True,
-    )
+    columns = st.columns(4)
+    for column, (icon, title, body) in zip(columns, cards):
+        with column:
+            with st.container(border=True):
+                st.markdown(
+                    f"""
+                    <div class="hub-status-card">
+                        <div class="hub-card-top">
+                            <div class="hub-card-icon">{icon}</div>
+                            <div class="hub-badge">Active</div>
+                        </div>
+                        <div class="title">{title}</div>
+                        <div class="body">{body}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
 
 def render_mobile_navigation_tabs() -> None:
