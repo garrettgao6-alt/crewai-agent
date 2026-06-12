@@ -1568,7 +1568,7 @@ def render_pdf_download(entry: dict) -> None:
         report_type,
         PROJECT_REVIEW_PDF_FILENAMES.get(report_type, "executive_review.pdf"),
     )
-    button_label = "Download Executive PDF" if review_type else "Download PDF"
+    button_label = "Download Executive PDF" if review_type else "Download Report PDF"
     st.download_button(
         button_label,
         data=pdf_bytes,
@@ -1578,21 +1578,211 @@ def render_pdf_download(entry: dict) -> None:
     )
 
 
+def inject_custom_css() -> None:
+    st.markdown(
+        """
+        <style>
+        :root {
+            --hub-bg: #f7f8fb;
+            --hub-card: #ffffff;
+            --hub-border: #e3e7ef;
+            --hub-text: #172033;
+            --hub-muted: #667085;
+            --hub-accent: #5f6eea;
+            --hub-accent-soft: #eef0ff;
+        }
+
+        .stApp {
+            background: var(--hub-bg);
+            color: var(--hub-text);
+        }
+
+        h1, h2, h3 {
+            color: var(--hub-text);
+            letter-spacing: 0;
+        }
+
+        section[data-testid="stSidebar"] {
+            background: #ffffff;
+            border-right: 1px solid var(--hub-border);
+        }
+
+        section[data-testid="stSidebar"] [data-testid="stExpander"] {
+            border: 1px solid var(--hub-border);
+            border-radius: 8px;
+            background: #ffffff;
+            margin-bottom: 10px;
+        }
+
+        div[data-testid="stButton"] > button,
+        div[data-testid="stDownloadButton"] > button {
+            border-radius: 7px;
+            border: 1px solid #cfd5e3;
+            font-weight: 600;
+        }
+
+        div[data-testid="stButton"] > button[kind="primary"] {
+            background: var(--hub-accent);
+            border-color: var(--hub-accent);
+        }
+
+        .hub-hero {
+            background: linear-gradient(135deg, #ffffff 0%, #f1f3ff 100%);
+            border: 1px solid var(--hub-border);
+            border-radius: 8px;
+            padding: 28px 30px;
+            margin: 8px 0 18px;
+            box-shadow: 0 10px 30px rgba(24, 35, 70, 0.06);
+        }
+
+        .hub-hero h1 {
+            font-size: 42px;
+            line-height: 1.08;
+            margin: 0 0 8px;
+            font-weight: 760;
+        }
+
+        .hub-hero h2 {
+            color: #4751bd;
+            font-size: 20px;
+            margin: 0 0 12px;
+            font-weight: 650;
+        }
+
+        .hub-hero p {
+            color: var(--hub-muted);
+            font-size: 15px;
+            line-height: 1.55;
+            max-width: 760px;
+            margin: 0;
+        }
+
+        .hub-status-card {
+            background: var(--hub-card);
+            border: 1px solid var(--hub-border);
+            border-radius: 8px;
+            padding: 15px 16px;
+            min-height: 108px;
+            box-shadow: 0 6px 18px rgba(24, 35, 70, 0.04);
+        }
+
+        .hub-status-card .label {
+            color: var(--hub-muted);
+            font-size: 12px;
+            text-transform: uppercase;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .hub-status-card .title {
+            color: var(--hub-text);
+            font-size: 17px;
+            font-weight: 720;
+            margin-bottom: 6px;
+        }
+
+        .hub-status-card .body {
+            color: var(--hub-muted);
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .hub-section-title {
+            color: var(--hub-text);
+            font-size: 18px;
+            font-weight: 720;
+            margin: 20px 0 8px;
+        }
+
+        .hub-response-card {
+            background: var(--hub-card);
+            border: 1px solid var(--hub-border);
+            border-radius: 8px;
+            padding: 18px;
+            box-shadow: 0 8px 24px rgba(24, 35, 70, 0.05);
+            margin-top: 10px;
+        }
+
+        .hub-result-body {
+            background: #fbfcff;
+            border: 1px solid var(--hub-border);
+            border-radius: 8px;
+            padding: 16px;
+            line-height: 1.62;
+            color: #273246;
+            white-space: pre-wrap;
+        }
+
+        [data-testid="stMetric"] {
+            background: #ffffff;
+            border: 1px solid var(--hub-border);
+            border-radius: 8px;
+            padding: 12px 14px;
+        }
+
+        [data-testid="stMetricLabel"] {
+            color: var(--hub-muted);
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_hero() -> None:
+    st.markdown(
+        """
+        <div class="hub-hero">
+            <h1>Garrett Intelligence Hub</h1>
+            <h2>Business, Construction &amp; Executive AI Copilot</h2>
+            <p>Transform documents, prompts, and project data into board-ready intelligence reports.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_status_cards() -> None:
+    cards = [
+        ("Prompt Library", "Ready", "Reusable business and construction prompt templates."),
+        ("Form Builder", "Structured", "Guided fields for professional prompt generation."),
+        ("Document Analysis", "Single-file", "Review PDF, DOCX, XLSX, and TXT documents."),
+        ("Executive Intelligence Board", "Agent-ready", "Multi-document reviews with executive agent modes."),
+    ]
+    columns = st.columns(4)
+    for column, (title, label, body) in zip(columns, cards):
+        with column:
+            st.markdown(
+                f"""
+                <div class="hub-status-card">
+                    <div class="label">{label}</div>
+                    <div class="title">{title}</div>
+                    <div class="body">{body}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+
 def display_result(entry: dict) -> None:
-    st.subheader("Response")
-    st.write(f"Mode: {entry.get('mode', '')}")
-    st.write(f"Response Time: {entry.get('elapsed_seconds', 0.0):.1f}s")
-    st.write("category")
-    st.code(str(entry.get("category", "")))
-    st.write("confidence")
-    st.code(str(entry.get("confidence", "")))
-    st.write("version")
-    st.code(str(entry.get("version", "")))
-    if entry.get("agent_mode"):
-        st.write("agent_mode")
-        st.code(str(entry.get("agent_mode", "")))
-    st.write("result")
-    st.write(entry.get("result", ""))
+    st.markdown('<div class="hub-section-title">Response</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        metric_columns = st.columns(4)
+        metric_columns[0].metric("Mode", str(entry.get("mode", "")))
+        metric_columns[1].metric("Response Time", f"{entry.get('elapsed_seconds', 0.0):.1f}s")
+        metric_columns[2].metric("Category", str(entry.get("category", "")))
+        metric_columns[3].metric("Confidence", str(entry.get("confidence", "")))
+
+        detail_columns = st.columns(2)
+        detail_columns[0].metric("Version", str(entry.get("version", "")))
+        if entry.get("agent_mode"):
+            detail_columns[1].metric("Agent Mode", str(entry.get("agent_mode", "")))
+
+        st.markdown("#### Result")
+        st.markdown(
+            f'<div class="hub-result-body">{escape(str(entry.get("result", ""))).replace(chr(10), "<br>")}</div>',
+            unsafe_allow_html=True,
+        )
     render_pdf_download(entry)
 
 
@@ -1807,7 +1997,7 @@ def render_document_analysis() -> None:
             if truncated:
                 st.warning(f"File content was truncated to first {DOCUMENT_TEXT_LIMIT} characters.")
 
-    if st.button("Generate Document Prompt", use_container_width=True):
+    if st.button("Generate Document Review Prompt", use_container_width=True):
         if not uploaded_file:
             st.warning("Please upload a document first.")
         elif read_failed:
@@ -1986,11 +2176,12 @@ def render_form_builder() -> None:
                     key=widget_key,
                 )
 
-        if st.form_submit_button("Generate Prompt", use_container_width=True):
+        if st.form_submit_button("Generate Professional Prompt", use_container_width=True):
             st.session_state.query = build_prompt_from_form(selected_form, values)
 
 
 st.set_page_config(page_title="Garrett Intelligence Hub", page_icon=":material/hub:")
+inject_custom_css()
 
 if "history" not in st.session_state:
     st.session_state.history = []
@@ -2003,10 +2194,11 @@ if "query" not in st.session_state:
 
 prompt_store.initialize_prompt_store()
 
-st.title("Garrett Intelligence Hub")
+render_hero()
+render_status_cards()
 
 with st.sidebar:
-    with st.expander("Prompt Library", expanded=True):
+    with st.expander("📚 Prompt Library", expanded=True):
         categories = prompt_store.list_categories()
         if categories:
             selected_category = st.selectbox("Category", categories, key="prompt_library_category")
@@ -2020,23 +2212,23 @@ with st.sidebar:
             )
             selected_prompt_id = prompt_options[selected_prompt_name]
 
-            if st.button("Load Template", use_container_width=True):
+            if st.button("Load Prompt Template", use_container_width=True):
                 selected_prompt = prompt_store.get_prompt(selected_prompt_id)
                 if selected_prompt:
                     st.session_state.query = selected_prompt["content"]
         else:
             st.caption("No prompts available.")
 
-    with st.expander("Form Builder", expanded=False):
+    with st.expander("🧩 Form Builder", expanded=False):
         render_form_builder()
 
-    with st.expander("Document Analysis", expanded=False):
+    with st.expander("📄 Document Analysis", expanded=False):
         render_document_analysis()
 
-    with st.expander("Executive Intelligence Board", expanded=False):
+    with st.expander("🧠 Project Intelligence Review / Executive Intelligence Board", expanded=False):
         render_project_intelligence_review()
 
-    with st.expander("History", expanded=True):
+    with st.expander("🕘 History", expanded=True):
         st.download_button(
             "Export History",
             data=json.dumps(st.session_state.history, indent=2),
@@ -2071,10 +2263,11 @@ mode = st.radio(
 )
 is_fast_mode = mode == "Fast Mode"
 mode_name = "Fast" if is_fast_mode else "Advanced"
-st.write(f"Mode: {mode_name}")
+st.markdown('<div class="hub-section-title">Workspace</div>', unsafe_allow_html=True)
+st.caption(f"Active mode: {mode_name}")
 
 query = st.text_area(
-    "Input",
+    "Request",
     height=160,
     placeholder="Enter a request for the gateway...",
     key="query",

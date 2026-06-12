@@ -129,11 +129,11 @@ streamlit run streamlit_app.py
 
 The Streamlit app displays `category`, `confidence`, `version`, `result`, and response time fields. It also keeps a session-local History sidebar with the 10 most recent requests, including each request's query, mode, routing metadata, result, and elapsed time. Use `Clear History` to reset the sidebar.
 
-The sidebar is organized into `Prompt Library`, `Form Builder`, `Document Analysis`, `Executive Intelligence Board`, and `History` sections. The SQLite-backed Prompt Library section lets you choose a `Business` or `Construction` category, select a prompt, and click `Load Template` to place the full template into the editable input box. The prompt text remains editable before submitting.
+The Streamlit UI includes a SaaS-style hero section, status cards for the major modules, polished sidebar sections, and a card-based response area with metadata metrics. The sidebar is organized into `Prompt Library`, `Form Builder`, `Document Analysis`, `Executive Intelligence Board`, and `History` sections. The SQLite-backed Prompt Library section lets you choose a `Business` or `Construction` category, select a prompt, and click `Load Prompt Template` to place the full template into the editable input box. The prompt text remains editable before submitting.
 
-The Form Builder section is collapsed by default and covers all Business and Construction prompt templates. Choose a form category and template, complete the structured fields, and click `Generate Prompt` to write a professional prompt into the same editable input box. Form fields support text inputs, larger text areas, dropdowns, and multi-select focus areas.
+The Form Builder section is collapsed by default and covers all Business and Construction prompt templates. Choose a form category and template, complete the structured fields, and click `Generate Professional Prompt` to write a professional prompt into the same editable input box. Form fields support text inputs, larger text areas, dropdowns, and multi-select focus areas.
 
-The Document Analysis section is collapsed by default and supports single-file PDF, TXT, DOCX, and XLSX uploads. Choose an analysis type, upload a document, and click `Generate Document Prompt` to place the extracted document text and requested analysis task into the editable input box. Uploaded content is limited to the first 12000 characters when needed, and the generated prompt states when truncation occurred.
+The Document Analysis section is collapsed by default and supports single-file PDF, TXT, DOCX, and XLSX uploads. Choose an analysis type, upload a document, and click `Generate Document Review Prompt` to place the extracted document text and requested analysis task into the editable input box. Uploaded content is limited to the first 12000 characters when needed, and the generated prompt states when truncation occurred.
 
 The Executive Intelligence Board section is collapsed by default and supports multi-file project reviews for construction and business workflows. Upload multiple project documents, choose a review type and agent mode, then click `Generate Executive Review` to combine the extracted content into one professional cross-document review prompt. Click `Run Agent Team` to run the selected CrewAI executive agent workflow and save the board-level result to History.
 
@@ -169,7 +169,7 @@ Supported field types:
 - `selectbox`
 - `multiselect`
 
-Clicking `Generate Prompt` updates `st.session_state.query`; the user can still edit the generated prompt before submitting it in Fast Mode or Advanced Agent Routing.
+Clicking `Generate Professional Prompt` updates `st.session_state.query`; the user can still edit the generated prompt before submitting it in Fast Mode or Advanced Agent Routing.
 
 ## Document Analysis
 
@@ -194,7 +194,7 @@ Supported analysis types:
 
 Uploaded document content is limited to the first 12000 extracted characters. The UI shows the extracted character count and truncation status.
 
-After a Document Analysis result is generated, the result area shows a `Download PDF` button. PDF export uses `reportlab`, preserves line breaks, paginates long reports, and names the file from the selected analysis type, such as `contract_review.pdf` or `business_analysis.pdf`.
+After a Document Analysis result is generated, the result area shows a `Download Report PDF` button. PDF export uses `reportlab`, preserves line breaks, paginates long reports, and names the file from the selected analysis type, such as `contract_review.pdf` or `business_analysis.pdf`.
 
 ## Project Intelligence Review
 
