@@ -216,6 +216,51 @@ def field(name: str, key: str, field_type: str = "text_input", options: list[str
     return {"name": name, "key": key, "type": field_type, "options": options or []}
 
 
+AUTOMATION_TOOLS = [
+    "Excel",
+    "Google Sheets",
+    "Microsoft Project",
+    "Notion",
+    "Trello",
+    "Asana",
+    "Monday.com",
+    "Slack",
+    "Gmail",
+    "Outlook",
+    "Google Drive",
+    "OneDrive",
+    "Dropbox",
+    "Canva",
+    "Buffer",
+    "Zapier",
+    "Make",
+    "Python",
+    "Power BI",
+    "Tableau",
+    "Streamlit",
+    "Other",
+]
+AUTOMATION_OUTPUT_FORMATS = [
+    "Step-by-step SOP",
+    "Workflow Plan",
+    "Automation Blueprint",
+    "Checklist",
+    "Report",
+    "Dashboard Plan",
+    "Content Calendar",
+    "Email Campaign Plan",
+    "Gantt Chart Plan",
+]
+AUTOMATION_COMMON_FIELDS = [
+    field("Business / Project Name", "business_project_name"),
+    field("Industry", "industry"),
+    field("Goal", "goal", "text_area"),
+    field("Current Process", "current_process", "text_area"),
+    field("Tools Used", "tools_used", "multiselect", AUTOMATION_TOOLS),
+    field("Output Format", "output_format", "selectbox", AUTOMATION_OUTPUT_FORMATS),
+]
+
+
 FORM_LIBRARY = {
     "Business": [
         {
@@ -1381,6 +1426,452 @@ Provide:
 }
 
 
+AUTOMATION_LIBRARY = [
+    {
+        "name": "Project Management Automation",
+        "fields": [
+            *AUTOMATION_COMMON_FIELDS,
+            field("Project Type", "project_type", "selectbox", ["Construction Project", "Software Project", "Marketing Project", "Business Operations", "Product Launch", "Internal Workflow", "Other"]),
+            field("Team Size", "team_size"),
+            field("Reporting Frequency", "reporting_frequency", "selectbox", ["Daily", "Weekly", "Fortnightly", "Monthly"]),
+            field("Current Project Management Tool", "current_project_management_tool"),
+            field("Pain Points", "pain_points", "text_area"),
+            field(
+                "Automation Scope",
+                "automation_scope",
+                "multiselect",
+                ["Task Assignment", "Status Reporting", "Risk Register", "Issue Tracking", "Meeting Notes", "Progress Dashboard", "Reminder Automation", "Document Control"],
+            ),
+        ],
+        "output_sections": [
+            "Executive Summary",
+            "Current PM Workflow Assessment",
+            "Automated Task Breakdown",
+            "RACI Responsibility Matrix",
+            "Risk / Issue Tracking Workflow",
+            "Weekly Reporting Automation",
+            "Tool Setup Recommendation",
+            "Implementation Checklist",
+            "KPI Metrics",
+        ],
+        "template": """Create a professional project management automation blueprint.
+
+Business / Project Name: {business_project_name}
+Industry: {industry}
+Goal: {goal}
+Current Process: {current_process}
+Tools Used: {tools_used}
+Preferred Output Format: {output_format}
+
+Project Type: {project_type}
+Team Size: {team_size}
+Reporting Frequency: {reporting_frequency}
+Current Project Management Tool: {current_project_management_tool}
+Pain Points: {pain_points}
+Automation Scope: {automation_scope}
+
+Design a practical automation system that improves project control, reporting, accountability, and follow-up without requiring unsupported API access.
+
+Provide:
+{output_sections}
+
+Include this table:
+Task | Owner | Frequency | Trigger | Automation Tool | Output""",
+    },
+    {
+        "name": "Gantt Chart Planner",
+        "fields": [
+            *AUTOMATION_COMMON_FIELDS,
+            field("Project Start Date", "project_start_date"),
+            field("Project End Date", "project_end_date"),
+            field("Major Phases", "major_phases", "text_area"),
+            field("Key Milestones", "key_milestones", "text_area"),
+            field("Resource Constraints", "resource_constraints", "text_area"),
+            field("Dependency Notes", "dependency_notes", "text_area"),
+        ],
+        "output_sections": [
+            "Work Breakdown Structure",
+            "Phase Plan",
+            "Milestone Plan",
+            "Dependency Map",
+            "Critical Path Assumptions",
+            "Resource Allocation",
+            "Delay Monitoring Plan",
+            "Gantt Chart Table",
+        ],
+        "template": """Create a professional Gantt chart planning prompt and schedule blueprint.
+
+Business / Project Name: {business_project_name}
+Industry: {industry}
+Goal: {goal}
+Current Process: {current_process}
+Tools Used: {tools_used}
+Preferred Output Format: {output_format}
+
+Project Start Date: {project_start_date}
+Project End Date: {project_end_date}
+Major Phases: {major_phases}
+Key Milestones: {key_milestones}
+Resource Constraints: {resource_constraints}
+Dependency Notes: {dependency_notes}
+
+Build a realistic schedule plan with phases, dependencies, owners, and monitoring controls.
+
+Provide:
+{output_sections}
+
+Include this table:
+Task | Phase | Start Date | End Date | Duration | Dependency | Owner | Status""",
+    },
+    {
+        "name": "Social Media Auto Posting Planner",
+        "fields": [
+            *AUTOMATION_COMMON_FIELDS,
+            field("Brand Name", "brand_name"),
+            field("Target Audience", "target_audience", "text_area"),
+            field("Platforms", "platforms", "multiselect", ["LinkedIn", "Instagram", "Facebook", "X / Twitter", "TikTok", "YouTube Shorts"]),
+            field("Posting Frequency", "posting_frequency", "selectbox", ["Daily", "3 times per week", "Weekly", "Fortnightly", "Monthly"]),
+            field("Content Pillars", "content_pillars", "text_area"),
+            field("Tone", "tone", "selectbox", ["Professional", "Educational", "Friendly", "Sales-oriented", "Thought Leadership", "Luxury / Premium", "Technical"]),
+            field("Approval Requirement", "approval_requirement"),
+            field("Asset Source", "asset_source", "selectbox", ["Original photos", "AI-generated images", "Licensed stock images", "User-provided assets", "No images"]),
+        ],
+        "output_sections": [
+            "Platform Strategy",
+            "30-Day Content Calendar",
+            "Post Ideas",
+            "Captions",
+            "Hashtags",
+            "Image / Video Asset Suggestions",
+            "Approval Workflow",
+            "Copyright-Safe Content Rules",
+            "Scheduling Workflow",
+        ],
+        "template": """Create a social media scheduling and approval automation plan.
+
+Business / Project Name: {business_project_name}
+Industry: {industry}
+Goal: {goal}
+Current Process: {current_process}
+Tools Used: {tools_used}
+Preferred Output Format: {output_format}
+
+Brand Name: {brand_name}
+Target Audience: {target_audience}
+Platforms: {platforms}
+Posting Frequency: {posting_frequency}
+Content Pillars: {content_pillars}
+Tone: {tone}
+Approval Requirement: {approval_requirement}
+Asset Source: {asset_source}
+
+Create a practical content planning workflow for human-reviewed scheduling. Do not create instructions to auto-publish without review.
+
+Provide:
+{output_sections}
+
+Include this table:
+Date | Platform | Topic | Caption | Asset Suggestion | Hashtags | Status
+
+Safety rules:
+- Do not use copyrighted images without permission
+- Do not use brand logos unless authorised
+- Prefer original, AI-generated, licensed, or user-provided assets
+- Human approval required before publishing
+- Do not auto-publish without review""",
+    },
+    {
+        "name": "Market Research Automation",
+        "fields": [
+            *AUTOMATION_COMMON_FIELDS,
+            field("Target Market", "target_market"),
+            field("Competitors", "competitors", "text_area"),
+            field("Research Frequency", "research_frequency", "selectbox", ["Weekly", "Monthly", "Quarterly"]),
+            field(
+                "Data Sources",
+                "data_sources",
+                "multiselect",
+                ["Company Websites", "Google Search", "LinkedIn", "Industry Reports", "Government Data", "News", "Customer Reviews", "Social Media", "Internal Sales Data"],
+            ),
+            field("KPIs to Track", "kpis_to_track", "text_area"),
+            field("Report Audience", "report_audience"),
+        ],
+        "output_sections": [
+            "Market Research Automation Workflow",
+            "Competitor Tracking System",
+            "Trend Monitoring System",
+            "Source List",
+            "KPI Dashboard Plan",
+            "Alert Rules",
+            "Reporting Schedule",
+            "Monthly Report Template",
+        ],
+        "template": """Create a market research automation workflow and reporting system.
+
+Business / Project Name: {business_project_name}
+Industry: {industry}
+Goal: {goal}
+Current Process: {current_process}
+Tools Used: {tools_used}
+Preferred Output Format: {output_format}
+
+Target Market: {target_market}
+Competitors: {competitors}
+Research Frequency: {research_frequency}
+Data Sources: {data_sources}
+KPIs to Track: {kpis_to_track}
+Report Audience: {report_audience}
+
+Design a repeatable research process for monitoring competitors, market trends, and KPIs using approved sources and human review.
+
+Provide:
+{output_sections}
+
+Include this table:
+Data Source | What to Track | Frequency | Tool | Output""",
+    },
+    {
+        "name": "Repetitive Task Automation",
+        "fields": [
+            *AUTOMATION_COMMON_FIELDS,
+            field("Repetitive Task Name", "repetitive_task_name"),
+            field("Manual Steps", "manual_steps", "text_area"),
+            field("Frequency", "frequency", "selectbox", ["Multiple times per day", "Daily", "Weekly", "Monthly"]),
+            field("Time Spent", "time_spent"),
+            field("Error Risks", "error_risks", "text_area"),
+            field("Desired Outcome", "desired_outcome", "text_area"),
+        ],
+        "output_sections": [
+            "Task Mapping",
+            "Manual Step Analysis",
+            "Automation Opportunities",
+            "Trigger / Action Workflow",
+            "Tool Recommendation",
+            "SOP",
+            "Risk Controls",
+            "Time Saving Estimate",
+        ],
+        "template": """Create a repetitive task automation blueprint.
+
+Business / Project Name: {business_project_name}
+Industry: {industry}
+Goal: {goal}
+Current Process: {current_process}
+Tools Used: {tools_used}
+Preferred Output Format: {output_format}
+
+Repetitive Task Name: {repetitive_task_name}
+Manual Steps: {manual_steps}
+Frequency: {frequency}
+Time Spent: {time_spent}
+Error Risks: {error_risks}
+Desired Outcome: {desired_outcome}
+
+Map the manual task, identify automation opportunities, and create a practical SOP with controls.
+
+Provide:
+{output_sections}
+
+Include this table:
+Manual Step | Automation Opportunity | Trigger | Action | Tool | Risk Control""",
+    },
+    {
+        "name": "Data Analysis & Visualization",
+        "fields": [
+            *AUTOMATION_COMMON_FIELDS,
+            field("Data Source", "data_source"),
+            field("Data Format", "data_format", "selectbox", ["CSV", "Excel", "Google Sheets", "SQL Database", "API", "Manual Entry"]),
+            field("Metrics / KPIs", "metrics_kpis", "text_area"),
+            field("Audience", "audience"),
+            field("Dashboard Tool", "dashboard_tool", "selectbox", ["Excel", "Google Sheets", "Power BI", "Tableau", "Looker Studio", "Streamlit", "Python"]),
+            field("Chart Types", "chart_types", "multiselect", ["Bar Chart", "Line Chart", "Pie Chart", "Scatter Plot", "Heatmap", "Gantt Chart", "KPI Cards", "Dashboard", "Funnel Chart"]),
+            field("Reporting Frequency", "reporting_frequency"),
+        ],
+        "output_sections": [
+            "Data Pipeline",
+            "Data Cleaning Steps",
+            "KPI Definitions",
+            "Dashboard Layout",
+            "Recommended Charts",
+            "Automated Reporting Schedule",
+            "Data Quality Checks",
+            "Executive Insight Summary",
+        ],
+        "template": """Create a data analysis and visualization automation plan.
+
+Business / Project Name: {business_project_name}
+Industry: {industry}
+Goal: {goal}
+Current Process: {current_process}
+Tools Used: {tools_used}
+Preferred Output Format: {output_format}
+
+Data Source: {data_source}
+Data Format: {data_format}
+Metrics / KPIs: {metrics_kpis}
+Audience: {audience}
+Dashboard Tool: {dashboard_tool}
+Chart Types: {chart_types}
+Reporting Frequency: {reporting_frequency}
+
+Design a practical analytics workflow with clean data inputs, KPI logic, visualization choices, and reporting cadence.
+
+Provide:
+{output_sections}
+
+Include this table:
+KPI | Data Source | Calculation | Chart Type | Update Frequency""",
+    },
+    {
+        "name": "Office Automation",
+        "fields": [
+            *AUTOMATION_COMMON_FIELDS,
+            field("Department", "department", "selectbox", ["Admin", "Sales", "Operations", "Construction", "Finance", "HR", "Marketing", "Customer Service"]),
+            field("Admin Tasks", "admin_tasks", "text_area"),
+            field("Documents Used", "documents_used", "text_area"),
+            field("Approval Process", "approval_process", "text_area"),
+            field("Communication Channels", "communication_channels"),
+            field("Bottlenecks", "bottlenecks", "text_area"),
+        ],
+        "output_sections": [
+            "Office Workflow Assessment",
+            "Document Template System",
+            "Email Automation Plan",
+            "Calendar Automation Plan",
+            "Approval Workflow",
+            "Filing System",
+            "Reporting Routine",
+            "SOP",
+        ],
+        "template": """Create an office automation plan for a department workflow.
+
+Business / Project Name: {business_project_name}
+Industry: {industry}
+Goal: {goal}
+Current Process: {current_process}
+Tools Used: {tools_used}
+Preferred Output Format: {output_format}
+
+Department: {department}
+Admin Tasks: {admin_tasks}
+Documents Used: {documents_used}
+Approval Process: {approval_process}
+Communication Channels: {communication_channels}
+Bottlenecks: {bottlenecks}
+
+Design a practical office workflow with templates, approvals, filing, communication, and reporting routines.
+
+Provide:
+{output_sections}
+
+Include this table:
+Office Task | Current Process | Automation Method | Tool | Owner | Frequency""",
+    },
+    {
+        "name": "File Organization Automation",
+        "fields": [
+            *AUTOMATION_COMMON_FIELDS,
+            field("File Types", "file_types", "text_area"),
+            field("Current Folder Structure", "current_folder_structure", "text_area"),
+            field("Naming Problems", "naming_problems", "text_area"),
+            field("Storage Platform", "storage_platform", "selectbox", ["Google Drive", "OneDrive", "Dropbox", "Local Server", "SharePoint", "Other"]),
+            field("Access Rules", "access_rules", "text_area"),
+            field("Retention Requirements", "retention_requirements", "text_area"),
+        ],
+        "output_sections": [
+            "Folder Structure",
+            "Naming Convention",
+            "Auto-Tagging Rules",
+            "File Routing Workflow",
+            "Backup Process",
+            "Version Control Rules",
+            "Archive Policy",
+            "Access Permission Matrix",
+        ],
+        "template": """Create a file organization automation blueprint.
+
+Business / Project Name: {business_project_name}
+Industry: {industry}
+Goal: {goal}
+Current Process: {current_process}
+Tools Used: {tools_used}
+Preferred Output Format: {output_format}
+
+File Types: {file_types}
+Current Folder Structure: {current_folder_structure}
+Naming Problems: {naming_problems}
+Storage Platform: {storage_platform}
+Access Rules: {access_rules}
+Retention Requirements: {retention_requirements}
+
+Design a controlled filing, naming, access, backup, and retention system that can be implemented with the selected storage platform.
+
+Provide:
+{output_sections}
+
+Include this table:
+File Type | Folder Path | Naming Rule | Owner | Retention Period | Access Level""",
+    },
+    {
+        "name": "Promotion Email Automation",
+        "fields": [
+            *AUTOMATION_COMMON_FIELDS,
+            field("Campaign Name", "campaign_name"),
+            field("Product / Service", "product_service"),
+            field("Target Audience", "target_audience", "text_area"),
+            field("Offer", "offer", "text_area"),
+            field("Email Sequence Length", "email_sequence_length", "selectbox", ["3 emails", "5 emails", "7 emails"]),
+            field("Tone", "tone"),
+            field("CTA", "cta"),
+            field("Compliance Region", "compliance_region", "selectbox", ["Australia", "United States", "United Kingdom", "European Union", "Other"]),
+        ],
+        "output_sections": [
+            "Campaign Strategy",
+            "Audience Segments",
+            "Email Sequence",
+            "Subject Lines",
+            "Email Body Drafts",
+            "CTA Recommendations",
+            "Follow-up Schedule",
+            "Compliance Checklist",
+            "Performance Metrics",
+        ],
+        "template": """Create a promotion email automation campaign plan.
+
+Business / Project Name: {business_project_name}
+Industry: {industry}
+Goal: {goal}
+Current Process: {current_process}
+Tools Used: {tools_used}
+Preferred Output Format: {output_format}
+
+Campaign Name: {campaign_name}
+Product / Service: {product_service}
+Target Audience: {target_audience}
+Offer: {offer}
+Email Sequence Length: {email_sequence_length}
+Tone: {tone}
+CTA: {cta}
+Compliance Region: {compliance_region}
+
+Create a compliant, human-reviewed email campaign plan. Do not send emails, scrape contacts, or use purchased lists.
+
+Provide:
+{output_sections}
+
+Include this table:
+Email # | Timing | Subject Line | Goal | CTA | Follow-up Condition
+
+Compliance reminders:
+- Include unsubscribe option
+- Avoid misleading subject lines
+- Respect consent and privacy
+- Do not scrape or use purchased emails without permission
+- Follow applicable spam and privacy laws""",
+    },
+]
+
+
 def run_fast_mode(query: str) -> dict:
     from crewai import Crew, Task
 
@@ -1930,6 +2421,7 @@ def render_mobile_navigation_tabs() -> None:
                 <div class="tab-pill">Form Builder</div>
                 <div class="tab-pill">Document Analysis</div>
                 <div class="tab-pill">Executive Intelligence</div>
+                <div class="tab-pill">Automation Intelligence</div>
                 <div class="tab-pill">History</div>
             </div>
         </div>
@@ -1972,6 +2464,18 @@ def build_prompt_from_form(form_definition: dict, values: dict[str, str | list[s
         for key, value in values.items()
     }
     return form_definition["template"].format(**formatted_values)
+
+
+def build_automation_prompt(automation_definition: dict, values: dict[str, str | list[str]]) -> str:
+    formatted_values = {
+        key: format_form_value(value)
+        for key, value in values.items()
+    }
+    formatted_values["output_sections"] = "\n".join(
+        f"{index}. {section}"
+        for index, section in enumerate(automation_definition["output_sections"], start=1)
+    )
+    return automation_definition["template"].format(**formatted_values)
 
 
 def extract_pdf_text(file_bytes: bytes) -> str:
@@ -2354,6 +2858,53 @@ def render_form_builder() -> None:
             st.session_state.query = build_prompt_from_form(selected_form, values)
 
 
+def render_automation_intelligence() -> None:
+    automation_names = [automation_definition["name"] for automation_definition in AUTOMATION_LIBRARY]
+    selected_automation_name = st.selectbox(
+        "Automation Type",
+        automation_names,
+        key="automation_intelligence_type",
+    )
+    selected_automation = next(
+        automation_definition
+        for automation_definition in AUTOMATION_LIBRARY
+        if automation_definition["name"] == selected_automation_name
+    )
+
+    with st.form("automation_intelligence_form"):
+        values = {}
+        for automation_field in selected_automation["fields"]:
+            widget_key = f"automation_{selected_automation_name}_{automation_field['key']}"
+            field_type = automation_field["type"]
+
+            if field_type == "text_area":
+                values[automation_field["key"]] = st.text_area(
+                    automation_field["name"],
+                    key=widget_key,
+                    height=80,
+                )
+            elif field_type == "selectbox":
+                values[automation_field["key"]] = st.selectbox(
+                    automation_field["name"],
+                    automation_field["options"],
+                    key=widget_key,
+                )
+            elif field_type == "multiselect":
+                values[automation_field["key"]] = st.multiselect(
+                    automation_field["name"],
+                    automation_field["options"],
+                    key=widget_key,
+                )
+            else:
+                values[automation_field["key"]] = st.text_input(
+                    automation_field["name"],
+                    key=widget_key,
+                )
+
+        if st.form_submit_button("Generate Automation Blueprint", use_container_width=True):
+            st.session_state.query = build_automation_prompt(selected_automation, values)
+
+
 st.set_page_config(page_title="Garrett Intelligence Hub", page_icon=":material/hub:")
 inject_custom_css()
 
@@ -2402,6 +2953,9 @@ with st.sidebar:
 
     with st.expander("🧠 Executive Intelligence Center", expanded=False):
         render_project_intelligence_review()
+
+    with st.expander("⚙️ Automation Intelligence", expanded=False):
+        render_automation_intelligence()
 
     with st.expander("🕘 Intelligence History", expanded=False):
         st.download_button(

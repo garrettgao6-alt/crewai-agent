@@ -129,13 +129,15 @@ streamlit run streamlit_app.py
 
 The Streamlit app displays `category`, `confidence`, `version`, `result`, and response time fields. It also keeps a session-local History sidebar with the 10 most recent requests, including each request's query, mode, routing metadata, result, and elapsed time. Use `Clear History` to reset the sidebar.
 
-The Streamlit UI uses a premium SaaS design for a scientific intelligence platform, with a responsive desktop and mobile layout, a mobile contrast fix for Safari and Android Chrome, a refined hero section, scientific module cards, polished sidebar sections, and a card-based report area with metadata metrics. The sidebar is organized into `Prompt Library`, `Form Builder`, `Document Intelligence`, `Executive Intelligence Center`, and `Intelligence History` sections. The SQLite-backed Prompt Library section lets you choose a `Business` or `Construction` category, select a prompt, and click `Load Prompt Template` to place the full template into the editable input box. The prompt text remains editable before submitting.
+The Streamlit UI uses a premium SaaS design for a scientific intelligence platform, with a responsive desktop and mobile layout, a mobile contrast fix for Safari and Android Chrome, a refined hero section, scientific module cards, polished sidebar sections, and a card-based report area with metadata metrics. The sidebar is organized into `Prompt Library`, `Form Builder`, `Document Intelligence`, `Executive Intelligence Center`, `Automation Intelligence`, and `Intelligence History` sections. The SQLite-backed Prompt Library section lets you choose a `Business` or `Construction` category, select a prompt, and click `Load Prompt Template` to place the full template into the editable input box. The prompt text remains editable before submitting.
 
 The Form Builder section is collapsed by default and covers all Business and Construction prompt templates. Choose a form category and template, complete the structured fields, and click `Generate Professional Prompt` to write a professional prompt into the same editable input box. Form fields support text inputs, larger text areas, dropdowns, and multi-select focus areas.
 
 The Document Intelligence section is collapsed by default and supports single-file PDF, TXT, DOCX, and XLSX uploads. Choose an analysis type, upload a document, and click `Generate Document Intelligence Prompt` to place the extracted document text and requested analysis task into the editable input box. Uploaded content is limited to the first 12000 characters when needed, and the generated prompt states when truncation occurred.
 
 The Executive Intelligence Center section is collapsed by default and supports multi-file project reviews for construction and business workflows. Upload multiple project documents, choose a review type and agent mode, then click `Generate Executive Review` to combine the extracted content into one professional cross-document review prompt. Click `Run Executive Agent Team` to run the selected CrewAI executive agent workflow and save the board-level result to History.
+
+The Automation Intelligence section is collapsed by default and generates practical automation blueprints, workflow plans, SOPs, calendars, tables, and campaign structures. Choose an automation type, complete the targeted fields, and click `Generate Automation Blueprint` to write a complete professional prompt into the editable input box.
 
 Streamlit supports two modes:
 
@@ -225,6 +227,34 @@ Executive agent modes:
 - Deep Due Diligence: runs Contract, Tender, Risk, NCC, Finance, BIM, and Executive Coordinator agents for the strongest analysis.
 
 History entries and exported Executive PDFs include the selected `agent_mode`.
+
+## Automation Intelligence
+
+Automation Intelligence is defined in `streamlit_app.py` through an `AUTOMATION_LIBRARY` configuration. It generates complete prompts for practical automation planning while keeping the final prompt editable before submission.
+
+Supported automation types:
+
+- Project management automation
+- Gantt chart planning
+- Social media scheduling planner
+- Market research automation
+- Repetitive task automation
+- Data analysis and visualization
+- Office automation
+- File organization automation
+- Promotion email automation
+
+Each automation type has targeted fields, a dedicated prompt template, required output sections, and required table formats. Generated prompts can produce automation blueprints, workflow plans, SOPs, checklists, reports, dashboard plans, content calendars, email campaign plans, and Gantt chart plans.
+
+Current automation scope:
+
+- Generates automation blueprint, workflow, SOP, report, table, calendar, or campaign planning prompts.
+- Does not automatically publish social media posts.
+- Does not automatically send emails.
+- Does not connect to or call Gmail, Outlook, Buffer, Zapier, Make, or social media APIs.
+- Does not scrape images, contacts, or audience lists.
+- Does not save third-party account passwords.
+- Requires human review before publishing, sending, or executing any automation workflow.
 
 ## Docker
 
