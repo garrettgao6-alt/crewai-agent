@@ -131,6 +131,8 @@ The Streamlit app displays `category`, `confidence`, `version`, `result`, and re
 
 The sidebar also includes a SQLite-backed Prompt Library. Choose a `Business` or `Construction` category, select a prompt, and click `Load Template` to place the full template into the editable input box. The prompt text remains editable before submitting.
 
+The sidebar also includes a Form Builder for all Business and Construction prompt templates. Choose a form category and template, complete the structured fields, and click `Generate Prompt` to write a professional prompt into the same editable input box. Form fields support text inputs, larger text areas, dropdowns, and multi-select focus areas.
+
 Streamlit supports two modes:
 
 - Fast Mode: enabled by default. It skips the Router Agent and runs the Writer Agent directly from the UI process.
@@ -151,6 +153,19 @@ Prompt templates are stored in `prompts.db` using SQLite. The `prompts` table co
 - `updated_at`
 
 If `prompts.db` does not exist, `prompt_store.py` automatically creates it and seeds the default Business and Construction templates. Future template management can be added through `prompt_store.py` without changing `api.py`, `intelligent_gateway.py`, or `run_local.sh`.
+
+## Form Builder
+
+The Streamlit Form Builder is defined in `streamlit_app.py` through a `FORM_LIBRARY` configuration. It covers the same Business and Construction template areas as the Prompt Library, but uses structured fields and targeted dropdowns to generate prompts consistently.
+
+Supported field types:
+
+- `text_input`
+- `text_area`
+- `selectbox`
+- `multiselect`
+
+Clicking `Generate Prompt` updates `st.session_state.query`; the user can still edit the generated prompt before submitting it in Fast Mode or Advanced Agent Routing.
 
 ## Docker
 
