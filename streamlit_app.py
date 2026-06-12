@@ -2210,14 +2210,22 @@ def inject_custom_css() -> None:
             border: 1px solid #E2E8F0;
             border-radius: 18px;
             box-sizing: border-box;
+            height: 280px;
+            min-height: 280px;
+            overflow: hidden;
+            padding: 20px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .hub-card-inner {
+            background: #FFFFFF;
+            border-radius: 16px;
+            box-sizing: border-box;
             display: flex;
             flex-direction: column;
-            height: 260px;
+            height: 100%;
             justify-content: space-between;
-            min-height: 260px;
-            overflow: hidden;
             padding: 24px;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .hub-card-top {
@@ -2394,7 +2402,7 @@ def inject_custom_css() -> None:
             .hub-card {
                 height: auto;
                 margin-bottom: 10px;
-                min-height: 220px;
+                min-height: 240px;
             }
 
             .hub-status-grid {
@@ -2460,12 +2468,14 @@ def render_status_cards() -> None:
                 st.markdown(
                     f"""
                     <div class="hub-card">
-                        <div class="hub-card-top">
-                            <div class="hub-card-icon">{icon}</div>
-                            <div class="hub-card-badge">Active</div>
+                        <div class="hub-card-inner">
+                            <div class="hub-card-top">
+                                <div class="hub-card-icon">{icon}</div>
+                                <div class="hub-card-badge">Active</div>
+                            </div>
+                            <div class="hub-card-title">{title}</div>
+                            <div class="hub-card-description">{body}</div>
                         </div>
-                        <div class="hub-card-title">{title}</div>
-                        <div class="hub-card-description">{body}</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
