@@ -1,5 +1,6 @@
 import json
 from io import BytesIO
+import os
 from xml.sax.saxutils import escape
 import time
 
@@ -9,7 +10,7 @@ import streamlit as st
 import prompt_store
 
 
-API_URL = "http://127.0.0.1:8000/analyze"
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/analyze")
 REQUEST_TIMEOUT_SECONDS = 60
 VERSION = "1.0"
 HISTORY_LIMIT = 10

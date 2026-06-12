@@ -1,0 +1,32 @@
+services:
+  api:
+    build: .
+    env_file:
+      - .env
+    environment:
+      OTEL_SDK_DISABLED: "true"
+    ports:
+      - "8000:8000"
+    command: ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+
+  streamlit:
+    build: .
+    env_file:
+      - .env
+    environment:
+      API_URL: "http://api:8000/analyze"
+      OTEL_SDK_DISABLED: "true"
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+    command:
+      [
+        "streamlit",
+        "run",
+        "streamlit_app.py",
+        "--server.address",
+        "0.0.0.0",
+        "--server.port",
+        "8501",
+      ]
