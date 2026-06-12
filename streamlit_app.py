@@ -1,3 +1,4 @@
+import json
 import time
 
 import requests
@@ -101,6 +102,14 @@ st.title("Garrett Intelligence Hub")
 
 with st.sidebar:
     st.header("History")
+
+    st.download_button(
+        "Export History",
+        data=json.dumps(st.session_state.history, indent=2),
+        file_name="history.json",
+        mime="application/json",
+        use_container_width=True,
+    )
 
     if st.button("Clear History", use_container_width=True):
         st.session_state.history = []
