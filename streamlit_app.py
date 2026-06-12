@@ -1569,9 +1569,8 @@ def render_pdf_download(entry: dict) -> None:
         report_type,
         PROJECT_REVIEW_PDF_FILENAMES.get(report_type, "executive_review.pdf"),
     )
-    button_label = "Download Executive PDF" if review_type else "Download Report PDF"
     st.download_button(
-        button_label,
+        "Download Report PDF",
         data=pdf_bytes,
         file_name=file_name,
         mime="application/pdf",
@@ -1584,77 +1583,121 @@ def inject_custom_css() -> None:
         """
         <style>
         :root {
-            --hub-bg: #f7f8fb;
-            --hub-card: #ffffff;
-            --hub-border: #e3e7ef;
-            --hub-text: #172033;
-            --hub-muted: #667085;
-            --hub-accent: #5f6eea;
-            --hub-accent-soft: #eef0ff;
+            --hub-bg: #F8FAFC;
+            --hub-card: #FFFFFF;
+            --hub-border: #E2E8F0;
+            --hub-text: #0F172A;
+            --hub-muted: #475569;
+            --hub-accent: #2563EB;
+            --hub-purple: #7C3AED;
+            --hub-success: #16A34A;
+            --hub-warning: #EA580C;
+            --hub-accent-soft: #EFF6FF;
         }
 
         .stApp {
             background: var(--hub-bg);
-            color: var(--hub-text);
+            color: var(--hub-text) !important;
         }
 
         h1, h2, h3 {
-            color: var(--hub-text);
+            color: var(--hub-text) !important;
             letter-spacing: 0;
         }
 
+        label, p, span, div {
+            color: #0F172A;
+        }
+
+        [data-testid="stSidebar"] {
+            background: #FFFFFF !important;
+            color: #0F172A !important;
+        }
+
+        [data-testid="stSidebar"] * {
+            color: #0F172A !important;
+        }
+
         section[data-testid="stSidebar"] {
-            background: #ffffff;
+            background: #FFFFFF !important;
             border-right: 1px solid var(--hub-border);
         }
 
         section[data-testid="stSidebar"] [data-testid="stExpander"] {
             border: 1px solid var(--hub-border);
             border-radius: 8px;
-            background: #ffffff;
-            margin-bottom: 10px;
+            background: #FFFFFF !important;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+        }
+
+        [data-testid="stExpander"] summary {
+            color: #0F172A !important;
+            font-weight: 700 !important;
+        }
+
+        [data-testid="stExpander"] summary * {
+            color: #0F172A !important;
+        }
+
+        [data-testid="stSelectbox"] *,
+        [data-testid="stTextInput"] *,
+        [data-testid="stTextArea"] *,
+        [data-testid="stFileUploader"] *,
+        [data-testid="stMultiSelect"] *,
+        [data-testid="stRadio"] * {
+            color: #0F172A !important;
         }
 
         div[data-testid="stButton"] > button,
         div[data-testid="stDownloadButton"] > button {
             border-radius: 7px;
-            border: 1px solid #cfd5e3;
+            border: 1px solid #CBD5E1;
             font-weight: 600;
+            width: 100%;
+            color: #0F172A !important;
+            background: #FFFFFF;
         }
 
         div[data-testid="stButton"] > button[kind="primary"] {
             background: var(--hub-accent);
             border-color: var(--hub-accent);
+            color: #FFFFFF !important;
+            box-shadow: 0 8px 18px rgba(37, 99, 235, 0.24);
         }
 
         .hub-hero {
-            background: linear-gradient(135deg, #ffffff 0%, #f1f3ff 100%);
+            background:
+                radial-gradient(circle at top left, rgba(37, 99, 235, 0.10), transparent 34%),
+                radial-gradient(circle at top right, rgba(124, 58, 237, 0.10), transparent 30%),
+                #FFFFFF;
             border: 1px solid var(--hub-border);
             border-radius: 8px;
-            padding: 28px 30px;
+            padding: 34px 34px;
             margin: 8px 0 18px;
-            box-shadow: 0 10px 30px rgba(24, 35, 70, 0.06);
+            box-shadow: 0 14px 40px rgba(15, 23, 42, 0.07);
         }
 
         .hub-hero h1 {
-            font-size: 42px;
+            color: #0F172A !important;
+            font-size: 46px;
             line-height: 1.08;
             margin: 0 0 8px;
-            font-weight: 760;
+            font-weight: 800;
         }
 
         .hub-hero h2 {
-            color: #4751bd;
-            font-size: 20px;
+            color: #2563EB !important;
+            font-size: 21px;
             margin: 0 0 12px;
-            font-weight: 650;
+            font-weight: 700;
         }
 
         .hub-hero p {
-            color: var(--hub-muted);
-            font-size: 15px;
+            color: #475569 !important;
+            font-size: 16px;
             line-height: 1.55;
-            max-width: 760px;
+            max-width: 820px;
             margin: 0;
         }
 
@@ -1662,67 +1705,177 @@ def inject_custom_css() -> None:
             background: var(--hub-card);
             border: 1px solid var(--hub-border);
             border-radius: 8px;
-            padding: 15px 16px;
-            min-height: 108px;
-            box-shadow: 0 6px 18px rgba(24, 35, 70, 0.04);
+            padding: 18px 18px;
+            min-height: 132px;
+            box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
         }
 
-        .hub-status-card .label {
-            color: var(--hub-muted);
+        .hub-card-top {
+            align-items: center;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .hub-card-icon {
+            align-items: center;
+            background: linear-gradient(135deg, #EFF6FF, #F5F3FF);
+            border: 1px solid #DBEAFE;
+            border-radius: 8px;
+            display: inline-flex;
+            font-size: 18px;
+            height: 36px;
+            justify-content: center;
+            width: 36px;
+        }
+
+        .hub-badge {
+            background: #ECFDF5;
+            border: 1px solid #BBF7D0;
+            border-radius: 999px;
+            color: #16A34A !important;
             font-size: 12px;
-            text-transform: uppercase;
             font-weight: 700;
-            margin-bottom: 8px;
+            padding: 3px 9px;
         }
 
         .hub-status-card .title {
-            color: var(--hub-text);
-            font-size: 17px;
-            font-weight: 720;
+            color: #0F172A !important;
+            font-size: 18px;
+            font-weight: 760;
             margin-bottom: 6px;
         }
 
         .hub-status-card .body {
-            color: var(--hub-muted);
+            color: #475569 !important;
             font-size: 13px;
-            line-height: 1.4;
+            line-height: 1.45;
         }
 
         .hub-section-title {
-            color: var(--hub-text);
-            font-size: 18px;
-            font-weight: 720;
+            color: #0F172A !important;
+            font-size: 19px;
+            font-weight: 780;
             margin: 20px 0 8px;
         }
 
-        .hub-response-card {
-            background: var(--hub-card);
+        .hub-result-body {
+            background: #FFFFFF;
             border: 1px solid var(--hub-border);
             border-radius: 8px;
             padding: 18px;
-            box-shadow: 0 8px 24px rgba(24, 35, 70, 0.05);
-            margin-top: 10px;
-        }
-
-        .hub-result-body {
-            background: #fbfcff;
-            border: 1px solid var(--hub-border);
-            border-radius: 8px;
-            padding: 16px;
-            line-height: 1.62;
-            color: #273246;
+            line-height: 1.72;
+            color: #0F172A !important;
             white-space: pre-wrap;
+            font-size: 15px;
+            box-shadow: inset 0 1px 0 rgba(15, 23, 42, 0.02);
         }
 
         [data-testid="stMetric"] {
-            background: #ffffff;
+            background: #FFFFFF;
             border: 1px solid var(--hub-border);
             border-radius: 8px;
-            padding: 12px 14px;
+            padding: 14px 16px;
         }
 
         [data-testid="stMetricLabel"] {
-            color: var(--hub-muted);
+            color: #475569 !important;
+            font-weight: 650;
+        }
+
+        [data-testid="stMetricValue"] {
+            color: #0F172A !important;
+            font-weight: 780;
+        }
+
+        .hub-mobile-tabs {
+            display: none;
+            margin: 8px 0 14px;
+        }
+
+        .hub-mobile-tabs .tab-row {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+
+        .hub-mobile-tabs .tab-pill {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 999px;
+            color: #0F172A !important;
+            flex: 0 0 auto;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 8px 11px;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            background: #FFFFFF;
+            border-color: #E2E8F0 !important;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+        }
+
+        @media (max-width: 768px) {
+            .block-container {
+                padding-left: 1rem !important;
+                padding-right: 1rem !important;
+                padding-top: 1rem !important;
+                max-width: 100% !important;
+            }
+
+            .hub-hero {
+                padding: 22px 18px;
+                margin-top: 4px;
+            }
+
+            .hub-hero h1 {
+                font-size: 31px;
+            }
+
+            .hub-hero h2 {
+                font-size: 16px;
+            }
+
+            .hub-hero p {
+                font-size: 14px;
+            }
+
+            .hub-mobile-tabs {
+                display: block;
+            }
+
+            .hub-status-card {
+                margin-bottom: 10px;
+                min-height: 0;
+            }
+
+            section[data-testid="stSidebar"] {
+                width: min(92vw, 24rem) !important;
+            }
+
+            div[data-testid="stHorizontalBlock"] {
+                gap: 0.7rem !important;
+            }
+
+            div[data-testid="column"] {
+                min-width: 100% !important;
+                width: 100% !important;
+            }
+
+            div[data-testid="stButton"] > button,
+            div[data-testid="stDownloadButton"] > button {
+                width: 100% !important;
+            }
+
+            textarea {
+                min-height: 220px !important;
+            }
+
+            [data-testid="stExpander"] {
+                overflow: hidden;
+            }
         }
         </style>
         """,
@@ -1735,8 +1888,8 @@ def render_hero() -> None:
         """
         <div class="hub-hero">
             <h1>Garrett Intelligence Hub</h1>
-            <h2>Business, Construction &amp; Executive AI Copilot</h2>
-            <p>Transform documents, prompts, and project data into board-ready intelligence reports.</p>
+            <h2>Business, Construction &amp; Executive AI Intelligence Platform</h2>
+            <p>Transform project documents, business data, and executive workflows into decision-ready intelligence.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1745,24 +1898,44 @@ def render_hero() -> None:
 
 def render_status_cards() -> None:
     cards = [
-        ("Prompt Library", "Ready", "Reusable business and construction prompt templates."),
-        ("Form Builder", "Structured", "Guided fields for professional prompt generation."),
-        ("Document Analysis", "Single-file", "Review PDF, DOCX, XLSX, and TXT documents."),
-        ("Executive Intelligence Board", "Agent-ready", "Multi-document reviews with executive agent modes."),
+        ("🔬", "Business Intelligence", "Market, sales, financial, and operating intelligence."),
+        ("🏗️", "Construction Intelligence", "Project, contract, compliance, and delivery analysis."),
+        ("📄", "Document Intelligence", "Extract and analyze PDF, DOCX, XLSX, and TXT files."),
+        ("🧠", "Executive Decision Support", "Board-ready reports powered by executive agent modes."),
     ]
     columns = st.columns(4)
-    for column, (title, label, body) in zip(columns, cards):
+    for column, (icon, title, body) in zip(columns, cards):
         with column:
             st.markdown(
                 f"""
                 <div class="hub-status-card">
-                    <div class="label">{label}</div>
+                    <div class="hub-card-top">
+                        <div class="hub-card-icon">{icon}</div>
+                        <div class="hub-badge">Active</div>
+                    </div>
                     <div class="title">{title}</div>
                     <div class="body">{body}</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
+
+
+def render_mobile_navigation_tabs() -> None:
+    st.markdown(
+        """
+        <div class="hub-mobile-tabs">
+            <div class="tab-row">
+                <div class="tab-pill">Prompt Library</div>
+                <div class="tab-pill">Form Builder</div>
+                <div class="tab-pill">Document Analysis</div>
+                <div class="tab-pill">Executive Intelligence</div>
+                <div class="tab-pill">History</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def display_result(entry: dict) -> None:
@@ -1998,7 +2171,7 @@ def render_document_analysis() -> None:
             if truncated:
                 st.warning(f"File content was truncated to first {DOCUMENT_TEXT_LIMIT} characters.")
 
-    if st.button("Generate Document Review Prompt", use_container_width=True):
+    if st.button("Generate Document Intelligence Prompt", use_container_width=True):
         if not uploaded_file:
             st.warning("Please upload a document first.")
         elif read_failed:
@@ -2083,7 +2256,7 @@ def render_project_intelligence_review() -> None:
                 ready_total_truncated,
             )
 
-    if st.button("Run Agent Team", use_container_width=True):
+    if st.button("Run Executive Agent Team", use_container_width=True):
         if not uploaded_files:
             st.warning("Please upload at least one project document first.")
         elif not documents:
@@ -2196,6 +2369,7 @@ if "query" not in st.session_state:
 prompt_store.initialize_prompt_store()
 
 render_hero()
+render_mobile_navigation_tabs()
 render_status_cards()
 
 with st.sidebar:
@@ -2223,13 +2397,13 @@ with st.sidebar:
     with st.expander("🧩 Form Builder", expanded=False):
         render_form_builder()
 
-    with st.expander("📄 Document Analysis", expanded=False):
+    with st.expander("📄 Document Intelligence", expanded=False):
         render_document_analysis()
 
-    with st.expander("🧠 Project Intelligence Review / Executive Intelligence Board", expanded=False):
+    with st.expander("🧠 Executive Intelligence Center", expanded=False):
         render_project_intelligence_review()
 
-    with st.expander("🕘 History", expanded=True):
+    with st.expander("🕘 Intelligence History", expanded=False):
         st.download_button(
             "Export History",
             data=json.dumps(st.session_state.history, indent=2),
@@ -2256,24 +2430,25 @@ with st.sidebar:
         else:
             st.caption("No history yet.")
 
-mode = st.radio(
-    "Routing",
-    ["Fast Mode", "Advanced Agent Routing"],
-    index=0,
-    horizontal=True,
-)
-is_fast_mode = mode == "Fast Mode"
-mode_name = "Fast" if is_fast_mode else "Advanced"
 st.markdown('<div class="hub-section-title">Workspace</div>', unsafe_allow_html=True)
-st.caption(f"Active mode: {mode_name}")
+with st.container(border=True):
+    mode = st.radio(
+        "Routing Mode",
+        ["Fast Mode", "Advanced Agent Routing"],
+        index=0,
+        horizontal=True,
+    )
+    is_fast_mode = mode == "Fast Mode"
+    mode_name = "Fast" if is_fast_mode else "Advanced"
+    st.caption(f"Active mode: {mode_name}")
 
-query = st.text_area(
-    "Request",
-    height=160,
-    placeholder="Enter a request for the gateway...",
-    key="query",
-)
-submitted = st.button("Submit", type="primary")
+    query = st.text_area(
+        "Request",
+        height=220,
+        placeholder="Enter a request for the gateway...",
+        key="query",
+    )
+    submitted = st.button("Submit", type="primary", use_container_width=True)
 display_entry = st.session_state.selected_history
 
 if submitted:

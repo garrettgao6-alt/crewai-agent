@@ -129,13 +129,13 @@ streamlit run streamlit_app.py
 
 The Streamlit app displays `category`, `confidence`, `version`, `result`, and response time fields. It also keeps a session-local History sidebar with the 10 most recent requests, including each request's query, mode, routing metadata, result, and elapsed time. Use `Clear History` to reset the sidebar.
 
-The Streamlit UI includes a SaaS-style hero section, status cards for the major modules, polished sidebar sections, and a card-based response area with metadata metrics. The sidebar is organized into `Prompt Library`, `Form Builder`, `Document Analysis`, `Executive Intelligence Board`, and `History` sections. The SQLite-backed Prompt Library section lets you choose a `Business` or `Construction` category, select a prompt, and click `Load Prompt Template` to place the full template into the editable input box. The prompt text remains editable before submitting.
+The Streamlit UI uses a premium SaaS design for a scientific intelligence platform, with a responsive desktop and mobile layout, a mobile contrast fix for Safari and Android Chrome, a refined hero section, scientific module cards, polished sidebar sections, and a card-based report area with metadata metrics. The sidebar is organized into `Prompt Library`, `Form Builder`, `Document Intelligence`, `Executive Intelligence Center`, and `Intelligence History` sections. The SQLite-backed Prompt Library section lets you choose a `Business` or `Construction` category, select a prompt, and click `Load Prompt Template` to place the full template into the editable input box. The prompt text remains editable before submitting.
 
 The Form Builder section is collapsed by default and covers all Business and Construction prompt templates. Choose a form category and template, complete the structured fields, and click `Generate Professional Prompt` to write a professional prompt into the same editable input box. Form fields support text inputs, larger text areas, dropdowns, and multi-select focus areas.
 
-The Document Analysis section is collapsed by default and supports single-file PDF, TXT, DOCX, and XLSX uploads. Choose an analysis type, upload a document, and click `Generate Document Review Prompt` to place the extracted document text and requested analysis task into the editable input box. Uploaded content is limited to the first 12000 characters when needed, and the generated prompt states when truncation occurred.
+The Document Intelligence section is collapsed by default and supports single-file PDF, TXT, DOCX, and XLSX uploads. Choose an analysis type, upload a document, and click `Generate Document Intelligence Prompt` to place the extracted document text and requested analysis task into the editable input box. Uploaded content is limited to the first 12000 characters when needed, and the generated prompt states when truncation occurred.
 
-The Executive Intelligence Board section is collapsed by default and supports multi-file project reviews for construction and business workflows. Upload multiple project documents, choose a review type and agent mode, then click `Generate Executive Review` to combine the extracted content into one professional cross-document review prompt. Click `Run Agent Team` to run the selected CrewAI executive agent workflow and save the board-level result to History.
+The Executive Intelligence Center section is collapsed by default and supports multi-file project reviews for construction and business workflows. Upload multiple project documents, choose a review type and agent mode, then click `Generate Executive Review` to combine the extracted content into one professional cross-document review prompt. Click `Run Executive Agent Team` to run the selected CrewAI executive agent workflow and save the board-level result to History.
 
 Streamlit supports two modes:
 
@@ -216,7 +216,7 @@ Each uploaded file is limited to the first 12000 extracted characters, and combi
 
 `executive_agents.py` defines a real CrewAI executive review team that analyzes uploaded project document text without Tavily search. The team includes Contract, Tender, Risk, NCC Compliance, Finance, BIM, and Executive Coordinator agents. Each agent has its own role, goal, backstory, and task, and the Executive Coordinator combines the specialist outputs into a board-level report.
 
-The Streamlit UI keeps the generated executive review prompt editable, and `Run Agent Team` executes the multi-agent workflow directly from the Executive Intelligence Board section. Executive results are saved to History and support `Download Executive PDF`.
+The Streamlit UI keeps the generated executive review prompt editable, and `Run Executive Agent Team` executes the multi-agent workflow directly from the Executive Intelligence Center section. Executive results are saved to History and support `Download Report PDF`.
 
 Executive agent modes:
 
