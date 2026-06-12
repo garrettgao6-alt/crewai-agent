@@ -108,6 +108,10 @@ def select_agent(category: str):
 # =====================================================
 
 def run_gateway(user_input: str):
+    return run_gateway_v1(user_input)["result"]
+
+
+def run_gateway_v1(user_input: str):
 
     logger.info("Routing request.")
 
@@ -134,12 +138,24 @@ def run_gateway(user_input: str):
         result = crew.kickoff()
     except Exception:
         logger.exception("Specialist crew kickoff failed.")
-        return "Gateway execution failed: unable to reach the LLM provider. Please try again later."
+        return {
+            "category": category,
+            "confidence": confidence,
+            "result": "Gateway execution failed: unable to reach the LLM provider. Please try again later.",
+            "version": "1.0",
+        }
 
     try:
-        return result.raw
+        output = result.raw
     except AttributeError:
-        return str(result)
+        output = str(result)
+
+    return {
+        "category": category,
+        "confidence": confidence,
+        "result": output,
+        "version": "1.0",
+    }
 
 
 # =====================================================

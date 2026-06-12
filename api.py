@@ -12,7 +12,10 @@ class AnalyzeRequest(BaseModel):
 
 
 class AnalyzeResponse(BaseModel):
+    category: str
+    confidence: float
     result: str
+    version: str
 
 
 @app.get("/health")
@@ -22,5 +25,5 @@ def health():
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(request: AnalyzeRequest):
-    result = intelligent_gateway.run_gateway(request.query)
-    return AnalyzeResponse(result=result)
+    result = intelligent_gateway.run_gateway_v1(request.query)
+    return AnalyzeResponse(**result)
