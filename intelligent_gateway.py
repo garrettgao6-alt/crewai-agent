@@ -1,6 +1,19 @@
 import json
+import os
+from pathlib import Path
 from crewai import Agent, Task, Crew
 from langchain_openai import ChatOpenAI
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
+
+if load_dotenv is not None:
+    load_dotenv(Path(__file__).resolve().parent / ".env")
+else:
+    print("Warning: python-dotenv is not installed; .env auto-load skipped.")
 
 
 # =====================================================
@@ -42,15 +55,31 @@ No text outside JSON.
 # SPECIALIST AGENTS
 # =====================================================
 
-from crewai_tools import TavilySearchTool
+def build_search_tools():
+    if not os.getenv("TAVILY_API_KEY"):
+        print("Warning: TAVILY_API_KEY is not set; Tavily search disabled.")
+        return []
 
-search_tool = TavilySearchTool()
+    try:
+        from crewai_tools import TavilySearchTool
+    except ImportError:
+        print("Warning: crewai_tools.TavilySearchTool is unavailable; Tavily search disabled.")
+        return []
+
+    try:
+        return [TavilySearchTool()]
+    except Exception as exc:
+        print(f"Warning: TavilySearchTool initialization failed; Tavily search disabled. Details: {exc}")
+        return []
+
+
+search_tools = build_search_tools()
 
 market_agent = Agent(
     role="Market Analyst",
     goal="Analyze market trends using real-time search data.",
     backstory="Expert in global markets and AI business strategy.",
-    tools=[search_tool],
+    tools=search_tools,
     llm=llm,
     verbose=True
 )
