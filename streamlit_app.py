@@ -2574,6 +2574,37 @@ def inject_custom_css() -> None:
             font-weight: 780;
         }
 
+        .subscription-mobile-card {
+            display: none;
+        }
+
+        .subscription-desktop-metrics {
+            display: grid;
+            gap: 0.5rem;
+        }
+
+        .subscription-desktop-metric {
+            background: #FFFFFF;
+            border: 1px solid var(--hub-border);
+            border-radius: 8px;
+            padding: 14px 16px;
+        }
+
+        .subscription-desktop-label {
+            color: #475569 !important;
+            font-size: 14px;
+            font-weight: 650;
+            line-height: 1.25;
+            margin-bottom: 4px;
+        }
+
+        .subscription-desktop-value {
+            color: #0F172A !important;
+            font-size: 24px;
+            font-weight: 780;
+            line-height: 1.25;
+        }
+
         .hub-mobile-tabs {
             display: none;
             margin: 8px 0 14px;
@@ -2648,11 +2679,60 @@ def inject_custom_css() -> None:
             .mobile-guide-card,
             [data-testid="stExpander"],
             div[data-testid="stVerticalBlockBorderWrapper"],
-            [data-testid="stMetric"],
             .hub-result-body {
                 padding: 16px !important;
                 margin-top: 20px !important;
                 margin-bottom: 20px !important;
+            }
+
+            .subscription-desktop-metrics {
+                display: none !important;
+            }
+
+            .subscription-mobile-card {
+                background: #FFFFFF;
+                border: 1px solid #E2E8F0;
+                border-radius: 12px;
+                box-sizing: border-box;
+                color: #475569 !important;
+                display: block;
+                margin: 8px 0 14px;
+                max-height: 110px;
+                min-height: 0;
+                overflow: hidden;
+                padding: 12px;
+            }
+
+            .subscription-mobile-card * {
+                color: #475569 !important;
+            }
+
+            .subscription-mobile-title {
+                color: #0F172A !important;
+                font-size: 15px;
+                font-weight: 800;
+                line-height: 1.15;
+                margin-bottom: 6px;
+            }
+
+            .subscription-mobile-line {
+                color: #475569 !important;
+                font-size: 12px;
+                font-weight: 650;
+                line-height: 1.25;
+                margin: 2px 0;
+            }
+
+            .subscription-mobile-renewal {
+                color: #475569 !important;
+                font-size: 12px;
+                line-height: 1.25;
+                margin-top: 5px;
+            }
+
+            .subscription-mobile-renewal strong {
+                color: #0F172A !important;
+                font-weight: 800;
             }
 
             .status-card-native {
@@ -3015,17 +3095,40 @@ def render_subscription_summary() -> None:
         st.error("Could not load subscription details.")
         return
 
+    request_usage = f'{usage["current_request_count"]} / {format_limit(usage["monthly_request_limit"])}'
+    document_usage = f'{usage["current_document_count"]} / {format_limit(usage["monthly_document_limit"])}'
+    renewal_date = format_renewal_date(usage["subscription_end"])
+
     st.markdown("#### Subscription")
-    st.metric("Plan", usage["subscription_tier"])
-    st.metric(
-        "Usage",
-        f'{usage["current_request_count"]} / {format_limit(usage["monthly_request_limit"])}',
+    st.markdown(
+        f"""
+        <div class="subscription-desktop-metrics">
+            <div class="subscription-desktop-metric">
+                <div class="subscription-desktop-label">Plan</div>
+                <div class="subscription-desktop-value">{escape(str(usage["subscription_tier"]))}</div>
+            </div>
+            <div class="subscription-desktop-metric">
+                <div class="subscription-desktop-label">Usage</div>
+                <div class="subscription-desktop-value">{escape(request_usage)}</div>
+            </div>
+            <div class="subscription-desktop-metric">
+                <div class="subscription-desktop-label">Documents</div>
+                <div class="subscription-desktop-value">{escape(document_usage)}</div>
+            </div>
+            <div class="subscription-desktop-metric">
+                <div class="subscription-desktop-label">Renewal Date</div>
+                <div class="subscription-desktop-value">{escape(renewal_date)}</div>
+            </div>
+        </div>
+        <div class="subscription-mobile-card">
+            <div class="subscription-mobile-title">{escape(str(usage["subscription_tier"]))}</div>
+            <div class="subscription-mobile-line">{escape(request_usage)} Requests</div>
+            <div class="subscription-mobile-line">{escape(document_usage)} Documents</div>
+            <div class="subscription-mobile-renewal">Renews:<br><strong>{escape(renewal_date)}</strong></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
-    st.metric(
-        "Documents",
-        f'{usage["current_document_count"]} / {format_limit(usage["monthly_document_limit"])}',
-    )
-    st.metric("Renewal Date", format_renewal_date(usage["subscription_end"]))
 
 
 def render_user_limit_summary() -> None:
