@@ -2269,6 +2269,37 @@ def inject_custom_css() -> None:
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
+        .mobile-guide-wrapper {
+            display: block;
+        }
+
+        .mobile-guide-card {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 16px;
+            color: #0F172A !important;
+            margin-bottom: 12px;
+            padding: 16px;
+        }
+
+        .mobile-guide-title {
+            color: #0F172A !important;
+            font-size: 1rem;
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+
+        .mobile-guide-text {
+            color: #475569 !important;
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+
+        .mobile-guide-step {
+            color: #2563EB !important;
+            font-weight: 800;
+        }
+
         .hub-section-title {
             color: #0F172A !important;
             font-size: 19px;
@@ -2367,6 +2398,10 @@ def inject_custom_css() -> None:
                 display: block;
             }
 
+            .mobile-guide-wrapper {
+                display: block;
+            }
+
             .status-card-native {
                 min-height: auto;
             }
@@ -2422,6 +2457,46 @@ def render_hero() -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_mobile_guide() -> None:
+    steps = [
+        (
+            "1",
+            "Open the sidebar",
+            "Tap the arrow/menu on the left to access tools.",
+        ),
+        (
+            "2",
+            "Choose a tool",
+            "Use Prompt Library, Form Builder, Document Intelligence, Automation Intelligence, or Executive Intelligence.",
+        ),
+        (
+            "3",
+            "Generate your request",
+            "Load a template or generate a professional prompt.",
+        ),
+        (
+            "4",
+            "Submit and download",
+            "Run the analysis, then download the PDF report.",
+        ),
+    ]
+    with st.expander("📱 Mobile Quick Guide", expanded=False):
+        for step_number, title, text in steps:
+            st.markdown(
+                f"""
+                <div class="mobile-guide-wrapper">
+                    <div class="mobile-guide-card">
+                        <div class="mobile-guide-title">
+                            <span class="mobile-guide-step">{step_number}.</span> {title}
+                        </div>
+                        <div class="mobile-guide-text">{text}</div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
 
 def render_status_cards() -> None:
@@ -2974,6 +3049,7 @@ if "query" not in st.session_state:
 prompt_store.initialize_prompt_store()
 
 render_hero()
+render_mobile_guide()
 render_mobile_navigation_tabs()
 render_status_cards()
 
