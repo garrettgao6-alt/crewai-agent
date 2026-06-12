@@ -212,8 +212,20 @@ STAGE_OF_WORKS_OPTIONS = [
 ]
 
 
-def field(name: str, key: str, field_type: str = "text_input", options: list[str] | None = None) -> dict:
-    return {"name": name, "key": key, "type": field_type, "options": options or []}
+def field(
+    name: str,
+    key: str,
+    field_type: str = "text_input",
+    options: list[str] | None = None,
+    placeholder: str = "",
+) -> dict:
+    return {
+        "name": name,
+        "key": key,
+        "type": field_type,
+        "options": options or [],
+        "placeholder": placeholder,
+    }
 
 
 AUTOMATION_TOOLS = [
@@ -268,10 +280,10 @@ FORM_LIBRARY = {
             "name": "Market Research",
             "fields": [
                 field("Industry", "industry", "selectbox", INDUSTRY_OPTIONS),
-                field("Region / Country", "region_country"),
-                field("Target Customers", "target_customers"),
-                field("Product / Service", "product_service"),
-                field("Market Segment", "market_segment"),
+                field("Region / Country", "region_country", placeholder="e.g. Australia, New Zealand, United States"),
+                field("Target Customers", "target_customers", placeholder="e.g. Residential builders, developers, contractors"),
+                field("Product / Service", "product_service", placeholder="e.g. Construction project management platform"),
+                field("Market Segment", "market_segment", placeholder="e.g. Residential Construction"),
                 field("Business Stage", "business_stage", "selectbox", BUSINESS_STAGE_OPTIONS),
                 field(
                     "Research Focus",
@@ -2134,10 +2146,54 @@ def inject_custom_css() -> None:
         [data-testid="stSelectbox"] *,
         [data-testid="stTextInput"] *,
         [data-testid="stTextArea"] *,
+        [data-testid="stNumberInput"] *,
         [data-testid="stFileUploader"] *,
         [data-testid="stMultiSelect"] *,
         [data-testid="stRadio"] * {
             color: #0F172A !important;
+        }
+
+        .stTextInput input,
+        .stTextArea textarea,
+        .stNumberInput input,
+        [data-testid="stTextInput"] input,
+        [data-testid="stTextArea"] textarea,
+        [data-testid="stNumberInput"] input {
+            background: #FFFFFF !important;
+            border: 1px solid #CBD5E1 !important;
+            border-radius: 12px !important;
+            color: #0F172A !important;
+            min-height: 44px;
+            padding: 10px 12px !important;
+        }
+
+        .stTextInput input:hover,
+        .stTextArea textarea:hover,
+        .stNumberInput input:hover,
+        [data-testid="stTextInput"] input:hover,
+        [data-testid="stTextArea"] textarea:hover,
+        [data-testid="stNumberInput"] input:hover {
+            border: 1px solid #2563EB !important;
+        }
+
+        .stTextInput input:focus,
+        .stTextArea textarea:focus,
+        .stNumberInput input:focus,
+        [data-testid="stTextInput"] input:focus,
+        [data-testid="stTextArea"] textarea:focus,
+        [data-testid="stNumberInput"] input:focus {
+            border: 2px solid #2563EB !important;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15) !important;
+        }
+
+        .stTextInput input::placeholder,
+        .stTextArea textarea::placeholder,
+        .stNumberInput input::placeholder,
+        [data-testid="stTextInput"] input::placeholder,
+        [data-testid="stTextArea"] textarea::placeholder,
+        [data-testid="stNumberInput"] input::placeholder {
+            color: #94A3B8 !important;
+            opacity: 1 !important;
         }
 
         div[data-testid="stButton"] > button,
@@ -2435,6 +2491,16 @@ def inject_custom_css() -> None:
 
             textarea {
                 min-height: 220px !important;
+            }
+
+            .stTextInput input,
+            .stTextArea textarea,
+            .stNumberInput input,
+            [data-testid="stTextInput"] input,
+            [data-testid="stTextArea"] textarea,
+            [data-testid="stNumberInput"] input {
+                min-height: 48px;
+                width: 100%;
             }
 
             [data-testid="stExpander"] {
@@ -2965,6 +3031,7 @@ def render_form_builder() -> None:
                     form_field["name"],
                     key=widget_key,
                     height=80,
+                    placeholder=form_field.get("placeholder", ""),
                 )
             elif field_type == "selectbox":
                 values[form_field["key"]] = st.selectbox(
@@ -2982,6 +3049,7 @@ def render_form_builder() -> None:
                 values[form_field["key"]] = st.text_input(
                     form_field["name"],
                     key=widget_key,
+                    placeholder=form_field.get("placeholder", ""),
                 )
 
         if st.form_submit_button("Generate Professional Prompt", use_container_width=True):
