@@ -9,8 +9,11 @@ The gateway classifies each user request as `market`, `technical`, or `writing`,
 ```text
 crewai-agent/
 ├── .env.example              # Example local environment configuration
+├── .dockerignore             # Docker build exclusions
 ├── .github/workflows/ci.yml  # GitHub Actions CI
+├── Dockerfile                # FastAPI container image definition
 ├── agents.py                 # Agent factory definitions
+├── api.py                    # FastAPI HTTP gateway
 ├── config.py                 # Environment, LLM, and Tavily setup
 ├── intelligent_gateway.py    # Recommended CLI entry point
 ├── gateway.py                # Legacy simple keyword gateway
@@ -85,6 +88,48 @@ This entry point:
 - classifies each request before choosing a specialist agent
 - falls back to the writing agent if routing fails
 - returns a friendly error if the specialist LLM call fails
+
+Run the FastAPI gateway locally:
+
+```bash
+uvicorn api:app --host 0.0.0.0 --port 8000
+```
+
+Health check:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+Analyze request:
+
+```bash
+curl -X POST http://127.0.0.1:8000/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"query":"用户问题"}'
+```
+
+## Docker
+
+Build the image:
+
+```bash
+docker build -t crewai-agent .
+```
+
+Run the container with local environment variables:
+
+```bash
+docker run --env-file .env -p 8000:8000 crewai-agent
+```
+
+Check the container health endpoint:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+The Docker build excludes `.env`, local virtual environments, caches, and git metadata through `.dockerignore`.
 
 ## Tests
 
