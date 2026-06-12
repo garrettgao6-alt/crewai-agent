@@ -171,7 +171,7 @@ Clicking `Generate Prompt` updates `st.session_state.query`; the user can still 
 
 ## Document Analysis
 
-Document Analysis reads uploaded files in the Streamlit sidebar and generates a document-specific analysis prompt.
+Document Analysis reads uploaded files in the Streamlit sidebar and generates a document-specific analysis prompt. Each analysis type uses its own professional report structure instead of a shared generic checklist.
 
 Supported formats:
 
