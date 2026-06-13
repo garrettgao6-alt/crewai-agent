@@ -8,6 +8,7 @@ import time
 import requests
 import streamlit as st
 
+from copilot import run_copilot
 import project_store
 import prompt_store
 import subscription_store
@@ -19,8 +20,32 @@ API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/analyze")
 REQUEST_TIMEOUT_SECONDS = 60
 VERSION = "1.0"
 HISTORY_LIMIT = 10
+DEFAULT_NAV = "Dashboard"
+DEFAULT_SECTION = "dashboard"
+COPILOT_SESSION_CALL_LIMIT = 50
 DOCUMENT_TEXT_LIMIT = 12000
 DOCUMENT_TOTAL_TEXT_LIMIT = 30000
+NAVIGATION_OPTIONS = [
+    "Dashboard",
+    "Documents",
+    "Agents",
+    "Automations",
+    "Logs",
+    "Billing",
+    "Settings",
+]
+NAVIGATION_TO_SECTION = {
+    "Dashboard": DEFAULT_SECTION,
+    "Documents": "documents",
+    "Agents": "ai",
+    "Automations": "automations",
+    "Logs": "logs",
+    "Billing": "billing",
+    "Settings": "settings",
+}
+SECTION_ALIASES = {
+    "workspace": DEFAULT_SECTION,
+}
 DOCUMENT_ANALYSIS_TYPES = [
     "Contract Review",
     "Tender Review",
@@ -1951,14 +1976,9 @@ def run_copilot_request(user_input: str) -> str:
         raise RuntimeError("OPENAI_API_KEY is not configured.")
 
     try:
-        import config
-
-        llm = config.create_llm()
-        response = llm.invoke(user_input)
+        return run_copilot(user_input)
     except Exception as exc:
         raise RuntimeError("AI Copilot request failed.") from exc
-
-    return str(getattr(response, "content", response))
 
 
 def save_history_entry(
@@ -3542,6 +3562,15 @@ def consume_ai_request_or_warn() -> bool:
     return True
 
 
+def enforce_copilot_rate_limit() -> None:
+    if "copilot_calls" not in st.session_state:
+        st.session_state.copilot_calls = 0
+
+    if st.session_state.copilot_calls > COPILOT_SESSION_CALL_LIMIT:
+        st.error("Usage limit reached. Upgrade required.")
+        st.stop()
+
+
 def consume_document_analysis_or_warn() -> bool:
     can_use, message = subscription_store.can_use_document_analysis(get_current_user_id())
     if not can_use:
@@ -3632,22 +3661,20 @@ def render_user_limit_summary() -> None:
     st.caption(f"Users: {active_users} / {max_users_label}")
 
 
-def set_active_section(section: str, documents_view: str | None = None) -> None:
-    st.session_state.active_section = section
-    section_to_navigation = {
-        "workspace": "Dashboard",
-        "documents": "Documents",
-        "ai": "Agents",
-        "automations": "Automations",
-        "logs": "Logs",
-        "billing": "Billing",
-        "settings": "Settings",
-    }
-    if section in section_to_navigation:
-        st.session_state.nav_selected = section_to_navigation[section]
-        st.session_state.last_nav_selected = section_to_navigation[section]
+def normalize_section(section: str | None) -> str:
+    normalized = SECTION_ALIASES.get(section or "", section or DEFAULT_SECTION)
+    valid_sections = set(NAVIGATION_TO_SECTION.values()) | {"projects", "marketplace"}
+    if normalized not in valid_sections:
+        return DEFAULT_SECTION
+    return normalized
+
+
+def set_active_section(section: str, documents_view: str | None = None) -> str:
+    normalized_section = normalize_section(section)
+    st.session_state.active_section = normalized_section
     if documents_view is not None:
         st.session_state.documents_view = documents_view
+    return normalized_section
 
 
 def get_active_project() -> dict | None:
@@ -4234,16 +4261,23 @@ def render_ai_copilot_panel() -> None:
         cleaned_input = user_input.strip()
         if not cleaned_input:
             st.warning("Enter a question first.")
-        elif not consume_ai_request_or_warn():
-            pass
         else:
-            try:
-                with st.spinner("Running copilot..."):
-                    started_at = time.perf_counter()
+            enforce_copilot_rate_limit()
+            if not consume_ai_request_or_warn():
+                return
+
+            with st.spinner("Running copilot..."):
+                started_at = time.perf_counter()
+                try:
                     response_text = run_copilot_request(cleaned_input)
-                    elapsed_seconds = time.perf_counter() - started_at
-            except RuntimeError as exc:
-                st.error(str(exc))
+                except Exception as exc:
+                    response_text = f"Error: {str(exc)}"
+                finally:
+                    st.session_state.copilot_calls += 1
+                elapsed_seconds = time.perf_counter() - started_at
+
+            if response_text.startswith("Error:"):
+                st.error(response_text)
             else:
                 payload = {
                     "category": "copilot",
@@ -4801,67 +4835,40 @@ if not st.session_state.authenticated:
     render_auth_page()
     st.stop()
 
-if "history" not in st.session_state:
-    st.session_state.history = []
+DEFAULTS = {
+    "nav_selected": DEFAULT_NAV,
+    "active_section": DEFAULT_SECTION,
+    "history": [],
+    "selected_history": None,
+    "query": "",
+    "documents_view": "document",
+    "active_project_id": None,
+    "copilot_calls": 0,
+}
 
-if "selected_history" not in st.session_state:
-    st.session_state.selected_history = None
-
-if "query" not in st.session_state:
-    st.session_state.query = ""
-
-if "active_section" not in st.session_state:
-    st.session_state.active_section = "workspace"
-
-if "documents_view" not in st.session_state:
-    st.session_state.documents_view = "document"
-
-if "active_project_id" not in st.session_state:
-    st.session_state.active_project_id = None
+for key, value in DEFAULTS.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
 
 prompt_store.initialize_prompt_store()
 
-NAVIGATION_TO_SECTION = {
-    "Dashboard": "workspace",
-    "Documents": "documents",
-    "Agents": "ai",
-    "Automations": "automations",
-    "Logs": "logs",
-    "Billing": "billing",
-    "Settings": "settings",
-}
-SECTION_TO_NAVIGATION = {
-    section: navigation for navigation, section in NAVIGATION_TO_SECTION.items()
-}
-
-if "nav_selected" not in st.session_state:
-    st.session_state.nav_selected = SECTION_TO_NAVIGATION.get(
-        st.session_state.active_section,
-        "Dashboard",
-    )
+st.session_state.active_section = normalize_section(st.session_state.get("active_section"))
 
 if "last_nav_selected" not in st.session_state:
-    st.session_state.last_nav_selected = st.session_state.nav_selected
+    st.session_state.last_nav_selected = st.session_state.get("nav_selected", DEFAULT_NAV)
 
 with st.sidebar:
     st.markdown("## Gao Intelligence Hub")
 
     selected = st.radio(
         "Navigation",
-        [
-            "Dashboard",
-            "Documents",
-            "Agents",
-            "Automations",
-            "Logs",
-            "Billing",
-            "Settings",
-        ],
+        NAVIGATION_OPTIONS,
         key="nav_selected",
     )
+    section = NAVIGATION_TO_SECTION[selected]
 
     if selected != st.session_state.last_nav_selected:
-        set_active_section(NAVIGATION_TO_SECTION[selected])
+        set_active_section(section)
         st.session_state.last_nav_selected = selected
         st.rerun()
 
@@ -4878,7 +4885,7 @@ main_column, copilot_column = st.columns([3, 1])
 
 with main_column:
     active_section = st.session_state.active_section
-    if active_section == "workspace":
+    if active_section == DEFAULT_SECTION:
         render_workspace()
     elif active_section == "documents":
         render_documents_page()
@@ -4897,7 +4904,7 @@ with main_column:
     elif active_section == "settings":
         render_settings()
     else:
-        st.session_state.active_section = "workspace"
+        st.session_state.active_section = DEFAULT_SECTION
         render_workspace()
 
 with copilot_column:
