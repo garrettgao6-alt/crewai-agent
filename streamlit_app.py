@@ -26,8 +26,7 @@ API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/analyze")
 REQUEST_TIMEOUT_SECONDS = 60
 VERSION = "1.0"
 HISTORY_LIMIT = 10
-DEFAULT_NAV = "Dashboard"
-DEFAULT_SECTION = "dashboard"
+DEFAULT_SECTION = "Dashboard"
 COOKIE_PREFIX = "gao_app"
 COOKIE_USER_ID_KEY = "user_id"
 COPILOT_SESSION_CALL_LIMIT = 50
@@ -40,22 +39,20 @@ NAVIGATION_OPTIONS = [
     "Reports",
     "Settings",
 ]
-NAVIGATION_TO_SECTION = {
-    "Dashboard": DEFAULT_SECTION,
-    "Copilot": "copilot",
-    "Documents": "documents",
-    "Reports": "reports",
-    "Settings": "settings",
-}
 SECTION_TO_NAVIGATION = {
-    section: label
-    for label, section in NAVIGATION_TO_SECTION.items()
+    section: section
+    for section in NAVIGATION_OPTIONS
 }
 SECTION_ALIASES = {
     "workspace": DEFAULT_SECTION,
-    "upload": "documents",
-    "ai": "copilot",
-    "logs": "reports",
+    "dashboard": DEFAULT_SECTION,
+    "upload": "Documents",
+    "documents": "Documents",
+    "ai": "Copilot",
+    "copilot": "Copilot",
+    "logs": "Reports",
+    "reports": "Reports",
+    "settings": "Settings",
 }
 NAVIGATION_ICONS = {
     "Dashboard": "□",
@@ -3960,9 +3957,7 @@ def set_authenticated_user(user: dict, reset_navigation: bool = True) -> None:
     st.session_state.username = user["username"]
     st.session_state.role = user["role"]
     if reset_navigation:
-        st.session_state.active_section = DEFAULT_SECTION
-        st.session_state.nav_selected = DEFAULT_NAV
-        st.session_state.last_nav_selected = DEFAULT_NAV
+        st.session_state["active_section"] = DEFAULT_SECTION
 
 
 def clear_authenticated_user() -> None:
@@ -4346,18 +4341,14 @@ def responsive_columns(count: int):
 
 def normalize_section(section: str | None) -> str:
     normalized = SECTION_ALIASES.get(section or "", section or DEFAULT_SECTION)
-    valid_sections = set(NAVIGATION_TO_SECTION.values())
-    if normalized not in valid_sections:
+    if normalized not in NAVIGATION_OPTIONS:
         return DEFAULT_SECTION
     return normalized
 
 
 def set_active_section(section: str, documents_view: str | None = None) -> str:
     normalized_section = normalize_section(section)
-    st.session_state.active_section = normalized_section
-    if normalized_section in SECTION_TO_NAVIGATION:
-        st.session_state.nav_selected = SECTION_TO_NAVIGATION[normalized_section]
-        st.session_state.last_nav_selected = st.session_state.nav_selected
+    st.session_state["active_section"] = normalized_section
     if documents_view is not None:
         st.session_state.documents_view = documents_view
     return normalized_section
@@ -4466,16 +4457,16 @@ def render_project_view(project: dict) -> None:
 
     st.markdown('<div class="workspace-section-title">Quick Actions</div>', unsafe_allow_html=True)
     if st.button("Analyze Document", key="project_analyze_document", use_container_width=True):
-        set_active_section("documents")
+        set_active_section("Documents")
         st.rerun()
     if st.button("Build Prompt", key="project_build_prompt", use_container_width=True):
-        set_active_section("copilot")
+        set_active_section("Copilot")
         st.rerun()
     if st.button("Create Automation", key="project_create_automation", use_container_width=True):
-        set_active_section("copilot")
+        set_active_section("Copilot")
         st.rerun()
     if st.button("Executive Analysis", key="project_executive_analysis", use_container_width=True):
-        set_active_section("copilot")
+        set_active_section("Copilot")
         st.rerun()
 
     render_project_history(project["id"])
@@ -4533,28 +4524,28 @@ def render_workspace() -> None:
             "Documents",
             "Index project documents into the ingestion pipeline.",
             "quick_analyze_document",
-            "documents",
+            "Documents",
             None,
         ),
         (
             "Copilot",
             "Ask the AI workspace about project documents and strategy.",
             "quick_upload_file",
-            "copilot",
+            "Copilot",
             None,
         ),
         (
             "Reports",
             "Review structured outputs and saved deliverables.",
             "quick_run_agent",
-            "reports",
+            "Reports",
             None,
         ),
         (
             "Settings",
             "Review account, usage, and workspace configuration.",
             "quick_view_logs",
-            "settings",
+            "Settings",
             None,
         ),
     ]
@@ -4571,7 +4562,7 @@ def render_workspace() -> None:
                 unsafe_allow_html=True,
             )
             if st.button(title, key=key, use_container_width=True):
-                if section in ("documents", "copilot") and not require_active_project():
+                if section in ("Documents", "Copilot") and not require_active_project():
                     return
                 set_active_section(section, documents_view)
                 st.rerun()
@@ -5005,7 +4996,7 @@ def render_logs() -> None:
                 use_container_width=True,
             ):
                 st.session_state.selected_history = entry
-                set_active_section("ai")
+                set_active_section("Copilot")
                 st.rerun()
     else:
         st.caption("No history yet.")
@@ -5701,7 +5692,6 @@ if not st.session_state.get("is_logged_in"):
     st.stop()
 
 DEFAULTS = {
-    "nav_selected": DEFAULT_NAV,
     "active_section": DEFAULT_SECTION,
     "history": [],
     "selected_history": None,
@@ -5718,33 +5708,22 @@ for key, value in DEFAULTS.items():
 
 prompt_store.initialize_prompt_store()
 
-st.session_state.active_section = normalize_section(st.session_state.get("active_section"))
-if st.session_state.get("nav_selected") not in NAVIGATION_OPTIONS:
-    st.session_state.nav_selected = SECTION_TO_NAVIGATION.get(
-        st.session_state.active_section,
-        DEFAULT_NAV,
-    )
-
-if "last_nav_selected" not in st.session_state:
-    st.session_state.last_nav_selected = st.session_state.get("nav_selected", DEFAULT_NAV)
-elif st.session_state.last_nav_selected not in NAVIGATION_OPTIONS:
-    st.session_state.last_nav_selected = st.session_state.nav_selected
+st.session_state["active_section"] = normalize_section(st.session_state.get("active_section"))
+if st.session_state.get("nav_selected") != st.session_state["active_section"]:
+    st.session_state.pop("nav_selected", None)
 
 with st.sidebar:
     st.markdown("## Gao Intelligence Hub")
 
-    selected = st.radio(
+    navigation_options = list(SECTION_TO_NAVIGATION.values())
+    st.selectbox(
         "Navigation",
-        NAVIGATION_OPTIONS,
+        options=navigation_options,
+        index=navigation_options.index(st.session_state["active_section"]),
         key="nav_selected",
         format_func=lambda option: f"{NAVIGATION_ICONS[option]} {option}",
     )
-    section = NAVIGATION_TO_SECTION[selected]
-
-    if selected != st.session_state.last_nav_selected:
-        set_active_section(section)
-        st.session_state.last_nav_selected = selected
-        st.rerun()
+    st.session_state["active_section"] = st.session_state["nav_selected"]
 
     current_user = st.session_state.current_user or {}
     st.caption(f"Logged in as: {st.session_state.username or current_user.get('username', 'User')}")
@@ -5757,17 +5736,17 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-active_section = st.session_state.active_section
+active_section = st.session_state["active_section"]
 if active_section == DEFAULT_SECTION:
     render_workspace()
-elif active_section == "documents":
+elif active_section == "Documents":
     render_upload_page()
-elif active_section == "copilot":
+elif active_section == "Copilot":
     render_ai_copilot_panel()
-elif active_section == "reports":
+elif active_section == "Reports":
     render_reports_page()
-elif active_section == "settings":
+elif active_section == "Settings":
     render_settings()
 else:
-    st.session_state.active_section = DEFAULT_SECTION
+    st.session_state["active_section"] = DEFAULT_SECTION
     render_workspace()
