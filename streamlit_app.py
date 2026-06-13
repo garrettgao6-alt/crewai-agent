@@ -7,6 +7,7 @@ import time
 import requests
 import streamlit as st
 
+import project_store
 import prompt_store
 import subscription_store
 import user_store
@@ -3073,6 +3074,7 @@ def clear_authenticated_user() -> None:
     st.session_state.user_id = None
     st.session_state.username = None
     st.session_state.role = None
+    st.session_state.active_project_id = None
     st.session_state.selected_history = None
 
 
@@ -3272,6 +3274,134 @@ def set_active_section(section: str, documents_view: str | None = None) -> None:
         st.session_state.documents_view = documents_view
 
 
+def get_active_project() -> dict | None:
+    active_project_id = st.session_state.get("active_project_id")
+    if active_project_id is None:
+        return None
+    try:
+        return project_store.get_project(int(active_project_id), get_current_user_id())
+    except (ValueError, project_store.ProjectStoreError):
+        return None
+
+
+def require_active_project() -> bool:
+    if get_active_project() is None:
+        st.warning("Please create or select a project first.")
+        return False
+    return True
+
+
+def add_active_project_history(action_type: str, content: str) -> None:
+    active_project = get_active_project()
+    if active_project is None:
+        return
+    try:
+        project_store.add_project_history(active_project["id"], action_type, content)
+    except (ValueError, project_store.ProjectStoreError):
+        st.warning("Project history could not be saved.")
+
+
+def render_new_project_form() -> None:
+    with st.expander("New Project", expanded=False):
+        with st.form("new_project_form"):
+            project_name = st.text_input("Project Name", key="new_project_name")
+            project_description = st.text_area("Description", key="new_project_description", height=90)
+            submitted = st.form_submit_button("Create Project", type="primary", use_container_width=True)
+
+        if submitted:
+            try:
+                project = project_store.create_project(
+                    get_current_user_id(),
+                    project_name,
+                    project_description,
+                )
+            except ValueError as exc:
+                st.error(str(exc))
+            except project_store.ProjectStoreError:
+                st.error("Could not create project right now.")
+            else:
+                st.session_state.active_project_id = project["id"]
+                st.session_state.active_section = "projects"
+                st.rerun()
+
+
+def render_projects_list(title: str = "Recent Projects") -> None:
+    st.markdown(f'<div class="workspace-section-title">{escape(title)}</div>', unsafe_allow_html=True)
+    try:
+        projects = project_store.list_projects(get_current_user_id())
+    except project_store.ProjectStoreError:
+        st.error("Could not load projects.")
+        return
+
+    if not projects:
+        st.caption("No projects yet.")
+        return
+
+    for project in projects:
+        project_label = project["name"]
+        if project.get("description"):
+            project_label = f'{project_label} - {project["description"]}'
+        if st.button(project_label, key=f'project_select_{project["id"]}', use_container_width=True):
+            st.session_state.active_project_id = project["id"]
+            st.session_state.active_section = "projects"
+            st.rerun()
+
+
+def render_project_history(project_id: int) -> None:
+    st.markdown('<div class="workspace-section-title">History Timeline</div>', unsafe_allow_html=True)
+    try:
+        history_items = project_store.list_project_history(project_id)
+    except project_store.ProjectStoreError:
+        st.error("Could not load project history.")
+        return
+
+    if not history_items:
+        st.caption("No project history yet.")
+        return
+
+    for item in history_items:
+        st.markdown(
+            f'<div class="workspace-activity-item">{escape(item["content"])}</div>',
+            unsafe_allow_html=True,
+        )
+
+
+def render_project_view(project: dict) -> None:
+    st.markdown(
+        f"""
+        <div class="workspace-title">{escape(project["name"])}</div>
+        <div class="workspace-subtitle">{escape(project.get("description") or "No description")}</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown('<div class="workspace-section-title">Quick Actions</div>', unsafe_allow_html=True)
+    if st.button("Analyze Document", key="project_analyze_document", use_container_width=True):
+        set_active_section("documents", "document")
+        st.rerun()
+    if st.button("Build Prompt", key="project_build_prompt", use_container_width=True):
+        set_active_section("ai")
+        st.rerun()
+    if st.button("Create Automation", key="project_create_automation", use_container_width=True):
+        set_active_section("automations")
+        st.rerun()
+    if st.button("Executive Analysis", key="project_executive_analysis", use_container_width=True):
+        set_active_section("documents", "executive")
+        st.rerun()
+
+    render_project_history(project["id"])
+
+
+def render_projects_page() -> None:
+    active_project = get_active_project()
+    if active_project is not None:
+        render_project_view(active_project)
+        st.markdown('<div class="workspace-section-title">Projects</div>', unsafe_allow_html=True)
+
+    render_new_project_form()
+    render_projects_list("Projects List")
+
+
 def render_workspace() -> None:
     current_user = st.session_state.current_user or {}
     username = st.session_state.username or current_user.get("username", "User")
@@ -3285,17 +3415,28 @@ def render_workspace() -> None:
 
     st.markdown('<div class="workspace-section-title">Quick Actions</div>', unsafe_allow_html=True)
     if st.button("Analyze Document", key="quick_analyze_document", use_container_width=True):
+        if not require_active_project():
+            return
         set_active_section("documents", "document")
         st.rerun()
     if st.button("Build Prompt", key="quick_build_prompt", use_container_width=True):
+        if not require_active_project():
+            return
         set_active_section("ai")
         st.rerun()
     if st.button("Create Automation", key="quick_create_automation", use_container_width=True):
+        if not require_active_project():
+            return
         set_active_section("automations")
         st.rerun()
     if st.button("Executive Analysis", key="quick_executive_analysis", use_container_width=True):
+        if not require_active_project():
+            return
         set_active_section("documents", "executive")
         st.rerun()
+
+    render_new_project_form()
+    render_projects_list()
 
     st.markdown('<div class="workspace-section-title">Recent Activity</div>', unsafe_allow_html=True)
     st.markdown(
@@ -3351,13 +3492,22 @@ def render_prompt_library() -> None:
     selected_prompt_id = prompt_options[selected_prompt_name]
 
     if st.button("Load Prompt Template", use_container_width=True):
+        if not require_active_project():
+            return
         selected_prompt = prompt_store.get_prompt(selected_prompt_id)
         if selected_prompt:
             st.session_state.query = selected_prompt["content"]
+            add_active_project_history("prompt", f"Prompt generated: {selected_prompt['name']}")
 
 
 def render_ai_request_panel() -> None:
     st.markdown('<div class="hub-section-title">AI Workspace</div>', unsafe_allow_html=True)
+    active_project = get_active_project()
+    if active_project is None:
+        st.warning("Please create or select a project first.")
+        return
+    st.caption(f'Project: {active_project["name"]}')
+
     with st.container(border=True):
         mode = st.radio(
             "Routing Mode",
@@ -3384,6 +3534,8 @@ def render_ai_request_panel() -> None:
 
         if not cleaned_query:
             st.warning("Please enter a request.")
+        elif not require_active_project():
+            pass
         elif not consume_ai_request_or_warn():
             pass
         else:
@@ -3406,6 +3558,7 @@ def render_ai_request_panel() -> None:
                     payload,
                     elapsed_seconds,
                 )
+                add_active_project_history("ai", f"Prompt generated: {cleaned_query[:80]}")
 
     if display_entry:
         display_result(display_entry)
@@ -3413,6 +3566,12 @@ def render_ai_request_panel() -> None:
 
 def render_documents_page() -> None:
     st.markdown('<div class="workspace-title">Documents</div>', unsafe_allow_html=True)
+    active_project = get_active_project()
+    if active_project is None:
+        st.warning("Please create or select a project first.")
+        return
+    st.caption(f'Project: {active_project["name"]}')
+
     view_options = ["document", "executive"]
     selected_view = st.radio(
         "Documents View",
@@ -3431,6 +3590,11 @@ def render_documents_page() -> None:
 
 def render_automation_page() -> None:
     st.markdown('<div class="workspace-title">Automations</div>', unsafe_allow_html=True)
+    active_project = get_active_project()
+    if active_project is None:
+        st.warning("Please create or select a project first.")
+        return
+    st.caption(f'Project: {active_project["name"]}')
     render_automation_intelligence()
 
 
@@ -3737,6 +3901,8 @@ def render_document_analysis() -> None:
             st.warning("Please upload a document first.")
         elif read_failed:
             st.error("Could not generate a prompt because the uploaded file could not be read.")
+        elif not require_active_project():
+            return
         elif not consume_document_analysis_or_warn():
             return
         else:
@@ -3746,6 +3912,7 @@ def render_document_analysis() -> None:
                 truncated_text,
                 truncated,
             )
+            add_active_project_history("document", f"Document analyzed: {uploaded_file.name}")
 
 
 def render_project_intelligence_review() -> None:
@@ -3808,6 +3975,8 @@ def render_project_intelligence_review() -> None:
             st.warning("Please upload at least one project document first.")
         elif not documents:
             st.error("No uploaded project documents could be read.")
+        elif not require_active_project():
+            return
         elif not consume_document_analysis_or_warn():
             return
         else:
@@ -3820,12 +3989,15 @@ def render_project_intelligence_review() -> None:
                 ready_documents,
                 ready_total_truncated,
             )
+            add_active_project_history("document", f"Document analyzed: {review_type}")
 
     if st.button("Run Executive Agent Team", use_container_width=True):
         if not uploaded_files:
             st.warning("Please upload at least one project document first.")
         elif not documents:
             st.error("No uploaded project documents could be read.")
+        elif not require_active_project():
+            return
         elif not consume_executive_agent_usage_or_warn():
             return
         else:
@@ -3866,6 +4038,7 @@ def render_project_intelligence_review() -> None:
                 elapsed_seconds,
                 {"agent_mode": agent_mode},
             )
+            add_active_project_history("executive", f"Executive analysis: {review_type}")
 
 
 def render_form_builder() -> None:
@@ -3920,7 +4093,10 @@ def render_form_builder() -> None:
                 )
 
         if st.form_submit_button("Generate Professional Prompt", use_container_width=True):
+            if not require_active_project():
+                return
             st.session_state.query = build_prompt_from_form(selected_form, values)
+            add_active_project_history("prompt", f"Prompt generated: {selected_form_name}")
 
 
 def render_automation_intelligence() -> None:
@@ -3973,7 +4149,10 @@ def render_automation_intelligence() -> None:
                 )
 
         if st.form_submit_button("Generate Automation Blueprint", use_container_width=True):
+            if not require_active_project():
+                return
             st.session_state.query = build_automation_prompt(selected_automation, values)
+            add_active_project_history("automation", f"Automation created: {selected_automation_name}")
 
 
 st.set_page_config(page_title="Gao Intelligence Hub", page_icon=":material/hub:")
@@ -3984,6 +4163,13 @@ try:
 except user_store.UserStoreError:
     render_auth_page()
     st.error("Could not start the user database. Please contact the administrator.")
+    st.stop()
+
+try:
+    project_store.initialize_project_store()
+except project_store.ProjectStoreError:
+    render_auth_page()
+    st.error("Could not start the project database. Please contact the administrator.")
     st.stop()
 
 if not st.session_state.authenticated:
@@ -4005,6 +4191,9 @@ if "active_section" not in st.session_state:
 if "documents_view" not in st.session_state:
     st.session_state.documents_view = "document"
 
+if "active_project_id" not in st.session_state:
+    st.session_state.active_project_id = None
+
 prompt_store.initialize_prompt_store()
 
 with st.sidebar:
@@ -4018,6 +4207,9 @@ with st.sidebar:
         st.rerun()
     if st.button("📄 Documents", use_container_width=True):
         set_active_section("documents", "document")
+        st.rerun()
+    if st.button("📁 Projects", use_container_width=True):
+        set_active_section("projects")
         st.rerun()
     if st.button("⚡ Automations", use_container_width=True):
         set_active_section("automations")
@@ -4038,6 +4230,8 @@ if active_section == "workspace":
     render_workspace()
 elif active_section == "documents":
     render_documents_page()
+elif active_section == "projects":
+    render_projects_page()
 elif active_section == "automations":
     render_automation_page()
 elif active_section == "ai":
