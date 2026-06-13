@@ -9,7 +9,9 @@ import requests
 import streamlit as st
 
 from copilot_core import run_copilot
+from core.document_pipeline import process_document
 from core.router import init_vectors
+from core.vector_store import add_chunks, build_context, clear_store, format_sources, get_last_retrieval
 import project_store
 import prompt_store
 import subscription_store
@@ -4263,31 +4265,42 @@ def render_ai_copilot_panel() -> None:
         key="copilot_input",
         height=180,
     )
-    uploaded_file = st.file_uploader(
-        "Upload document",
+    uploaded_files = st.file_uploader(
+        "Upload documents",
         type=["pdf", "txt"],
         key="copilot_document_upload",
+        accept_multiple_files=True,
+    )
+    document_type = st.selectbox(
+        "Document type",
+        ["Auto-detect", "NCC", "Business"],
+        key="copilot_document_type",
     )
     if st.button("Run AI", key="copilot_run_ai", use_container_width=True):
         cleaned_input = user_input.strip()
-        file_text = ""
         document_read_failed = False
+        indexed_chunks = 0
 
-        if uploaded_file:
-            try:
-                file_text = extract_uploaded_document_text(
-                    uploaded_file.name,
-                    uploaded_file.getvalue(),
-                )
-                file_text, truncated = truncate_document_text(file_text)
-                if truncated:
-                    st.warning(f"Document content was truncated to first {DOCUMENT_TEXT_LIMIT} characters.")
-            except Exception as exc:
-                document_read_failed = True
-                st.error(f"Could not read uploaded document: {exc}")
+        if uploaded_files:
+            clear_store()
+            selected_document_type = None
+            if document_type != "Auto-detect":
+                selected_document_type = document_type.lower()
 
-        if not cleaned_input and not file_text:
-            st.warning("Enter a question or upload a document first.")
+            for uploaded_file in uploaded_files:
+                try:
+                    chunks = process_document(
+                        uploaded_file.name,
+                        uploaded_file.getvalue(),
+                        selected_document_type,
+                    )
+                    indexed_chunks += add_chunks(chunks)
+                except Exception as exc:
+                    document_read_failed = True
+                    st.error(f"Could not index {uploaded_file.name}: {exc}")
+
+        if not cleaned_input:
+            st.warning("Enter a question first.")
         elif document_read_failed:
             return
         else:
@@ -4295,18 +4308,10 @@ def render_ai_copilot_panel() -> None:
             if not consume_ai_request_or_warn():
                 return
 
-            prompt = cleaned_input
-            if file_text:
-                prompt = (
-                    "Analyze the following document:\n"
-                    f"{file_text}\n\n"
-                    f"User question:\n{cleaned_input or 'Provide a concise analysis.'}"
-                )
-
             with st.spinner("Analyzing..."):
                 started_at = time.perf_counter()
                 try:
-                    response_text = run_copilot_request(prompt)
+                    response_text = run_copilot_request(cleaned_input)
                 except Exception as exc:
                     response_text = f"Error: {str(exc)}"
                 finally:
@@ -4322,7 +4327,7 @@ def render_ai_copilot_panel() -> None:
                     "result": response_text,
                     "version": VERSION,
                 }
-                display_query = cleaned_input or f"Document analysis: {uploaded_file.name}"
+                display_query = cleaned_input
                 save_history_entry(display_query, "Copilot", payload, elapsed_seconds)
                 st.session_state.copilot_history.append(
                     {
@@ -4333,6 +4338,15 @@ def render_ai_copilot_panel() -> None:
                 st.session_state.copilot_history = st.session_state.copilot_history[-3:]
                 st.markdown("### Result")
                 st.write(response_text)
+                if indexed_chunks:
+                    st.caption(f"Indexed {indexed_chunks} document chunks.")
+
+                retrieved_chunks = get_last_retrieval()
+                if retrieved_chunks:
+                    st.markdown("### Sources Used")
+                    st.write(format_sources(retrieved_chunks))
+                    with st.expander("Extracted context"):
+                        st.write(build_context(retrieved_chunks))
 
 
 def display_result(entry: dict) -> None:

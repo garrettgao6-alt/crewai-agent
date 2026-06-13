@@ -3,6 +3,7 @@ from core.memory import Memory
 from core.planner import plan_tasks
 from core.router import route_task
 from core.types import AgentExecutor
+from core.vector_store import build_context, format_sources, retrieve
 
 
 memory = Memory()
@@ -14,17 +15,30 @@ TASK_DESCRIPTIONS = {
 }
 
 
-def build_task_prompt(task: str, prompt: str) -> str:
+def build_task_prompt(task: str, prompt: str, context: str = "", sources: str = "") -> str:
     task_description = TASK_DESCRIPTIONS.get(task, task)
     history = memory.get(5)
+    resolved_context = context or "Insufficient data"
+    resolved_sources = sources or "No retrieved sources"
     return f"""Task: {task}
 Instruction: {task_description}
+
+Context:
+{resolved_context}
 
 User request:
 {prompt}
 
 Conversation history:
 {history}
+
+You must ONLY use the provided context.
+If not enough information, say 'Insufficient data'.
+
+Output format:
+Answer
+Sources:
+{resolved_sources}
 """
 
 
@@ -33,18 +47,28 @@ def format_task_section(task: str, result: str) -> str:
     return f"--- {section_title} ---\n[Task: {task}]\n{result}"
 
 
+def ensure_citations(result: str, sources: str) -> str:
+    if not sources or "Sources:" in result:
+        return result
+    return f"{result}\n\nSources:\n{sources}"
+
+
 def run_engine(prompt: str, agent_executor: AgentExecutor) -> str:
     memory.add("user", prompt)
 
     tasks = plan_tasks(prompt)
+    retrieved_chunks = retrieve(prompt)
+    context = build_context(retrieved_chunks)
+    sources = format_sources(retrieved_chunks)
 
     responses = []
 
     for task in tasks:
         domain = route_task(task)
 
-        task_prompt = build_task_prompt(task, prompt)
+        task_prompt = build_task_prompt(task, prompt, context, sources)
         result = agent_executor(domain, task_prompt)
+        result = ensure_citations(result, sources)
 
         responses.append(format_task_section(task, result))
 

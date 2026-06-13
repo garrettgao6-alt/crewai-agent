@@ -13,3 +13,4 @@ openpyxl
 reportlab
 bcrypt
 numpy
+PyPDF2

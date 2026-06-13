@@ -3,11 +3,13 @@ from unittest.mock import patch
 from types import SimpleNamespace
 
 import copilot_core
+from core.document_pipeline import chunk_text, process_document
 from core.critic import review_output
-from core.engine import build_task_prompt, memory, run_engine
+from core.engine import build_task_prompt, ensure_citations, memory, run_engine
 from core.planner import plan_tasks
 import core.planner as planner
 import core.router as embedding_router
+import core.vector_store as vector_store
 from core.router import route_task
 from router import detect_intent
 
@@ -75,6 +77,7 @@ class CopilotDispatcherTests(unittest.TestCase):
 class CoreEngineTests(unittest.TestCase):
     def setUp(self):
         memory.clear()
+        vector_store.clear_store()
 
     def test_planner_breaks_prompt_into_tasks(self):
         with patch.object(planner, "_get_client", side_effect=RuntimeError("offline")):
@@ -130,38 +133,19 @@ class CoreEngineTests(unittest.TestCase):
 
         result = run_engine("Analyze risk and strategy", executor)
 
-        self.assertEqual(
-            calls,
-            [
-                (
-                    "construction",
-                    "Task: analysis\n"
-                    "Instruction: Perform detailed analysis\n\n"
-                    "User request:\n"
-                    "Analyze risk and strategy\n\n"
-                    "Conversation history:\n"
-                    "[{'role': 'user', 'content': 'Analyze risk and strategy'}]\n",
-                ),
-                (
-                    "construction",
-                    "Task: risk\n"
-                    "Instruction: Identify and assess risks\n\n"
-                    "User request:\n"
-                    "Analyze risk and strategy\n\n"
-                    "Conversation history:\n"
-                    "[{'role': 'user', 'content': 'Analyze risk and strategy'}]\n",
-                ),
-                (
-                    "business",
-                    "Task: strategy\n"
-                    "Instruction: Provide strategic recommendations\n\n"
-                    "User request:\n"
-                    "Analyze risk and strategy\n\n"
-                    "Conversation history:\n"
-                    "[{'role': 'user', 'content': 'Analyze risk and strategy'}]\n",
-                ),
-            ],
-        )
+        self.assertEqual([domain for domain, _prompt in calls], ["construction", "construction", "business"])
+        self.assertIn("Task: analysis", calls[0][1])
+        self.assertIn("Instruction: Perform detailed analysis", calls[0][1])
+        self.assertIn("Task: risk", calls[1][1])
+        self.assertIn("Instruction: Identify and assess risks", calls[1][1])
+        self.assertIn("Task: strategy", calls[2][1])
+        self.assertIn("Instruction: Provide strategic recommendations", calls[2][1])
+        for _domain, task_prompt in calls:
+            self.assertIn("Context:\nInsufficient data", task_prompt)
+            self.assertIn("You must ONLY use the provided context.", task_prompt)
+            self.assertIn("If not enough information, say 'Insufficient data'.", task_prompt)
+            self.assertIn("Sources:\nNo retrieved sources", task_prompt)
+            self.assertIn("Analyze risk and strategy", task_prompt)
         self.assertIn("--- Analysis ---\n[Task: analysis]", result)
         self.assertIn("--- Risk ---\n[Task: risk]", result)
         self.assertIn("--- Strategy ---\n[Task: strategy]", result)
@@ -175,15 +159,15 @@ class CoreEngineTests(unittest.TestCase):
         self.assertEqual(memory.get(2)[1]["role"], "assistant")
 
     def test_build_task_prompt_uses_focused_task_context(self):
-        self.assertEqual(
-            build_task_prompt("risk", "Analyze risk and strategy"),
-            "Task: risk\n"
-            "Instruction: Identify and assess risks\n\n"
-            "User request:\n"
-            "Analyze risk and strategy\n\n"
-            "Conversation history:\n"
-            "[]\n",
-        )
+        task_prompt = build_task_prompt("risk", "Analyze risk and strategy")
+
+        self.assertIn("Task: risk", task_prompt)
+        self.assertIn("Instruction: Identify and assess risks", task_prompt)
+        self.assertIn("Context:\nInsufficient data", task_prompt)
+        self.assertIn("User request:\nAnalyze risk and strategy", task_prompt)
+        self.assertIn("Conversation history:\n[]", task_prompt)
+        self.assertIn("You must ONLY use the provided context.", task_prompt)
+        self.assertIn("Sources:\nNo retrieved sources", task_prompt)
 
     def test_memory_persists_across_engine_runs(self):
         def executor(domain, prompt):
@@ -201,6 +185,106 @@ class CoreEngineTests(unittest.TestCase):
 
     def test_critic_marks_short_outputs(self):
         self.assertEqual(review_output("short"), "short\n\n[Critic]: Response may be too short.")
+
+    def test_engine_enforces_citations_when_sources_exist(self):
+        self.assertEqual(
+            ensure_citations("Answer\nUse the NCC clause.", "[1] ncc.txt"),
+            "Answer\nUse the NCC clause.\n\nSources:\n[1] ncc.txt",
+        )
+
+
+class RagSystemTests(unittest.TestCase):
+    def setUp(self):
+        memory.clear()
+        vector_store.clear_store()
+
+    def test_chunk_text_uses_size_bounds_and_overlap(self):
+        text = " ".join(f"word{i}" for i in range(500))
+
+        chunks = chunk_text(text)
+
+        self.assertGreater(len(chunks), 1)
+        self.assertTrue(all(len(chunk) <= 1000 for chunk in chunks))
+        self.assertTrue(all(len(chunk) >= 500 for chunk in chunks[:-1]))
+        overlap_terms = set(chunks[0][-100:].split()) & set(chunks[1][:140].split())
+        self.assertGreaterEqual(len(overlap_terms), 5)
+
+    def test_process_txt_document_preserves_metadata(self):
+        text = ("National Construction Code fire safety compliance " * 30).encode("utf-8")
+
+        chunks = process_document("ncc-guide.txt", text)
+
+        self.assertGreaterEqual(len(chunks), 1)
+        self.assertEqual(chunks[0]["metadata"]["source"], "ncc-guide.txt")
+        self.assertEqual(chunks[0]["metadata"]["type"], "ncc")
+
+    def test_retrieve_filters_by_metadata_and_formats_sources(self):
+        chunks = [
+            {
+                "text": "NCC compliance requires fire safety provisions for exits.",
+                "metadata": {"source": "ncc.txt", "type": "ncc"},
+            },
+            {
+                "text": "Revenue growth strategy includes pricing and retention.",
+                "metadata": {"source": "business.txt", "type": "business"},
+            },
+        ]
+
+        with patch.object(
+            vector_store,
+            "embed_text",
+            side_effect=[
+                vector_store.np.array([1.0, 0.0]),
+                vector_store.np.array([0.0, 1.0]),
+                vector_store.np.array([1.0, 0.0]),
+            ],
+        ):
+            vector_store.add_chunks(chunks)
+            retrieved = vector_store.retrieve("NCC fire exits", filter_type="ncc")
+
+        self.assertEqual(len(retrieved), 1)
+        self.assertEqual(retrieved[0]["metadata"]["source"], "ncc.txt")
+        self.assertIn("NCC compliance", vector_store.build_context(retrieved))
+        self.assertEqual(vector_store.format_sources(retrieved), "[1] ncc.txt")
+
+    def test_rerank_can_use_gpt_ranked_indexes(self):
+        chunks = [
+            {"text": "Less relevant", "metadata": {"source": "a.txt", "type": "business"}},
+            {"text": "Most relevant revenue strategy", "metadata": {"source": "b.txt", "type": "business"}},
+        ]
+        fake_response = SimpleNamespace(output_text='{"ranked_indexes": [1, 0]}')
+        fake_client = SimpleNamespace(
+            responses=SimpleNamespace(
+                create=lambda **_kwargs: fake_response,
+            ),
+        )
+
+        with patch.object(vector_store, "_get_client", return_value=fake_client):
+            ranked = vector_store.rerank("revenue strategy", chunks)
+
+        self.assertEqual(ranked[0]["metadata"]["source"], "b.txt")
+
+    def test_engine_includes_retrieved_context_and_sources(self):
+        vector_store.store.append(
+            {
+                "text": "NCC fire exits must satisfy compliant egress provisions.",
+                "embedding": vector_store.np.array([1.0, 0.0]),
+                "metadata": {"source": "ncc.txt", "type": "ncc"},
+            }
+        )
+        calls = []
+
+        def executor(domain, prompt):
+            calls.append((domain, prompt))
+            return "Answer\nNCC egress provisions apply.\nSources:\n[1] ncc.txt"
+
+        with patch.object(vector_store, "embed_text", return_value=vector_store.np.array([1.0, 0.0])):
+            result = run_engine("Analyze NCC fire exits", executor)
+
+        self.assertIn("Context:\nNCC fire exits must satisfy compliant egress provisions.", calls[0][1])
+        self.assertIn("Sources:\n[1] ncc.txt", calls[0][1])
+        self.assertIn("Answer", result)
+        self.assertIn("[1] ncc.txt", result)
 
 
 if __name__ == "__main__":
