@@ -13,3 +13,5 @@ users.db
 projects.db
 templates.db
 memory.db
+chroma_db/
+tmp_chroma_probe/

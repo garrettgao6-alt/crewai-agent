@@ -16,5 +16,5 @@ def agent_executor(domain, prompt):
     return run_general_agent(prompt)
 
 
-def run_copilot(prompt: str) -> str:
-    return run_engine(prompt, agent_executor)
+def run_copilot(prompt: str, user_id: str = "default") -> str:
+    return run_engine(prompt, agent_executor, user_id=user_id)

@@ -288,8 +288,8 @@ class RagSystemTests(unittest.TestCase):
             ),
         )
 
-        with patch.object(vector_store, "_get_client", return_value=fake_client):
-            ranked = vector_store.rerank("revenue strategy", chunks)
+        with patch.object(retriever, "_get_client", return_value=fake_client):
+            ranked = retriever.rerank("revenue strategy", chunks)
 
         self.assertEqual(ranked[0]["metadata"]["source"], "b.txt")
 
@@ -341,13 +341,6 @@ class RagSystemTests(unittest.TestCase):
         self.assertEqual(ranked[0]["metadata"]["source"], "b.txt")
 
     def test_engine_includes_retrieved_context_and_sources(self):
-        vector_store.store.append(
-            {
-                "text": "NCC fire exits must satisfy compliant egress provisions.",
-                "embedding": vector_store.np.array([1.0, 0.0]),
-                "metadata": {"source": "ncc.txt", "type": "ncc"},
-            }
-        )
         calls = []
 
         def executor(domain, prompt):
@@ -355,12 +348,45 @@ class RagSystemTests(unittest.TestCase):
             return "Answer\nNCC egress provisions apply.\nSources:\n[1] ncc.txt"
 
         with patch.object(vector_store, "embed_text", return_value=vector_store.np.array([1.0, 0.0])):
+            vector_store.add_documents(
+                "default",
+                ["NCC fire exits must satisfy compliant egress provisions."],
+                [{"source": "ncc.txt", "type": "ncc"}],
+            )
             result = run_engine("Analyze NCC fire exits", executor)
 
         self.assertIn("Context:\nNCC fire exits must satisfy compliant egress provisions.", calls[0][1])
         self.assertIn("Sources:\n[1] ncc.txt", calls[0][1])
         self.assertIn("Answer", result)
         self.assertIn("[1] ncc.txt", result)
+
+    def test_chroma_collections_isolate_users(self):
+        with patch.object(
+            vector_store,
+            "embed_text",
+            side_effect=[
+                vector_store.np.array([1.0, 0.0]),
+                vector_store.np.array([0.0, 1.0]),
+                vector_store.np.array([1.0, 0.0]),
+                vector_store.np.array([1.0, 0.0]),
+            ],
+        ):
+            vector_store.add_documents(
+                "user_a",
+                ["NCC user A fire exit compliance content."],
+                [{"source": "a-ncc.txt", "type": "ncc"}],
+            )
+            vector_store.add_documents(
+                "user_b",
+                ["Business user B revenue strategy content."],
+                [{"source": "b-business.txt", "type": "business"}],
+            )
+
+            user_a_results = vector_store.search("user_a", "fire exit compliance")
+            user_b_results = vector_store.search("user_b", "fire exit compliance")
+
+        self.assertEqual(user_a_results, ["NCC user A fire exit compliance content."])
+        self.assertEqual(user_b_results, ["Business user B revenue strategy content."])
 
 
 if __name__ == "__main__":

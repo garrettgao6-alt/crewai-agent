@@ -4,6 +4,7 @@ import os
 from datetime import timedelta
 from xml.sax.saxutils import escape
 import time
+from uuid import uuid4
 
 import requests
 import streamlit as st
@@ -11,7 +12,7 @@ import streamlit as st
 from copilot_core import run_copilot
 from core.document_pipeline import process_document
 from core.router import init_vectors
-from core.vector_store import add_chunks, build_context, clear_store, format_sources, get_last_retrieval
+from core.vector_store import add_documents, build_context, clear_store, format_sources, get_last_retrieval
 import project_store
 import prompt_store
 import subscription_store
@@ -1966,7 +1967,7 @@ def run_advanced_mode(query: str) -> dict:
     return response.json()
 
 
-def run_copilot_request(user_input: str) -> str:
+def run_copilot_request(user_input: str, user_id: str = "default") -> str:
     if not os.getenv("OPENAI_API_KEY"):
         try:
             import config
@@ -1979,7 +1980,7 @@ def run_copilot_request(user_input: str) -> str:
         raise RuntimeError("OPENAI_API_KEY is not configured.")
 
     try:
-        return run_copilot(user_input)
+        return run_copilot(user_input, user_id=user_id)
     except Exception as exc:
         raise RuntimeError("AI Copilot request failed.") from exc
 
@@ -3381,7 +3382,7 @@ def initialize_auth_state() -> None:
     if "current_user" not in st.session_state:
         st.session_state.current_user = None
     if "user_id" not in st.session_state:
-        st.session_state.user_id = None
+        st.session_state.user_id = str(uuid4())
     if "username" not in st.session_state:
         st.session_state.username = None
     if "role" not in st.session_state:
@@ -3392,7 +3393,7 @@ def set_authenticated_user(user: dict) -> None:
     st.session_state.authenticated = True
     st.session_state["user"] = user
     st.session_state.current_user = user
-    st.session_state.user_id = user["id"]
+    st.session_state.user_id = str(user["id"])
     st.session_state.username = user["username"]
     st.session_state.role = user["role"]
 
@@ -3401,7 +3402,7 @@ def clear_authenticated_user() -> None:
     st.session_state.authenticated = False
     st.session_state["user"] = None
     st.session_state.current_user = None
-    st.session_state.user_id = None
+    st.session_state.user_id = str(uuid4())
     st.session_state.username = None
     st.session_state.role = None
     st.session_state.active_project_id = None
@@ -4280,9 +4281,10 @@ def render_ai_copilot_panel() -> None:
         cleaned_input = user_input.strip()
         document_read_failed = False
         indexed_chunks = 0
+        rag_user_id = str(st.session_state.get("user_id") or "default")
 
         if uploaded_files:
-            clear_store()
+            clear_store(rag_user_id)
             selected_document_type = None
             if document_type != "Auto-detect":
                 selected_document_type = document_type.lower()
@@ -4294,7 +4296,11 @@ def render_ai_copilot_panel() -> None:
                         uploaded_file.getvalue(),
                         selected_document_type,
                     )
-                    indexed_chunks += add_chunks(chunks)
+                    indexed_chunks += add_documents(
+                        rag_user_id,
+                        [chunk["text"] for chunk in chunks],
+                        [chunk["metadata"] for chunk in chunks],
+                    )
                 except Exception as exc:
                     document_read_failed = True
                     st.error(f"Could not index {uploaded_file.name}: {exc}")
@@ -4311,7 +4317,7 @@ def render_ai_copilot_panel() -> None:
             with st.spinner("Analyzing..."):
                 started_at = time.perf_counter()
                 try:
-                    response_text = run_copilot_request(cleaned_input)
+                    response_text = run_copilot_request(cleaned_input, user_id=rag_user_id)
                 except Exception as exc:
                     response_text = f"Error: {str(exc)}"
                 finally:

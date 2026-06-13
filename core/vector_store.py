@@ -1,18 +1,39 @@
 import hashlib
-import json
-from collections import Counter
+import os
+import re
 
+import chromadb
 import numpy as np
 from openai import OpenAI
 
 
 EMBEDDING_MODEL = "text-embedding-3-large"
-store: list[dict] = []
+CHROMA_DB_PATH = os.getenv("CHROMA_DB_PATH", "./chroma_db")
+DEFAULT_USER_ID = "default"
+
+client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
 last_retrieval: list[dict] = []
 
 
 def _get_client() -> OpenAI:
     return OpenAI()
+
+
+def _collection_name(user_id: str) -> str:
+    safe_user_id = re.sub(r"[^a-zA-Z0-9_-]", "_", str(user_id))
+    return f"user_{safe_user_id or DEFAULT_USER_ID}"
+
+
+def get_collection(user_id: str):
+    return client.get_or_create_collection(
+        name=_collection_name(user_id),
+        metadata={"hnsw:space": "cosine"},
+    )
+
+
+def persist() -> None:
+    if hasattr(client, "persist"):
+        client.persist()
 
 
 def _fallback_embedding(text: str, dimensions: int = 256) -> np.ndarray:
@@ -27,8 +48,8 @@ def _fallback_embedding(text: str, dimensions: int = 256) -> np.ndarray:
 
 def embed_text(text: str) -> np.ndarray:
     try:
-        client = _get_client()
-        response = client.embeddings.create(
+        openai_client = _get_client()
+        response = openai_client.embeddings.create(
             model=EMBEDDING_MODEL,
             input=text,
         )
@@ -44,10 +65,31 @@ def cosine_sim(a, b) -> float:
     return float(np.dot(a, b) / denominator)
 
 
-def clear_store() -> None:
+def _document_id(user_id: str, text: str, metadata: dict, index: int) -> str:
+    source = metadata.get("source", "")
+    doc_type = metadata.get("type", "")
+    digest = hashlib.sha256(f"{user_id}|{source}|{doc_type}|{index}|{text}".encode("utf-8")).hexdigest()
+    return f"id_{digest[:24]}"
+
+
+def clear_store(user_id: str | None = None) -> None:
     global last_retrieval
-    store.clear()
+    if user_id is not None:
+        collection_name = _collection_name(user_id)
+        try:
+            client.delete_collection(collection_name)
+        except Exception:
+            pass
+    else:
+        for collection in client.list_collections():
+            collection_name = getattr(collection, "name", collection)
+            if str(collection_name).startswith("user_"):
+                try:
+                    client.delete_collection(str(collection_name))
+                except Exception:
+                    pass
     last_retrieval = []
+    persist()
 
 
 def set_last_retrieval(chunks: list[dict]) -> None:
@@ -55,96 +97,89 @@ def set_last_retrieval(chunks: list[dict]) -> None:
     last_retrieval = chunks
 
 
-def add_chunks(chunks: list[dict]) -> int:
-    for chunk in chunks:
-        text = chunk["text"]
-        store.append(
-            {
-                "text": text,
-                "embedding": embed_text(text),
-                "metadata": chunk["metadata"],
-            }
-        )
+def add_documents(user_id, chunks, metadatas):
+    if not chunks:
+        return 0
+
+    collection = get_collection(str(user_id))
+    embeddings = [embed_text(chunk).tolist() for chunk in chunks]
+    ids = [
+        _document_id(str(user_id), chunk, metadatas[index], index)
+        for index, chunk in enumerate(chunks)
+    ]
+
+    collection.upsert(
+        documents=chunks,
+        metadatas=metadatas,
+        embeddings=embeddings,
+        ids=ids,
+    )
+    persist()
     return len(chunks)
 
 
-def _candidate_chunks(filter_type=None) -> list[dict]:
-    if filter_type is None:
-        return store
-    return [item for item in store if item["metadata"].get("type") == filter_type]
+def add_chunks(chunks: list[dict], user_id: str = DEFAULT_USER_ID) -> int:
+    documents = [chunk["text"] for chunk in chunks]
+    metadatas = [chunk["metadata"] for chunk in chunks]
+    return add_documents(user_id, documents, metadatas)
 
 
-def _fallback_rerank(query: str, chunks: list[dict]) -> list[dict]:
-    query_terms = Counter(query.lower().split())
+def _results_to_chunks(results: dict) -> list[dict]:
+    documents = results.get("documents", [[]])[0] or []
+    metadatas = results.get("metadatas", [[]])[0] or []
+    distances = results.get("distances", [[]])[0] or []
 
-    def lexical_score(chunk: dict) -> int:
-        chunk_terms = Counter(chunk["text"].lower().split())
-        return sum(min(count, chunk_terms.get(term, 0)) for term, count in query_terms.items())
-
-    return sorted(chunks, key=lexical_score, reverse=True)
-
-
-def rerank(query: str, chunks: list[dict]) -> list[dict]:
-    if len(chunks) <= 1:
-        return chunks
-
-    try:
-        client = _get_client()
-        chunk_payload = [
+    chunks = []
+    for index, text in enumerate(documents):
+        distance = distances[index] if index < len(distances) else None
+        score = 1 - distance if isinstance(distance, (int, float)) else 0
+        chunks.append(
             {
-                "index": index,
-                "source": chunk["metadata"].get("source", ""),
-                "type": chunk["metadata"].get("type", ""),
-                "text": chunk["text"],
+                "text": text,
+                "metadata": metadatas[index] if index < len(metadatas) and metadatas[index] else {},
+                "score": score,
             }
-            for index, chunk in enumerate(chunks)
-        ]
-        response = client.responses.create(
-            model="gpt-4o-mini",
-            input=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Rank these chunks based on relevance to the query. "
-                        "Return JSON only: {\"ranked_indexes\": [0, 1]}"
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": f"Query: {query}\n\nChunks:\n{json.dumps(chunk_payload)}",
-                },
-            ],
-            temperature=0,
         )
-        ranked_indexes = json.loads(response.output_text).get("ranked_indexes", [])
-        ranked_chunks = []
-        seen = set()
-        for index in ranked_indexes:
-            if isinstance(index, int) and 0 <= index < len(chunks) and index not in seen:
-                ranked_chunks.append(chunks[index])
-                seen.add(index)
-        ranked_chunks.extend(chunk for index, chunk in enumerate(chunks) if index not in seen)
-        return ranked_chunks
-    except Exception:
-        return _fallback_rerank(query, chunks)
+    return chunks
 
 
-def retrieve(query, top_k=5, filter_type=None):
-    global last_retrieval
-    candidates = _candidate_chunks(filter_type)
-    if not candidates:
-        last_retrieval = []
+def search(user_id, query, top_k=5, filter_type=None):
+    collection = get_collection(str(user_id))
+    if collection.count() == 0:
         return []
+    where = {"type": filter_type} if filter_type else None
+    query_embedding = embed_text(query).tolist()
 
-    query_embedding = embed_text(query)
-    scored_chunks = []
-    for item in candidates:
-        scored_item = item.copy()
-        scored_item["score"] = cosine_sim(query_embedding, item["embedding"])
-        scored_chunks.append(scored_item)
+    results = collection.query(
+        query_embeddings=[query_embedding],
+        n_results=top_k,
+        where=where,
+        include=["documents", "metadatas", "distances"],
+    )
 
-    top_candidates = sorted(scored_chunks, key=lambda item: item["score"], reverse=True)[: max(top_k * 3, top_k)]
-    last_retrieval = rerank(query, top_candidates)[:top_k]
+    return results["documents"][0] if results.get("documents") else []
+
+
+def search_chunks(user_id, query, top_k=5, filter_type=None):
+    collection = get_collection(str(user_id))
+    if collection.count() == 0:
+        return []
+    where = {"type": filter_type} if filter_type else None
+    query_embedding = embed_text(query).tolist()
+
+    results = collection.query(
+        query_embeddings=[query_embedding],
+        n_results=top_k,
+        where=where,
+        include=["documents", "metadatas", "distances"],
+    )
+
+    return _results_to_chunks(results)
+
+
+def retrieve(query, top_k=5, filter_type=None, user_id: str = DEFAULT_USER_ID):
+    global last_retrieval
+    last_retrieval = search_chunks(user_id, query, top_k=top_k, filter_type=filter_type)
     return last_retrieval
 
 

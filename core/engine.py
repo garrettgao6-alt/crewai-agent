@@ -53,11 +53,11 @@ def ensure_citations(result: str, sources: str) -> str:
     return f"{result}\n\nSources:\n{sources}"
 
 
-def run_engine(prompt: str, agent_executor: AgentExecutor) -> str:
+def run_engine(prompt: str, agent_executor: AgentExecutor, user_id: str = "default") -> str:
     memory.add("user", prompt)
 
     tasks = plan_tasks(prompt)
-    retrieval = retrieve_context(prompt)
+    retrieval = retrieve_context(prompt, user_id=user_id)
     context = retrieval["context"]
     sources = retrieval["sources"]
 

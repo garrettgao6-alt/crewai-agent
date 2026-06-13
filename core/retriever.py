@@ -59,7 +59,7 @@ def _dedupe_chunks(chunks: list[dict]) -> list[dict]:
     return unique_chunks
 
 
-def retrieve_multi(query, top_k=5, filter_type=None):
+def retrieve_multi(query, top_k=5, filter_type=None, user_id="default"):
     queries = generate_queries(query)
     if query not in queries:
         queries.insert(0, query)
@@ -67,7 +67,14 @@ def retrieve_multi(query, top_k=5, filter_type=None):
     results = []
 
     for generated_query in queries:
-        results.extend(retrieve(generated_query, top_k=top_k, filter_type=filter_type))
+        results.extend(
+            retrieve(
+                generated_query,
+                top_k=top_k,
+                filter_type=filter_type,
+                user_id=user_id,
+            )
+        )
 
     unique = _dedupe_chunks(results)
     set_last_retrieval(unique[:top_k])
@@ -131,8 +138,8 @@ Return sorted indices.
         return fallback
 
 
-def retrieve_context(query: str, top_k=5, filter_type=None):
-    retrieved = retrieve_multi(query, top_k=top_k, filter_type=filter_type)
+def retrieve_context(query: str, top_k=5, filter_type=None, user_id="default"):
+    retrieved = retrieve_multi(query, top_k=top_k, filter_type=filter_type, user_id=user_id)
     ranked = rerank(query, retrieved)[:top_k]
     set_last_retrieval(ranked)
     return {
