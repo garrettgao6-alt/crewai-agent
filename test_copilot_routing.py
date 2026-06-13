@@ -8,6 +8,7 @@ from core.critic import review_output
 from core.engine import build_task_prompt, ensure_citations, memory, run_engine
 from core.ncc_parser import clauses_to_documents, parse_ncc_clauses
 from core.planner import plan_tasks
+import core.reasoning as reasoning
 import core.planner as planner
 import core.retriever as retriever
 import core.router as embedding_router
@@ -457,26 +458,42 @@ class RagSystemTests(unittest.TestCase):
             "C3.2 Protection of openings Fire doors must protect openings."
         )
         documents, metadatas = clauses_to_documents(clauses, "ncc-2025.txt")
-        calls = []
 
         def executor(domain, prompt):
-            calls.append((domain, prompt))
-            return (
-                "Compliance Summary\nGrounded in C3.2.\n"
-                "Relevant Clauses\n* C3.2\n"
-                "Assessment\nCompliant if openings are protected.\n"
-                "Risk Level\nMedium"
-            )
+            raise AssertionError("Legal-mode NCC reasoning should not call domain agents.")
 
-        with patch.object(vector_store, "embed_text", return_value=vector_store.np.array([1.0, 0.0])):
+        reasoned_output = (
+            "Compliance Summary\nGrounded in C3.2.\n"
+            "Relevant Clauses\n* C3.2\n"
+            "Assessment\nCompliant if openings are protected.\n"
+            "Risk Level\nMedium"
+        )
+
+        with (
+            patch.object(vector_store, "embed_text", return_value=vector_store.np.array([1.0, 0.0])),
+            patch.object(reasoning, "_get_client") as mock_client,
+        ):
+            mock_client.return_value.responses.create.return_value = SimpleNamespace(output_text=reasoned_output)
             vector_store.add_ncc_documents("legal_user", documents, metadatas)
             result = run_engine("Is this compliant with NCC fire safety?", executor, user_id="legal_user")
 
-        self.assertIn("You are a construction compliance expert.", calls[0][1])
-        self.assertIn("only use provided NCC context", calls[0][1])
-        self.assertIn("C3.2", calls[0][1])
         self.assertIn("Compliance Summary", result)
         self.assertIn("C3.2", result)
+        self.assertIn("Sources:\n[1] C3.2", result)
+
+    def test_reasoning_prompt_combines_multiple_clauses(self):
+        prompt = reasoning.build_reasoning_prompt(
+            "Is this compliant with NCC fire safety?",
+            [
+                {"clause": "C3.2", "content": "Openings must be protected."},
+                {"clause": "C3.3", "content": "Fire separation must resist spread."},
+            ],
+        )
+
+        self.assertIn("C3.2 - Openings must be protected.", prompt)
+        self.assertIn("C3.3 - Fire separation must resist spread.", prompt)
+        self.assertIn("combine multiple clauses", prompt)
+        self.assertIn("identify conflicts", prompt)
 
 
 if __name__ == "__main__":

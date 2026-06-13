@@ -1,6 +1,7 @@
 from core.critic import review_output
 from core.memory import Memory
 from core.planner import plan_tasks
+from core.reasoning import run_multi_clause_reasoning
 from core.retriever import retrieve_context
 from core.router import route_task
 from core.types import AgentExecutor
@@ -87,6 +88,13 @@ def run_engine(prompt: str, agent_executor: AgentExecutor, user_id: str = "defau
     context = retrieval["context"]
     sources = retrieval["sources"]
     legal_mode = bool(retrieval.get("legal_mode"))
+
+    if legal_mode:
+        final_output = run_multi_clause_reasoning(prompt, retrieval.get("chunks", []))
+        final_output = ensure_citations(final_output, sources)
+        final_output = review_output(final_output)
+        memory.add("assistant", final_output)
+        return final_output
 
     responses = []
 
