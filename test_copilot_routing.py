@@ -1,10 +1,13 @@
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 
 import copilot_core
 from core.critic import review_output
 from core.engine import build_task_prompt, memory, run_engine
 from core.planner import plan_tasks
+import core.planner as planner
+import core.router as embedding_router
 from core.router import route_task
 from router import detect_intent
 
@@ -74,14 +77,49 @@ class CoreEngineTests(unittest.TestCase):
         memory.clear()
 
     def test_planner_breaks_prompt_into_tasks(self):
-        self.assertEqual(plan_tasks("Analyze risk and strategy"), ["analysis", "risk", "strategy"])
+        with patch.object(planner, "_get_client", side_effect=RuntimeError("offline")):
+            self.assertEqual(plan_tasks("Analyze risk and strategy"), ["analysis", "risk", "strategy"])
+
+    def test_gpt_planner_parses_multiple_tasks(self):
+        fake_response = SimpleNamespace(output_text='{"tasks": ["analysis", "risk", "strategy"]}')
+        fake_client = SimpleNamespace(
+            responses=SimpleNamespace(
+                create=lambda **_kwargs: fake_response,
+            ),
+        )
+
+        with patch.object(planner, "_get_client", return_value=fake_client):
+            self.assertEqual(plan_tasks("Analyze contract risk and give strategy"), ["analysis", "risk", "strategy"])
+
+    def test_revenue_prompt_falls_back_to_finance_task(self):
+        with patch.object(planner, "_get_client", side_effect=RuntimeError("offline")):
+            self.assertEqual(plan_tasks("How to increase revenue?"), ["finance"])
 
     def test_router_maps_tasks_to_domains(self):
-        self.assertEqual(route_task("analysis"), "construction")
-        self.assertEqual(route_task("risk"), "construction")
-        self.assertEqual(route_task("strategy"), "business")
-        self.assertEqual(route_task("finance"), "business")
-        self.assertEqual(route_task("unknown"), "general")
+        with patch.object(embedding_router, "init_vectors", return_value=False):
+            self.assertEqual(route_task("analysis"), "construction")
+            self.assertEqual(route_task("risk"), "construction")
+            self.assertEqual(route_task("strategy"), "business")
+            self.assertEqual(route_task("finance"), "business")
+            self.assertEqual(route_task("unknown"), "general")
+
+    def test_embedding_router_picks_best_domain(self):
+        embedding_router.DOMAIN_VECTORS["construction"] = embedding_router.np.array([1.0, 0.0])
+        embedding_router.DOMAIN_VECTORS["business"] = embedding_router.np.array([0.0, 1.0])
+        embedding_router.DOMAIN_VECTORS["general"] = embedding_router.np.array([0.1, 0.1])
+
+        fake_embedding = SimpleNamespace(data=[SimpleNamespace(embedding=[0.0, 0.9])])
+        fake_client = SimpleNamespace(
+            embeddings=SimpleNamespace(
+                create=lambda **_kwargs: fake_embedding,
+            ),
+        )
+
+        with (
+            patch.object(embedding_router, "init_vectors", return_value=True),
+            patch.object(embedding_router, "_get_client", return_value=fake_client),
+        ):
+            self.assertEqual(route_task("strategy"), "business")
 
     def test_engine_combines_multiple_task_outputs_and_stores_memory(self):
         calls = []
@@ -97,25 +135,40 @@ class CoreEngineTests(unittest.TestCase):
             [
                 (
                     "construction",
-                    "Perform detailed analysis\n\nUser request:\nAnalyze risk and strategy",
+                    "Task: analysis\n"
+                    "Instruction: Perform detailed analysis\n\n"
+                    "User request:\n"
+                    "Analyze risk and strategy\n\n"
+                    "Conversation history:\n"
+                    "[{'role': 'user', 'content': 'Analyze risk and strategy'}]\n",
                 ),
                 (
                     "construction",
-                    "Identify and assess risks\n\nUser request:\nAnalyze risk and strategy",
+                    "Task: risk\n"
+                    "Instruction: Identify and assess risks\n\n"
+                    "User request:\n"
+                    "Analyze risk and strategy\n\n"
+                    "Conversation history:\n"
+                    "[{'role': 'user', 'content': 'Analyze risk and strategy'}]\n",
                 ),
                 (
                     "business",
-                    "Provide strategic recommendations\n\nUser request:\nAnalyze risk and strategy",
+                    "Task: strategy\n"
+                    "Instruction: Provide strategic recommendations\n\n"
+                    "User request:\n"
+                    "Analyze risk and strategy\n\n"
+                    "Conversation history:\n"
+                    "[{'role': 'user', 'content': 'Analyze risk and strategy'}]\n",
                 ),
             ],
         )
         self.assertIn("--- Analysis ---\n[Task: analysis]", result)
         self.assertIn("--- Risk ---\n[Task: risk]", result)
         self.assertIn("--- Strategy ---\n[Task: strategy]", result)
-        self.assertIn("construction output for Perform detailed analysis", result)
-        self.assertIn("construction output for Identify and assess risks", result)
-        self.assertIn("business output for Provide strategic recommendations", result)
-        self.assertNotIn("construction output for Provide strategic recommendations", result)
+        self.assertIn("construction output for Task: analysis", result)
+        self.assertIn("construction output for Task: risk", result)
+        self.assertIn("business output for Task: strategy", result)
+        self.assertNotIn("construction output for Task: strategy", result)
         self.assertIn("construction output", result)
         self.assertIn("business output", result)
         self.assertEqual(memory.get(2)[0]["role"], "user")
@@ -124,8 +177,27 @@ class CoreEngineTests(unittest.TestCase):
     def test_build_task_prompt_uses_focused_task_context(self):
         self.assertEqual(
             build_task_prompt("risk", "Analyze risk and strategy"),
-            "Identify and assess risks\n\nUser request:\nAnalyze risk and strategy",
+            "Task: risk\n"
+            "Instruction: Identify and assess risks\n\n"
+            "User request:\n"
+            "Analyze risk and strategy\n\n"
+            "Conversation history:\n"
+            "[]\n",
         )
+
+    def test_memory_persists_across_engine_runs(self):
+        def executor(domain, prompt):
+            return f"{domain} response with enough detail to avoid short critic warning"
+
+        run_engine("Analyze contract risk and give strategy", executor)
+        run_engine("How to increase revenue?", executor)
+
+        history = memory.get(4)
+
+        self.assertEqual(history[0]["role"], "user")
+        self.assertIn("Analyze contract risk and give strategy", history[0]["content"])
+        self.assertEqual(history[2]["role"], "user")
+        self.assertIn("How to increase revenue?", history[2]["content"])
 
     def test_critic_marks_short_outputs(self):
         self.assertEqual(review_output("short"), "short\n\n[Critic]: Response may be too short.")

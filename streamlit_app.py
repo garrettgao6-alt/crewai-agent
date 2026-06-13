@@ -9,6 +9,7 @@ import requests
 import streamlit as st
 
 from copilot_core import run_copilot
+from core.router import init_vectors
 import project_store
 import prompt_store
 import subscription_store
@@ -4855,6 +4856,14 @@ st.set_page_config(
 )
 inject_custom_css()
 initialize_auth_state()
+try:
+    import config
+
+    config.load_environment()
+except Exception:
+    pass
+
+init_vectors()
 try:
     user_store.initialize_user_store()
 except user_store.UserStoreError:

@@ -16,7 +16,16 @@ TASK_DESCRIPTIONS = {
 
 def build_task_prompt(task: str, prompt: str) -> str:
     task_description = TASK_DESCRIPTIONS.get(task, task)
-    return f"{task_description}\n\nUser request:\n{prompt}"
+    history = memory.get(5)
+    return f"""Task: {task}
+Instruction: {task_description}
+
+User request:
+{prompt}
+
+Conversation history:
+{history}
+"""
 
 
 def format_task_section(task: str, result: str) -> str:
