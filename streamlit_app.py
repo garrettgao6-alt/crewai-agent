@@ -10,6 +10,7 @@ import streamlit as st
 import project_store
 import prompt_store
 import subscription_store
+import template_store
 import user_store
 
 
@@ -2774,6 +2775,43 @@ def inject_custom_css() -> None:
             color: #0F172A !important;
         }
 
+        .template-card {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 16px;
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .template-card-title {
+            color: #0F172A !important;
+            font-size: 18px;
+            font-weight: 800;
+            line-height: 1.25;
+            margin-bottom: 6px;
+        }
+
+        .template-card-description {
+            color: #475569 !important;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+
+        .template-card-meta {
+            color: #475569 !important;
+            font-size: 13px;
+            font-weight: 650;
+            margin-bottom: 10px;
+        }
+
+        .template-card-price {
+            color: #2563EB !important;
+            font-size: 13px;
+            font-weight: 800;
+        }
+
         div[data-testid="stVerticalBlockBorderWrapper"] {
             background: #FFFFFF;
             border-color: #E2E8F0 !important;
@@ -3598,6 +3636,56 @@ def render_automation_page() -> None:
     render_automation_intelligence()
 
 
+def render_marketplace() -> None:
+    st.markdown('<div class="workspace-title">AI Marketplace</div>', unsafe_allow_html=True)
+    st.markdown('<div class="workspace-subtitle">Popular Templates</div>', unsafe_allow_html=True)
+
+    search_query = st.text_input("Search", key="marketplace_search")
+    selected_category = st.selectbox(
+        "Categories",
+        ["All", *template_store.TEMPLATE_CATEGORIES],
+        key="marketplace_category",
+    )
+
+    try:
+        templates = template_store.list_templates(selected_category, search_query)
+    except template_store.TemplateStoreError:
+        st.error("Could not load templates.")
+        return
+
+    if not templates:
+        st.caption("No templates found.")
+        return
+
+    for template in templates:
+        price = float(template["price"] or 0)
+        price_label = "Free" if price == 0 else f"${price:g}"
+        st.markdown(
+            f"""
+            <div class="template-card">
+                <div class="template-card-title">{escape(template["name"])}</div>
+                <div class="template-card-description">{escape(template["description"])}</div>
+                <div class="template-card-meta">{escape(template["category"])} · <span class="template-card-price">{escape(price_label)}</span></div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        if st.button("Use Template", key=f'use_template_{template["id"]}', use_container_width=True):
+            if price > 0:
+                st.info("Premium Template (Coming Soon)")
+            elif not require_active_project():
+                return
+            else:
+                template_config = template["config_json"]
+                st.session_state.query = template_config
+                add_active_project_history(
+                    "automation",
+                    f"Automation created: {template['name']}",
+                )
+                st.success("Template copied into the current project automation workspace.")
+
+
 def render_prompt_builder() -> None:
     st.markdown('<div class="workspace-title">AI Center</div>', unsafe_allow_html=True)
     with st.expander("Prompt Library", expanded=True):
@@ -4172,6 +4260,13 @@ except project_store.ProjectStoreError:
     st.error("Could not start the project database. Please contact the administrator.")
     st.stop()
 
+try:
+    template_store.initialize_template_store()
+except template_store.TemplateStoreError:
+    render_auth_page()
+    st.error("Could not start the template database. Please contact the administrator.")
+    st.stop()
+
 if not st.session_state.authenticated:
     render_auth_page()
     st.stop()
@@ -4214,6 +4309,9 @@ with st.sidebar:
     if st.button("⚡ Automations", use_container_width=True):
         set_active_section("automations")
         st.rerun()
+    if st.button("🛒 Marketplace", use_container_width=True):
+        set_active_section("marketplace")
+        st.rerun()
     if st.button("🧠 AI Center", use_container_width=True):
         set_active_section("ai")
         st.rerun()
@@ -4234,6 +4332,8 @@ elif active_section == "projects":
     render_projects_page()
 elif active_section == "automations":
     render_automation_page()
+elif active_section == "marketplace":
+    render_marketplace()
 elif active_section == "ai":
     render_prompt_builder()
 elif active_section == "settings":

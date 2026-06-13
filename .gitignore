@@ -10,3 +10,4 @@ htmlcov/
 *.log
 users.db
 projects.db
+templates.db
