@@ -9,8 +9,8 @@ from uuid import uuid4
 import requests
 import streamlit as st
 
-from copilot_core import run_copilot
 from core.document_pipeline import process_document
+from core.engine import run_engine
 from core.ncc_parser import clauses_to_documents, parse_ncc_clauses
 from core.router import init_vectors
 from core.vector_store import add_documents, add_ncc_documents, build_context, clear_store, format_sources, get_last_retrieval
@@ -1981,7 +1981,7 @@ def run_copilot_request(user_input: str, user_id: str = "default") -> str:
         raise RuntimeError("OPENAI_API_KEY is not configured.")
 
     try:
-        return run_copilot(user_input, user_id=user_id)
+        return run_engine(user_id, user_input)
     except Exception as exc:
         raise RuntimeError("AI Copilot request failed.") from exc
 
@@ -4330,7 +4330,7 @@ def render_ai_copilot_panel() -> None:
             with st.spinner("Analyzing..."):
                 started_at = time.perf_counter()
                 try:
-                    response_text = run_copilot_request(cleaned_input, user_id=rag_user_id)
+                    response_text = run_engine(rag_user_id, cleaned_input)
                 except Exception as exc:
                     response_text = f"Error: {str(exc)}"
                 finally:

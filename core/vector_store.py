@@ -11,12 +11,19 @@ EMBEDDING_MODEL = "text-embedding-3-large"
 CHROMA_DB_PATH = os.getenv("CHROMA_DB_PATH", "./chroma_db")
 DEFAULT_USER_ID = "default"
 
-client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
+client = None
 last_retrieval: list[dict] = []
 
 
 def _get_client() -> OpenAI:
     return OpenAI()
+
+
+def get_chroma_client():
+    global client
+    if client is None:
+        client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
+    return client
 
 
 def _safe_user_id(user_id: str) -> str:
@@ -34,22 +41,23 @@ def _ncc_collection_name(user_id: str, housing: bool = False) -> str:
 
 
 def get_collection(user_id: str):
-    return client.get_or_create_collection(
+    return get_chroma_client().get_or_create_collection(
         name=_collection_name(user_id),
         metadata={"hnsw:space": "cosine"},
     )
 
 
 def get_ncc_collection(user_id: str, housing: bool = False):
-    return client.get_or_create_collection(
+    return get_chroma_client().get_or_create_collection(
         name=_ncc_collection_name(user_id, housing=housing),
         metadata={"hnsw:space": "cosine"},
     )
 
 
 def persist() -> None:
-    if hasattr(client, "persist"):
-        client.persist()
+    chroma_client = get_chroma_client()
+    if hasattr(chroma_client, "persist"):
+        chroma_client.persist()
 
 
 def _fallback_embedding(text: str, dimensions: int = 256) -> np.ndarray:
@@ -98,15 +106,15 @@ def clear_store(user_id: str | None = None) -> None:
         ]
         for collection_name in collection_names:
             try:
-                client.delete_collection(collection_name)
+                get_chroma_client().delete_collection(collection_name)
             except Exception:
                 pass
     else:
-        for collection in client.list_collections():
+        for collection in get_chroma_client().list_collections():
             collection_name = getattr(collection, "name", collection)
             if str(collection_name).startswith("user_"):
                 try:
-                    client.delete_collection(str(collection_name))
+                    get_chroma_client().delete_collection(str(collection_name))
                 except Exception:
                     pass
     last_retrieval = []

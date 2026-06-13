@@ -1,116 +1,69 @@
+from agents import (
+    run_business_agent,
+    run_construction_agent,
+    run_general_agent,
+)
 from core.critic import review_output
 from core.memory import Memory
 from core.planner import plan_tasks
-from core.reasoning import run_multi_clause_reasoning
-from core.retriever import retrieve_context
+from core.reasoning import build_reasoning_prompt, chunks_to_clauses
+from core.report_generator import generate_report
+from core.retriever import retrieve_multi
 from core.router import route_task
-from core.types import AgentExecutor
 
 
 memory = Memory()
 
-TASK_DESCRIPTIONS = {
-    "analysis": "Perform detailed analysis",
-    "risk": "Identify and assess risks",
-    "strategy": "Provide strategic recommendations",
-}
 
-NCC_LEGAL_PROMPT = """You are a construction compliance expert.
+def agent_executor(domain, prompt):
+    if domain == "construction":
+        return run_construction_agent(prompt)
 
-You MUST:
-* only use provided NCC context
-* cite clause numbers
-* do NOT guess
+    if domain == "business":
+        return run_business_agent(prompt)
 
-If unsure, say:
-'Insufficient NCC reference found.'
-
-Mandatory output format:
-Compliance Summary
-Relevant Clauses
-* C3.2
-* C3.3
-Assessment
-Risk Level"""
+    return run_general_agent(prompt)
 
 
-def build_task_prompt(
-    task: str,
-    prompt: str,
-    context: str = "",
-    sources: str = "",
-    legal_mode: bool = False,
-) -> str:
-    task_description = TASK_DESCRIPTIONS.get(task, task)
-    history = memory.get(5)
-    resolved_context = context or "Insufficient data"
-    resolved_sources = sources or "No retrieved sources"
-    legal_prompt = f"\nLegal mode system prompt:\n{NCC_LEGAL_PROMPT}\n" if legal_mode else ""
-    return f"""Task: {task}
-Instruction: {task_description}
-{legal_prompt}
-
-Context:
-{resolved_context}
-
-User request:
-{prompt}
-
-Conversation history:
-{history}
-
-You must ONLY use the provided context.
-If not enough information, say 'Insufficient data'.
-
-Output format:
-Answer
-Sources:
-{resolved_sources}
-"""
-
-
-def format_task_section(task: str, result: str) -> str:
-    section_title = task.replace("_", " ").title()
-    return f"--- {section_title} ---\n[Task: {task}]\n{result}"
-
-
-def ensure_citations(result: str, sources: str) -> str:
-    if not sources or "Sources:" in result:
-        return result
-    return f"{result}\n\nSources:\n{sources}"
-
-
-def run_engine(prompt: str, agent_executor: AgentExecutor, user_id: str = "default") -> str:
-    memory.add("user", prompt)
-
+def run_engine(user_id, prompt, document_text=None):
+    history = memory.get(user_id)
     tasks = plan_tasks(prompt)
-    retrieval = retrieve_context(prompt, user_id=user_id)
-    context = retrieval["context"]
-    sources = retrieval["sources"]
-    legal_mode = bool(retrieval.get("legal_mode"))
+    retrieved_chunks = retrieve_multi(user_id, prompt)
+    clauses = chunks_to_clauses(retrieved_chunks)
+    reasoning_prompt = build_reasoning_prompt(prompt, clauses)
 
-    if legal_mode:
-        final_output = run_multi_clause_reasoning(prompt, retrieval.get("chunks", []))
-        final_output = ensure_citations(final_output, sources)
-        final_output = review_output(final_output)
-        memory.add("assistant", final_output)
-        return final_output
+    if document_text:
+        reasoning_prompt = f"{reasoning_prompt}\n\nAdditional document text:\n{document_text}"
 
-    responses = []
+    if history:
+        reasoning_prompt = f"{reasoning_prompt}\n\nConversation history:\n{history}"
+
+    results = []
 
     for task in tasks:
         domain = route_task(task)
+        result = agent_executor(domain, reasoning_prompt)
+        result = review_output(result)
 
-        task_prompt = build_task_prompt(task, prompt, context, sources, legal_mode=legal_mode)
-        result = agent_executor(domain, task_prompt)
-        result = ensure_citations(result, sources)
+        results.append(
+            {
+                "task": task,
+                "domain": domain,
+                "result": result,
+            }
+        )
 
-        responses.append(format_task_section(task, result))
+    final_output = generate_report(
+        {
+            "summary": "AI system execution report generated from planner, router, RAG, reasoning, agents, and critic.",
+            "clauses": [clause["clause"] for clause in clauses],
+            "analysis": "\n\n".join([result["result"] for result in results]),
+            "risk": "AUTO",
+            "recommendations": "AUTO",
+        }
+    )
 
-    final_output = "\n\n".join(responses)
-
-    final_output = review_output(final_output)
-
-    memory.add("assistant", final_output)
+    memory.add(user_id, "user", prompt)
+    memory.add(user_id, "assistant", final_output)
 
     return final_output

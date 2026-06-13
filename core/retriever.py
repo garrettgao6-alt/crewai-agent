@@ -79,7 +79,23 @@ def _dedupe_chunks(chunks: list[dict]) -> list[dict]:
     return unique_chunks
 
 
-def retrieve_multi(query, top_k=5, filter_type=None, user_id="default"):
+def retrieve_multi(user_id, query=None, top_k=5, filter_type=None):
+    if query is None:
+        query = user_id
+        user_id = "default"
+
+    if is_regulatory_query(query):
+        retrieved = search_ncc_chunks(
+            user_id,
+            query,
+            top_k=max(top_k * 3, top_k),
+            filter_type=infer_regulatory_filter(query),
+            housing=is_housing_query(query),
+        )
+        ranked = rerank(query, retrieved)[:top_k]
+        set_last_retrieval(ranked)
+        return ranked
+
     queries = generate_queries(query)
     if query not in queries:
         queries.insert(0, query)
@@ -162,7 +178,7 @@ def retrieve_context(query: str, top_k=5, filter_type=None, user_id="default"):
     if is_regulatory_query(query):
         return retrieve_ncc_context(query, top_k=top_k, user_id=user_id)
 
-    retrieved = retrieve_multi(query, top_k=top_k, filter_type=filter_type, user_id=user_id)
+    retrieved = retrieve_multi(user_id, query, top_k=top_k, filter_type=filter_type)
     ranked = rerank(query, retrieved)[:top_k]
     set_last_retrieval(ranked)
     return {

@@ -5,11 +5,13 @@ from types import SimpleNamespace
 import copilot_core
 from core.document_pipeline import chunk_text, process_document, semantic_chunk, split_by_sections
 from core.critic import review_output
-from core.engine import build_task_prompt, ensure_citations, memory, run_engine
+import core.engine as engine
+from core.engine import memory, run_engine
 from core.ncc_parser import clauses_to_documents, parse_ncc_clauses
 from core.planner import plan_tasks
 import core.reasoning as reasoning
 import core.planner as planner
+from core.report_generator import generate_report
 import core.retriever as retriever
 import core.router as embedding_router
 import core.vector_store as vector_store
@@ -33,48 +35,24 @@ class CopilotDispatcherTests(unittest.TestCase):
     def test_dispatches_to_distinct_agents(self):
         with (
             patch.object(
-                copilot_core,
+                engine,
                 "run_construction_agent",
                 return_value="construction response with enough detail for critic validation",
             ),
             patch.object(
-                copilot_core,
+                engine,
                 "run_business_agent",
                 return_value="business response with enough detail for critic validation",
             ),
             patch.object(
-                copilot_core,
+                engine,
                 "run_general_agent",
                 return_value="general response with enough detail for critic validation",
             ),
         ):
-            self.assertEqual(
-                copilot_core.run_copilot("Analyze this risk"),
-                (
-                    "--- Analysis ---\n"
-                    "[Task: analysis]\n"
-                    "construction response with enough detail for critic validation\n\n"
-                    "--- Risk ---\n"
-                    "[Task: risk]\n"
-                    "construction response with enough detail for critic validation"
-                ),
-            )
-            self.assertEqual(
-                copilot_core.run_copilot("Improve strategy"),
-                (
-                    "--- Strategy ---\n"
-                    "[Task: strategy]\n"
-                    "business response with enough detail for critic validation"
-                ),
-            )
-            self.assertEqual(
-                copilot_core.run_copilot("Hello there"),
-                (
-                    "--- General ---\n"
-                    "[Task: general]\n"
-                    "general response with enough detail for critic validation"
-                ),
-            )
+            self.assertIn("construction response", copilot_core.run_copilot("Analyze this risk"))
+            self.assertIn("business response", copilot_core.run_copilot("Improve strategy"))
+            self.assertIn("general response", copilot_core.run_copilot("Hello there"))
 
 
 class CoreEngineTests(unittest.TestCase):
@@ -130,56 +108,44 @@ class CoreEngineTests(unittest.TestCase):
     def test_engine_combines_multiple_task_outputs_and_stores_memory(self):
         calls = []
 
-        def executor(domain, prompt):
-            calls.append((domain, prompt))
-            return f"{domain} output for {prompt.splitlines()[0]}"
+        def fake_agent(domain_name):
+            def _run(prompt):
+                calls.append((domain_name, prompt))
+                return f"{domain_name} output with enough detail for critic validation"
+            return _run
 
-        result = run_engine("Analyze risk and strategy", executor)
+        with (
+            patch.object(engine, "run_construction_agent", fake_agent("construction")),
+            patch.object(engine, "run_business_agent", fake_agent("business")),
+            patch.object(engine, "run_general_agent", fake_agent("general")),
+            patch.object(engine, "retrieve_multi", return_value=[]),
+        ):
+            result = run_engine("user_engine", "Analyze risk and strategy")
 
         self.assertEqual([domain for domain, _prompt in calls], ["construction", "construction", "business"])
-        self.assertIn("Task: analysis", calls[0][1])
-        self.assertIn("Instruction: Perform detailed analysis", calls[0][1])
-        self.assertIn("Task: risk", calls[1][1])
-        self.assertIn("Instruction: Identify and assess risks", calls[1][1])
-        self.assertIn("Task: strategy", calls[2][1])
-        self.assertIn("Instruction: Provide strategic recommendations", calls[2][1])
-        for _domain, task_prompt in calls:
-            self.assertIn("Context:\nInsufficient data", task_prompt)
-            self.assertIn("You must ONLY use the provided context.", task_prompt)
-            self.assertIn("If not enough information, say 'Insufficient data'.", task_prompt)
-            self.assertIn("Sources:\nNo retrieved sources", task_prompt)
-            self.assertIn("Analyze risk and strategy", task_prompt)
-        self.assertIn("--- Analysis ---\n[Task: analysis]", result)
-        self.assertIn("--- Risk ---\n[Task: risk]", result)
-        self.assertIn("--- Strategy ---\n[Task: strategy]", result)
-        self.assertIn("construction output for Task: analysis", result)
-        self.assertIn("construction output for Task: risk", result)
-        self.assertIn("business output for Task: strategy", result)
-        self.assertNotIn("construction output for Task: strategy", result)
+        for _domain, reasoning_prompt in calls:
+            self.assertIn("You are a construction compliance expert.", reasoning_prompt)
+            self.assertIn("Analyze risk and strategy", reasoning_prompt)
+            self.assertIn("combine multiple clauses", reasoning_prompt)
+        self.assertIn("Compliance Summary", result)
+        self.assertIn("Assessment", result)
         self.assertIn("construction output", result)
         self.assertIn("business output", result)
-        self.assertEqual(memory.get(2)[0]["role"], "user")
-        self.assertEqual(memory.get(2)[1]["role"], "assistant")
-
-    def test_build_task_prompt_uses_focused_task_context(self):
-        task_prompt = build_task_prompt("risk", "Analyze risk and strategy")
-
-        self.assertIn("Task: risk", task_prompt)
-        self.assertIn("Instruction: Identify and assess risks", task_prompt)
-        self.assertIn("Context:\nInsufficient data", task_prompt)
-        self.assertIn("User request:\nAnalyze risk and strategy", task_prompt)
-        self.assertIn("Conversation history:\n[]", task_prompt)
-        self.assertIn("You must ONLY use the provided context.", task_prompt)
-        self.assertIn("Sources:\nNo retrieved sources", task_prompt)
+        self.assertEqual(memory.get("user_engine", 2)[0]["role"], "user")
+        self.assertEqual(memory.get("user_engine", 2)[1]["role"], "assistant")
 
     def test_memory_persists_across_engine_runs(self):
         def executor(domain, prompt):
             return f"{domain} response with enough detail to avoid short critic warning"
 
-        run_engine("Analyze contract risk and give strategy", executor)
-        run_engine("How to increase revenue?", executor)
+        with (
+            patch.object(engine, "agent_executor", lambda _domain, _prompt: "agent response with enough detail"),
+            patch.object(engine, "retrieve_multi", return_value=[]),
+        ):
+            run_engine("memory_user", "Analyze contract risk and give strategy")
+            run_engine("memory_user", "How to increase revenue?")
 
-        history = memory.get(4)
+        history = memory.get("memory_user", 4)
 
         self.assertEqual(history[0]["role"], "user")
         self.assertIn("Analyze contract risk and give strategy", history[0]["content"])
@@ -189,11 +155,21 @@ class CoreEngineTests(unittest.TestCase):
     def test_critic_marks_short_outputs(self):
         self.assertEqual(review_output("short"), "short\n\n[Critic]: Response may be too short.")
 
-    def test_engine_enforces_citations_when_sources_exist(self):
-        self.assertEqual(
-            ensure_citations("Answer\nUse the NCC clause.", "[1] ncc.txt"),
-            "Answer\nUse the NCC clause.\n\nSources:\n[1] ncc.txt",
+    def test_report_generator_outputs_required_sections(self):
+        report = generate_report(
+            {
+                "summary": "Summary text",
+                "clauses": ["C3.2"],
+                "analysis": "Analysis text",
+                "risk": "AUTO",
+                "recommendations": "AUTO",
+            }
         )
+
+        self.assertIn("Compliance Summary", report)
+        self.assertIn("* C3.2", report)
+        self.assertIn("Assessment", report)
+        self.assertIn("Risk Level", report)
 
 
 class RagSystemTests(unittest.TestCase):
@@ -320,7 +296,7 @@ class RagSystemTests(unittest.TestCase):
             patch.object(retriever, "generate_queries", return_value=["egress", "fire exits"]),
             patch.object(retriever, "retrieve", side_effect=[[chunk], [chunk], [chunk]]),
         ):
-            results = retriever.retrieve_multi("NCC exits")
+            results = retriever.retrieve_multi("building exits")
 
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["metadata"]["source"], "ncc.txt")
@@ -345,22 +321,25 @@ class RagSystemTests(unittest.TestCase):
     def test_engine_includes_retrieved_context_and_sources(self):
         calls = []
 
-        def executor(domain, prompt):
-            calls.append((domain, prompt))
+        def fake_construction_agent(prompt):
+            calls.append(prompt)
             return "Answer\nNCC egress provisions apply.\nSources:\n[1] ncc.txt"
 
-        with patch.object(vector_store, "embed_text", return_value=vector_store.np.array([1.0, 0.0])):
+        with (
+            patch.object(vector_store, "embed_text", return_value=vector_store.np.array([1.0, 0.0])),
+            patch.object(engine, "run_construction_agent", fake_construction_agent),
+        ):
             vector_store.add_documents(
-                "default",
+                "rag_user",
                 ["NCC fire exits must satisfy compliant egress provisions."],
                 [{"source": "ncc.txt", "type": "ncc"}],
             )
-            result = run_engine("Analyze fire exits", executor)
+            result = run_engine("rag_user", "Analyze fire exits")
 
-        self.assertIn("Context:\nNCC fire exits must satisfy compliant egress provisions.", calls[0][1])
-        self.assertIn("Sources:\n[1] ncc.txt", calls[0][1])
+        self.assertIn("ncc.txt - NCC fire exits must satisfy compliant egress provisions.", calls[0])
+        self.assertIn("combine multiple clauses", calls[0])
         self.assertIn("Answer", result)
-        self.assertIn("[1] ncc.txt", result)
+        self.assertIn("Assessment", result)
 
     def test_chroma_collections_isolate_users(self):
         with patch.object(
@@ -459,27 +438,30 @@ class RagSystemTests(unittest.TestCase):
         )
         documents, metadatas = clauses_to_documents(clauses, "ncc-2025.txt")
 
-        def executor(domain, prompt):
-            raise AssertionError("Legal-mode NCC reasoning should not call domain agents.")
-
-        reasoned_output = (
+        calls = []
+        agent_output = (
             "Compliance Summary\nGrounded in C3.2.\n"
             "Relevant Clauses\n* C3.2\n"
             "Assessment\nCompliant if openings are protected.\n"
             "Risk Level\nMedium"
         )
 
+        def fake_agent(domain, prompt):
+            calls.append((domain, prompt))
+            return agent_output
+
         with (
             patch.object(vector_store, "embed_text", return_value=vector_store.np.array([1.0, 0.0])),
-            patch.object(reasoning, "_get_client") as mock_client,
+            patch.object(engine, "agent_executor", fake_agent),
         ):
-            mock_client.return_value.responses.create.return_value = SimpleNamespace(output_text=reasoned_output)
             vector_store.add_ncc_documents("legal_user", documents, metadatas)
-            result = run_engine("Is this compliant with NCC fire safety?", executor, user_id="legal_user")
+            result = run_engine("legal_user", "Is this compliant with NCC fire safety?")
 
+        self.assertIn("C3.2 - C3.2 Protection of openings", calls[0][1])
+        self.assertIn("combine multiple clauses", calls[0][1])
         self.assertIn("Compliance Summary", result)
         self.assertIn("C3.2", result)
-        self.assertIn("Sources:\n[1] C3.2", result)
+        self.assertIn("Assessment", result)
 
     def test_reasoning_prompt_combines_multiple_clauses(self):
         prompt = reasoning.build_reasoning_prompt(
