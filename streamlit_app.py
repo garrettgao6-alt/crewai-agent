@@ -30,8 +30,14 @@ DEFAULT_SECTION = "Dashboard"
 COOKIE_PREFIX = "gao_app"
 COOKIE_USER_ID_KEY = "user_id"
 COPILOT_SESSION_CALL_LIMIT = 50
+GUEST_COPILOT_SESSION_LIMIT = 3
 DOCUMENT_TEXT_LIMIT = 12000
 DOCUMENT_TOTAL_TEXT_LIMIT = 30000
+GUEST_USER = {
+    "id": "guest",
+    "username": "Guest",
+    "role": "guest",
+}
 NAVIGATION_OPTIONS = [
     "Dashboard",
     "Copilot",
@@ -4163,6 +4169,56 @@ def inject_custom_css() -> None:
             color: #64748B !important;
         }
 
+        .auth-action-shell {
+            align-items: center;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin: 0 0 10px;
+            width: 100%;
+        }
+
+        .auth-avatar {
+            align-items: center;
+            background: rgba(59, 130, 246, 0.12);
+            border: 1px solid rgba(59, 130, 246, 0.24);
+            border-radius: 999px;
+            color: #BFDBFE !important;
+            display: inline-flex;
+            font-size: 12px;
+            font-weight: 780;
+            gap: 8px;
+            padding: 8px 12px;
+        }
+
+        .auth-avatar-mark {
+            align-items: center;
+            background: #2563EB;
+            border-radius: 999px;
+            color: #FFFFFF !important;
+            display: inline-flex;
+            height: 24px;
+            justify-content: center;
+            width: 24px;
+        }
+
+        .guest-banner {
+            background: rgba(59, 130, 246, 0.09);
+            border: 1px solid rgba(59, 130, 246, 0.24);
+            border-radius: 14px;
+            color: #BFDBFE !important;
+            margin: 0 0 16px;
+            padding: 12px 14px;
+        }
+
+        div[data-testid="stDialog"] div[role="dialog"] {
+            animation: enterpriseFadeUp 0.22s ease both;
+            background: #0f172a !important;
+            border: 1px solid rgba(148, 163, 184, 0.22) !important;
+            border-radius: 18px !important;
+            color: #F8FAFC !important;
+        }
+
         @media (max-width: 1199px) {
             .workspace-card-grid,
             .hero-data-row {
@@ -4332,6 +4388,29 @@ def initialize_auth_state() -> None:
         st.session_state.role = None
 
 
+def set_guest_user() -> None:
+    guest_user = dict(GUEST_USER)
+    st.session_state.authenticated = False
+    st.session_state.is_logged_in = False
+    st.session_state["user"] = guest_user
+    st.session_state.current_user = guest_user
+    st.session_state.user_id = guest_user["id"]
+    st.session_state.username = guest_user["username"]
+    st.session_state.role = guest_user["role"]
+
+
+def ensure_guest_user() -> None:
+    if st.session_state.get("is_logged_in"):
+        return
+    if st.session_state.get("user", {}).get("id") != GUEST_USER["id"]:
+        set_guest_user()
+    st.session_state.active_project_id = None
+
+
+def is_guest_user() -> bool:
+    return st.session_state.get("user", {}).get("id") == GUEST_USER["id"]
+
+
 def set_authenticated_user(user: dict, reset_navigation: bool = True) -> None:
     st.session_state.authenticated = True
     st.session_state.is_logged_in = True
@@ -4345,15 +4424,12 @@ def set_authenticated_user(user: dict, reset_navigation: bool = True) -> None:
 
 
 def clear_authenticated_user() -> None:
-    st.session_state.authenticated = False
-    st.session_state.is_logged_in = False
-    st.session_state["user"] = None
-    st.session_state.current_user = None
-    st.session_state.user_id = str(uuid4())
-    st.session_state.username = None
-    st.session_state.role = None
+    set_guest_user()
     st.session_state.active_project_id = None
     st.session_state.selected_history = None
+    st.session_state.history = []
+    st.session_state.copilot_history = []
+    st.session_state.query = ""
 
 
 def initialize_cookie_manager() -> EncryptedCookieManager:
@@ -4406,19 +4482,22 @@ def clear_authentication_cookie(cookies: EncryptedCookieManager) -> None:
 
 
 def render_auth_page(cookies: EncryptedCookieManager) -> None:
+    gate_message = st.session_state.pop("auth_gate_message", "")
     st.markdown(
         """
         <div class="auth-container">
             <div class="auth-box">
                 <h2>Gao Intelligence Hub</h2>
-                <p>Secure access for business, construction, and executive intelligence workflows.</p>
+                <p>Sign in to unlock project storage, document intelligence, reports, and premium Construction AI workflows.</p>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+    if gate_message:
+        st.info(gate_message)
 
-    sign_in_tab, create_account_tab = st.tabs(["Sign In", "Register"])
+    sign_in_tab, create_account_tab = st.tabs(["Sign In", "Create Account"])
 
     with sign_in_tab:
         with st.form("sign_in_form"):
@@ -4467,7 +4546,79 @@ def render_auth_page(cookies: EncryptedCookieManager) -> None:
                     st.rerun()
 
 
+if hasattr(st, "dialog"):
+    @st.dialog("Access Gao Intelligence Hub")
+    def render_auth_modal(cookies: EncryptedCookieManager) -> None:
+        render_auth_page(cookies)
+else:
+    def render_auth_modal(cookies: EncryptedCookieManager) -> None:
+        render_auth_page(cookies)
+
+
+def show_login_modal(message: str = "Sign in to continue.") -> None:
+    st.session_state["auth_gate_message"] = message
+    render_auth_modal(auth_cookies)
+
+
+def show_upgrade_modal() -> None:
+    st.session_state["auth_gate_message"] = "Upgrade to unlock full Construction AI capabilities."
+    render_auth_modal(auth_cookies)
+
+
+def require_authenticated_user(message: str = "Sign in to unlock this workspace.") -> bool:
+    if not is_guest_user():
+        return True
+    show_login_modal(message)
+    st.stop()
+    return False
+
+
+def require_premium_access() -> bool:
+    if is_guest_user():
+        show_upgrade_modal()
+        st.stop()
+        return False
+    return True
+
+
+def render_auth_header(cookies: EncryptedCookieManager) -> None:
+    spacer, login_column, signup_column = st.columns([1, 0.14, 0.16])
+    with spacer:
+        if is_guest_user():
+            st.markdown(
+                '<div class="auth-action-shell"><span class="auth-avatar">Guest preview</span></div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            username = st.session_state.username or st.session_state.get("user", {}).get("username", "User")
+            initial = str(username or "U")[:1].upper()
+            st.markdown(
+                f"""
+                <div class="auth-action-shell">
+                    <span class="auth-avatar"><span class="auth-avatar-mark">{escape(initial)}</span>{escape(str(username))}</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    if is_guest_user():
+        with login_column:
+            if st.button("Login", key="top_login", use_container_width=True):
+                show_login_modal("Sign in to save projects, upload documents, and unlock reports.")
+        with signup_column:
+            if st.button("Sign Up", key="top_signup", type="primary", use_container_width=True):
+                show_login_modal("Create an account to unlock the full Construction AI workspace.")
+    else:
+        with signup_column:
+            if st.button("Sign Out", key="top_sign_out", use_container_width=True):
+                clear_authentication_cookie(cookies)
+                clear_authenticated_user()
+                st.rerun()
+
+
 def get_current_user_id() -> int:
+    if is_guest_user():
+        raise PermissionError("Guest users do not have a persisted account.")
     if st.session_state.user_id is not None:
         return int(st.session_state.user_id)
     current_user = st.session_state.current_user or {}
@@ -4488,6 +4639,16 @@ def format_renewal_date(value: str | None) -> str:
 
 
 def refresh_subscription_usage() -> dict:
+    if is_guest_user():
+        return {
+            "events": [],
+            "subscription_tier": "Guest Preview",
+            "current_request_count": st.session_state.get("guest_copilot_calls", 0),
+            "monthly_request_limit": GUEST_COPILOT_SESSION_LIMIT,
+            "current_document_count": 0,
+            "monthly_document_limit": 0,
+            "subscription_end": None,
+        }
     usage = subscription_store.load_usage(get_current_user_id())
     if st.session_state.current_user is not None:
         st.session_state.current_user.update(usage)
@@ -4551,6 +4712,10 @@ def build_agent_usage_chart() -> dict[str, list[int]]:
 
 
 def consume_ai_request_or_warn() -> bool:
+    if is_guest_user():
+        show_login_modal("Sign in to run advanced AI analysis and save your work.")
+        st.stop()
+        return False
     can_use, message = subscription_store.can_use_ai_request(get_current_user_id())
     if not can_use:
         st.error(message)
@@ -4574,6 +4739,10 @@ def enforce_copilot_rate_limit() -> None:
 
 
 def consume_document_analysis_or_warn() -> bool:
+    if is_guest_user():
+        show_login_modal("Sign in to upload documents and generate document intelligence.")
+        st.stop()
+        return False
     can_use, message = subscription_store.can_use_document_analysis(get_current_user_id())
     if not can_use:
         st.error(message)
@@ -4588,6 +4757,10 @@ def consume_document_analysis_or_warn() -> bool:
 
 
 def consume_executive_agent_usage_or_warn() -> bool:
+    if is_guest_user():
+        show_upgrade_modal()
+        st.stop()
+        return False
     can_use_documents, document_message = subscription_store.can_use_document_analysis(get_current_user_id())
     if not can_use_documents:
         st.error(document_message)
@@ -4826,6 +4999,17 @@ def render_typing_indicator() -> None:
     )
 
 
+def build_guest_copilot_response(prompt: str) -> str:
+    topic = prompt.strip()[:120] or "your construction workflow"
+    return (
+        "Guest preview response:\n\n"
+        f"- I can help frame a first-pass view of: {topic}\n"
+        "- For compliance, contracts, tenders, BIM, procurement, and reports, sign in to use project memory and document evidence.\n"
+        "- Uploads, citations, advanced agent routing, and saved reports are gated to protect customer data and API usage.\n\n"
+        "Suggested next step: create a project, upload source documents, then run a full Construction AI analysis."
+    )
+
+
 def render_report_section(title: str, content: str) -> None:
     st.markdown(
         f"""
@@ -4859,6 +5043,8 @@ def set_active_section(section: str, documents_view: str | None = None) -> str:
 
 
 def get_active_project() -> dict | None:
+    if is_guest_user():
+        return None
     active_project_id = st.session_state.get("active_project_id")
     if active_project_id is None:
         return None
@@ -4869,6 +5055,10 @@ def get_active_project() -> dict | None:
 
 
 def require_active_project() -> bool:
+    if is_guest_user():
+        show_login_modal("Sign in to create projects and unlock full Construction AI workflows.")
+        st.stop()
+        return False
     if get_active_project() is None:
         st.warning("Please create or select a project first.")
         return False
@@ -4876,6 +5066,8 @@ def require_active_project() -> bool:
 
 
 def add_active_project_history(action_type: str, content: str) -> None:
+    if is_guest_user():
+        return
     active_project = get_active_project()
     if active_project is None:
         return
@@ -4886,6 +5078,20 @@ def add_active_project_history(action_type: str, content: str) -> None:
 
 
 def render_new_project_form() -> None:
+    if is_guest_user():
+        st.markdown(
+            """
+            <div class="guest-banner">
+                Create an account to save projects, upload documents, and keep a persistent construction intelligence timeline.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button("Sign in to create projects", key="guest_project_gate", use_container_width=True):
+            show_login_modal("Sign in or create an account to start a project workspace.")
+            st.stop()
+        return
+
     with st.expander("New Project", expanded=False):
         with st.form("new_project_form"):
             project_name = st.text_input("Project Name", key="new_project_name")
@@ -4911,6 +5117,9 @@ def render_new_project_form() -> None:
 
 def render_projects_list(title: str = "Recent Projects") -> None:
     st.markdown(f'<div class="workspace-section-title">{escape(title)}</div>', unsafe_allow_html=True)
+    if is_guest_user():
+        st.caption("Project history is available after sign in.")
+        return
     try:
         projects = project_store.list_projects(get_current_user_id())
     except project_store.ProjectStoreError:
@@ -5145,7 +5354,10 @@ def render_workspace() -> None:
                 unsafe_allow_html=True,
             )
             if st.button(title, key=key, use_container_width=True):
-                if section in ("Documents", "Copilot") and not require_active_project():
+                if section == "Documents" and is_guest_user():
+                    show_login_modal("Sign in to upload documents and run document intelligence.")
+                    st.stop()
+                if section == "Documents" and not require_active_project():
                     return
                 set_active_section(section, documents_view)
                 st.rerun()
@@ -5217,6 +5429,9 @@ def render_prompt_library() -> None:
 
 def render_ai_request_panel() -> None:
     st.markdown('<div class="hub-section-title">AI Workspace</div>', unsafe_allow_html=True)
+    if is_guest_user():
+        show_login_modal("Sign in to run advanced agent routing and save analysis history.")
+        st.stop()
     active_project = get_active_project()
     if active_project is None:
         st.warning("Please create or select a project first.")
@@ -5285,6 +5500,9 @@ def render_ai_request_panel() -> None:
 
 def render_documents_page() -> None:
     st.markdown('<div class="workspace-title">Documents</div>', unsafe_allow_html=True)
+    if is_guest_user():
+        show_login_modal("Sign in to upload documents, run analysis, and save report outputs.")
+        st.stop()
     active_project = get_active_project()
     if active_project is None:
         st.warning("Please create or select a project first.")
@@ -5312,6 +5530,9 @@ def render_upload_page() -> None:
         "Documents",
         "Upload, process, and manage workspace knowledge.",
     )
+    if is_guest_user():
+        show_login_modal("Sign in to upload documents and use the ingestion pipeline.")
+        st.stop()
     active_project = get_active_project()
     if active_project is None:
         st.warning("Please create or select a project first.")
@@ -5570,6 +5791,9 @@ def render_billing_page() -> None:
 
 
 def render_logs() -> None:
+    if is_guest_user():
+        show_login_modal("Sign in to export history and manage saved reports.")
+        st.stop()
     st.markdown('<div class="workspace-title">Logs</div>', unsafe_allow_html=True)
     st.markdown('<div class="hub-section-title">Intelligence History</div>', unsafe_allow_html=True)
     st.download_button(
@@ -5606,6 +5830,9 @@ def render_reports_page() -> None:
         "Reports",
         "Structured executive intelligence and saved deliverables.",
     )
+    if is_guest_user():
+        show_login_modal("Sign in to generate, save, and export reports.")
+        st.stop()
 
     if not st.session_state.history:
         st.markdown(
@@ -5650,7 +5877,16 @@ def render_ai_copilot_panel() -> None:
         "AI engineer and business consultant for construction intelligence.",
     )
     active_project = get_active_project()
-    if active_project is None:
+    if is_guest_user():
+        st.markdown(
+            """
+            <div class="guest-banner">
+                Guest mode: try basic Copilot prompts. Sign in to use documents, citations, advanced analysis, and saved reports.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    elif active_project is None:
         st.warning("Please create or select a project first.")
     else:
         st.caption(f'Project: {active_project["name"]}')
@@ -5695,7 +5931,7 @@ def render_ai_copilot_panel() -> None:
 
     user_input = st.chat_input(
         "Ask Gao Intelligence Hub",
-        disabled=active_project is None,
+        disabled=(active_project is None and not is_guest_user()),
     )
     pending_input = st.session_state.pop("copilot_pending_prompt", "")
     if user_input or pending_input:
@@ -5704,6 +5940,22 @@ def render_ai_copilot_panel() -> None:
 
         if not cleaned_input:
             st.warning("Enter a question first.")
+        elif is_guest_user():
+            guest_calls = int(st.session_state.get("guest_copilot_calls", 0))
+            if guest_calls >= GUEST_COPILOT_SESSION_LIMIT:
+                show_login_modal("Sign in to continue with Copilot and unlock full Construction AI capabilities.")
+                st.stop()
+            response_text = build_guest_copilot_response(cleaned_input)
+            st.session_state.guest_copilot_calls = guest_calls + 1
+            st.session_state.copilot_history.append(
+                {
+                    "prompt": cleaned_input,
+                    "response": response_text,
+                    "sources": [],
+                }
+            )
+            st.session_state.copilot_history = st.session_state.copilot_history[-12:]
+            st.rerun()
         elif active_project is None:
             st.warning("Please create or select a project first.")
             return
@@ -5981,6 +6233,10 @@ def format_project_documents_for_prompt(documents: list[dict]) -> str:
 
 
 def render_document_analysis() -> None:
+    if is_guest_user():
+        show_login_modal("Sign in to upload documents and generate document intelligence.")
+        st.stop()
+
     uploaded_file = st.file_uploader(
         "Upload Document",
         type=["pdf", "txt", "docx", "xlsx"],
@@ -6035,6 +6291,10 @@ def render_document_analysis() -> None:
 
 
 def render_project_intelligence_review() -> None:
+    if is_guest_user():
+        show_upgrade_modal()
+        st.stop()
+
     uploaded_files = st.file_uploader(
         "Upload Project Documents",
         type=["pdf", "txt", "docx", "xlsx"],
@@ -6167,6 +6427,10 @@ def render_project_intelligence_review() -> None:
 
 
 def render_form_builder() -> None:
+    if is_guest_user():
+        show_login_modal("Sign in to build prompts inside a saved project workspace.")
+        st.stop()
+
     selected_category = st.selectbox(
         "Form Category",
         list(FORM_LIBRARY.keys()),
@@ -6225,6 +6489,10 @@ def render_form_builder() -> None:
 
 
 def render_automation_intelligence() -> None:
+    if is_guest_user():
+        show_login_modal("Sign in to create automations and save them to a project.")
+        st.stop()
+
     automation_names = [automation_definition["name"] for automation_definition in AUTOMATION_LIBRARY]
     selected_automation_name = st.selectbox(
         "Automation Type",
@@ -6299,28 +6567,22 @@ init_vectors()
 try:
     user_store.initialize_user_store()
 except user_store.UserStoreError:
-    render_auth_page(auth_cookies)
     st.error("Could not start the user database. Please contact the administrator.")
     st.stop()
 
 restore_authenticated_user_from_cookie(auth_cookies)
+ensure_guest_user()
 
 try:
     project_store.initialize_project_store()
 except project_store.ProjectStoreError:
-    render_auth_page(auth_cookies)
     st.error("Could not start the project database. Please contact the administrator.")
     st.stop()
 
 try:
     template_store.initialize_template_store()
 except template_store.TemplateStoreError:
-    render_auth_page(auth_cookies)
     st.error("Could not start the template database. Please contact the administrator.")
-    st.stop()
-
-if not st.session_state.get("is_logged_in"):
-    render_auth_page(auth_cookies)
     st.stop()
 
 DEFAULTS = {
@@ -6344,6 +6606,8 @@ st.session_state["active_section"] = normalize_section(st.session_state.get("act
 if st.session_state.get("nav_selected") != st.session_state["active_section"]:
     st.session_state.pop("nav_selected", None)
 
+render_auth_header(auth_cookies)
+
 with st.sidebar:
     st.markdown("## Gao Intelligence Hub")
 
@@ -6357,16 +6621,21 @@ with st.sidebar:
     )
     st.session_state["active_section"] = st.session_state["nav_selected"]
 
-    current_user = st.session_state.current_user or {}
-    st.caption(f"Logged in as: {st.session_state.username or current_user.get('username', 'User')}")
-    st.caption(f"Role: {st.session_state.role or current_user.get('role', 'User')}")
-    render_user_limit_summary()
+    if is_guest_user():
+        st.caption("Exploring as: Guest")
+        st.caption("Role: Preview")
+        if st.button("Login / Sign Up", key="sidebar_auth", use_container_width=True):
+            show_login_modal("Sign in to unlock projects, uploads, reports, and advanced AI.")
+    else:
+        current_user = st.session_state.current_user or {}
+        st.caption(f"Logged in as: {st.session_state.username or current_user.get('username', 'User')}")
+        st.caption(f"Role: {st.session_state.role or current_user.get('role', 'User')}")
+        render_user_limit_summary()
 
-    if st.button("Sign Out", use_container_width=True):
-        clear_authentication_cookie(auth_cookies)
-        clear_authenticated_user()
-        st.session_state.clear()
-        st.rerun()
+        if st.button("Sign Out", use_container_width=True):
+            clear_authentication_cookie(auth_cookies)
+            clear_authenticated_user()
+            st.rerun()
 
 active_section = st.session_state["active_section"]
 if active_section == DEFAULT_SECTION:
