@@ -2121,9 +2121,13 @@ def inject_custom_css() -> None:
             width: 100%;
         }
 
+        .main .block-container,
         .block-container {
             max-width: 100% !important;
-            padding: 12px !important;
+            padding-top: 2rem !important;
+            padding-left: 3rem !important;
+            padding-right: 3rem !important;
+            padding-bottom: 3rem !important;
             width: 100% !important;
         }
 
@@ -2733,32 +2737,115 @@ def inject_custom_css() -> None:
 
         .workspace-title {
             color: #0F172A !important;
-            font-size: clamp(24px, 3rem, 48px);
-            font-weight: 850;
+            font-size: 3rem;
+            font-weight: 700;
             line-height: 1.08;
-            margin: 4px 0 6px;
+            margin: 0 0 0.7rem;
         }
 
         .workspace-subtitle {
-            color: #475569 !important;
-            font-size: clamp(14px, 1rem, 16px);
-            font-weight: 650;
-            margin-bottom: 18px;
+            color: #4f46e5 !important;
+            font-size: 1.7rem;
+            font-weight: 600;
+            line-height: 1.3;
+            margin-bottom: 0;
+        }
+
+        .hero-title {
+            color: #0F172A !important;
+            font-size: 3rem;
+            font-weight: 700;
+            line-height: 1.08;
+            margin: 0 0 0.7rem;
+        }
+
+        .hero-subtitle {
+            font-size: 1.7rem;
+            font-weight: 600;
+            color: #4f46e5 !important;
+            line-height: 1.3;
+            margin: 0;
+        }
+
+        .workspace-hero {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            box-shadow: 0 14px 38px rgba(15, 23, 42, 0.06);
+            margin: 0 0 2rem;
+            padding: 2.35rem 2.5rem;
+            width: 100%;
         }
 
         .workspace-section-title {
             color: #0F172A !important;
             font-size: clamp(18px, 1.25rem, 24px);
             font-weight: 800;
-            margin: 22px 0 10px;
+            margin: 2.2rem 0 1rem;
+        }
+
+        .dashboard-metric-card {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            box-shadow: 0 10px 26px rgba(15, 23, 42, 0.05);
+            min-height: 132px;
+            padding: 1.2rem 1.25rem;
+        }
+
+        .dashboard-metric-label {
+            color: #64748B !important;
+            font-size: 0.88rem;
+            font-weight: 700;
+            line-height: 1.25;
+            margin-bottom: 0.8rem;
+        }
+
+        .dashboard-metric-value {
+            color: #0F172A !important;
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1.1;
+        }
+
+        .dashboard-metric-note {
+            color: #64748B !important;
+            font-size: 0.82rem;
+            font-weight: 600;
+            margin-top: 0.8rem;
+        }
+
+        .quick-action-card {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            box-shadow: 0 10px 26px rgba(15, 23, 42, 0.05);
+            margin-bottom: 0.75rem;
+            min-height: 112px;
+            padding: 1.1rem 1.15rem;
+        }
+
+        .quick-action-title {
+            color: #0F172A !important;
+            font-size: 1rem;
+            font-weight: 800;
+            line-height: 1.25;
+            margin-bottom: 0.45rem;
+        }
+
+        .quick-action-description {
+            color: #64748B !important;
+            font-size: 0.88rem;
+            line-height: 1.45;
         }
 
         .workspace-activity-card,
         .workspace-overview-card {
             background: #FFFFFF;
             border: 1px solid #E2E8F0;
-            border-radius: 12px;
-            padding: 16px;
+            border-radius: 8px;
+            box-shadow: 0 10px 26px rgba(15, 23, 42, 0.05);
+            padding: 1.25rem;
             width: 100%;
             max-width: 100%;
         }
@@ -3443,35 +3530,93 @@ def render_projects_page() -> None:
 def render_workspace() -> None:
     current_user = st.session_state.current_user or {}
     username = st.session_state.username or current_user.get("username", "User")
+    try:
+        usage = refresh_subscription_usage()
+        documents_processed = str(usage["current_document_count"])
+        api_requests = str(usage["current_request_count"])
+    except (KeyError, ValueError):
+        documents_processed = "0"
+        api_requests = "0"
+
     st.markdown(
         f"""
-        <div class="workspace-title">Welcome back, {escape(str(username))}</div>
-        <div class="workspace-subtitle">Gao Intelligence Hub</div>
+        <div class="workspace-hero">
+            <div class="hero-title">Welcome back, {escape(str(username))}</div>
+            <div class="hero-subtitle">Gao Intelligence Hub</div>
+        </div>
         """,
         unsafe_allow_html=True,
     )
 
+    metric_columns = st.columns(4)
+    metrics = [
+        ("Active Agents", str(len(EXECUTIVE_AGENT_MODES)), "Executive review modes ready"),
+        ("Documents Processed", documents_processed, "This billing period"),
+        ("API Requests", api_requests, "This billing period"),
+        ("System Status", "Online", "Core services available"),
+    ]
+    for column, (label, value, note) in zip(metric_columns, metrics):
+        with column:
+            st.markdown(
+                f"""
+                <div class="dashboard-metric-card">
+                    <div class="dashboard-metric-label">{escape(label)}</div>
+                    <div class="dashboard-metric-value">{escape(value)}</div>
+                    <div class="dashboard-metric-note">{escape(note)}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
     st.markdown('<div class="workspace-section-title">Quick Actions</div>', unsafe_allow_html=True)
-    if st.button("Analyze Document", key="quick_analyze_document", use_container_width=True):
-        if not require_active_project():
-            return
-        set_active_section("documents", "document")
-        st.rerun()
-    if st.button("Build Prompt", key="quick_build_prompt", use_container_width=True):
-        if not require_active_project():
-            return
-        set_active_section("ai")
-        st.rerun()
-    if st.button("Create Automation", key="quick_create_automation", use_container_width=True):
-        if not require_active_project():
-            return
-        set_active_section("automations")
-        st.rerun()
-    if st.button("Executive Analysis", key="quick_executive_analysis", use_container_width=True):
-        if not require_active_project():
-            return
-        set_active_section("documents", "executive")
-        st.rerun()
+    action_columns = st.columns(4)
+    actions = [
+        (
+            "Analyze Document",
+            "Review contracts, tenders, reports, and business documents.",
+            "quick_analyze_document",
+            "documents",
+            "document",
+        ),
+        (
+            "Upload File",
+            "Open the document workspace and upload source files.",
+            "quick_upload_file",
+            "documents",
+            "document",
+        ),
+        (
+            "Run Agent",
+            "Start an executive agent review for a selected project.",
+            "quick_run_agent",
+            "documents",
+            "executive",
+        ),
+        (
+            "View Logs",
+            "Review saved activity and generated intelligence history.",
+            "quick_view_logs",
+            "settings",
+            None,
+        ),
+    ]
+
+    for column, (title, description, key, section, documents_view) in zip(action_columns, actions):
+        with column:
+            st.markdown(
+                f"""
+                <div class="quick-action-card">
+                    <div class="quick-action-title">{escape(title)}</div>
+                    <div class="quick-action-description">{escape(description)}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            if st.button(title, key=key, use_container_width=True):
+                if section != "settings" and not require_active_project():
+                    return
+                set_active_section(section, documents_view)
+                st.rerun()
 
     render_new_project_form()
     render_projects_list()
@@ -4243,7 +4388,11 @@ def render_automation_intelligence() -> None:
             add_active_project_history("automation", f"Automation created: {selected_automation_name}")
 
 
-st.set_page_config(page_title="Gao Intelligence Hub", page_icon=":material/hub:")
+st.set_page_config(
+    page_title="Gao Intelligence Hub",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 inject_custom_css()
 initialize_auth_state()
 try:
