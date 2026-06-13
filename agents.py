@@ -1,18 +1,32 @@
+import os
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from crewai import Agent
+from openai import OpenAI
+
+if TYPE_CHECKING:
+    from crewai import Agent
+
+
+DEFAULT_AGENT_MODEL = os.getenv("OPENAI_COPILOT_MODEL", "gpt-4o-mini")
 
 
 @dataclass
 class GatewayAgents:
-    router: Agent
-    market: Agent
-    technical: Agent
-    writer: Agent
+    router: "Agent"
+    market: "Agent"
+    technical: "Agent"
+    writer: "Agent"
+
+
+def _create_crewai_agent(**kwargs):
+    from crewai import Agent
+
+    return Agent(**kwargs)
 
 
 def create_router_agent(llm):
-    return Agent(
+    return _create_crewai_agent(
         role="AI Task Router",
         goal="Classify user requests into categories and return JSON.",
         backstory="""
@@ -34,7 +48,7 @@ No text outside JSON.
 
 
 def create_market_agent(llm, search_tools):
-    return Agent(
+    return _create_crewai_agent(
         role="Market Analyst",
         goal="Analyze market trends using real-time search data.",
         backstory="Expert in global markets and AI business strategy.",
@@ -45,7 +59,7 @@ def create_market_agent(llm, search_tools):
 
 
 def create_tech_agent(llm):
-    return Agent(
+    return _create_crewai_agent(
         role="Technical Architect",
         goal="Design scalable system architectures.",
         backstory="Expert in distributed systems and AI engineering.",
@@ -55,7 +69,7 @@ def create_tech_agent(llm):
 
 
 def create_writer_agent(llm):
-    return Agent(
+    return _create_crewai_agent(
         role="Professional Writer",
         goal="Write clear executive-level documents.",
         backstory="Expert business writer.",
@@ -71,3 +85,40 @@ def create_agents(llm, search_tools):
         technical=create_tech_agent(llm),
         writer=create_writer_agent(llm)
     )
+
+
+def _run_openai_agent(system_prompt: str, prompt: str) -> str:
+    cleaned_prompt = prompt.strip()
+    if not cleaned_prompt:
+        raise ValueError("Agent prompt is required.")
+
+    client = OpenAI()
+    response = client.responses.create(
+        model=DEFAULT_AGENT_MODEL,
+        input=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": cleaned_prompt},
+        ],
+    )
+    return response.output_text
+
+
+def run_construction_agent(prompt: str) -> str:
+    system_prompt = (
+        "You are a senior construction consultant specializing in contracts, "
+        "tenders, and risk analysis."
+    )
+    return _run_openai_agent(system_prompt, prompt)
+
+
+def run_business_agent(prompt: str) -> str:
+    system_prompt = (
+        "You are a senior business strategist focused on growth, finance, "
+        "and operations."
+    )
+    return _run_openai_agent(system_prompt, prompt)
+
+
+def run_general_agent(prompt: str) -> str:
+    system_prompt = "You are a helpful AI assistant."
+    return _run_openai_agent(system_prompt, prompt)

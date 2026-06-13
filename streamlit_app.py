@@ -8,7 +8,7 @@ import time
 import requests
 import streamlit as st
 
-from copilot import run_copilot
+from copilot_core import run_copilot
 import project_store
 import prompt_store
 import subscription_store
@@ -4256,20 +4256,56 @@ def render_ai_copilot_panel() -> None:
         """,
         unsafe_allow_html=True,
     )
-    user_input = st.text_area("Ask anything", key="copilot_input", height=180)
+    st.markdown("## 🤖 AI Copilot")
+    user_input = st.text_area(
+        "Ask anything (Construction, Business, Strategy...)",
+        key="copilot_input",
+        height=180,
+    )
+    uploaded_file = st.file_uploader(
+        "Upload document",
+        type=["pdf", "txt"],
+        key="copilot_document_upload",
+    )
     if st.button("Run AI", key="copilot_run_ai", use_container_width=True):
         cleaned_input = user_input.strip()
-        if not cleaned_input:
-            st.warning("Enter a question first.")
+        file_text = ""
+        document_read_failed = False
+
+        if uploaded_file:
+            try:
+                file_text = extract_uploaded_document_text(
+                    uploaded_file.name,
+                    uploaded_file.getvalue(),
+                )
+                file_text, truncated = truncate_document_text(file_text)
+                if truncated:
+                    st.warning(f"Document content was truncated to first {DOCUMENT_TEXT_LIMIT} characters.")
+            except Exception as exc:
+                document_read_failed = True
+                st.error(f"Could not read uploaded document: {exc}")
+
+        if not cleaned_input and not file_text:
+            st.warning("Enter a question or upload a document first.")
+        elif document_read_failed:
+            return
         else:
             enforce_copilot_rate_limit()
             if not consume_ai_request_or_warn():
                 return
 
-            with st.spinner("Running copilot..."):
+            prompt = cleaned_input
+            if file_text:
+                prompt = (
+                    "Analyze the following document:\n"
+                    f"{file_text}\n\n"
+                    f"User question:\n{cleaned_input or 'Provide a concise analysis.'}"
+                )
+
+            with st.spinner("Analyzing..."):
                 started_at = time.perf_counter()
                 try:
-                    response_text = run_copilot_request(cleaned_input)
+                    response_text = run_copilot_request(prompt)
                 except Exception as exc:
                     response_text = f"Error: {str(exc)}"
                 finally:
@@ -4285,7 +4321,16 @@ def render_ai_copilot_panel() -> None:
                     "result": response_text,
                     "version": VERSION,
                 }
-                save_history_entry(cleaned_input, "Copilot", payload, elapsed_seconds)
+                display_query = cleaned_input or f"Document analysis: {uploaded_file.name}"
+                save_history_entry(display_query, "Copilot", payload, elapsed_seconds)
+                st.session_state.copilot_history.append(
+                    {
+                        "prompt": display_query,
+                        "response": response_text,
+                    }
+                )
+                st.session_state.copilot_history = st.session_state.copilot_history[-3:]
+                st.markdown("### Result")
                 st.write(response_text)
 
 
@@ -4844,6 +4889,7 @@ DEFAULTS = {
     "documents_view": "document",
     "active_project_id": None,
     "copilot_calls": 0,
+    "copilot_history": [],
 }
 
 for key, value in DEFAULTS.items():
