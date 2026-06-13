@@ -24,6 +24,10 @@ jobs:
           chmod 600 ~/.ssh/server_key
           ssh-keyscan -H 170.64.131.149 >> ~/.ssh/known_hosts
 
+      - name: Debug SSH Fingerprint
+        run: |
+          ssh-keygen -lf ~/.ssh/server_key || true
+
       - name: Test SSH
         shell: bash
         run: |
