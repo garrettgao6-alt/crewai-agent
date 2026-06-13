@@ -144,7 +144,12 @@ def get_user_limit_status() -> tuple[int, int]:
     return count_active_users(), get_max_users()
 
 
-def get_user_by_id(user_id: int) -> dict | None:
+def get_user_by_id(user_id: int | str) -> dict | None:
+    try:
+        clean_user_id = int(user_id)
+    except (TypeError, ValueError):
+        return None
+
     try:
         with get_connection() as connection:
             user_row = connection.execute(
@@ -155,7 +160,7 @@ def get_user_by_id(user_id: int) -> dict | None:
                   AND is_active = 1
                 LIMIT 1
                 """,
-                (user_id,),
+                (clean_user_id,),
             ).fetchone()
     except sqlite3.Error as exc:
         raise UserStoreError("Could not read user.") from exc
