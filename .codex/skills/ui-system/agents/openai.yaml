@@ -1,0 +1,4 @@
+interface:
+  display_name: "Enterprise UI System"
+  short_description: "Build premium Streamlit SaaS interfaces."
+  default_prompt: "Use $ui-system to design a dark, modern Streamlit SaaS interface."
