@@ -40,35 +40,54 @@ def extract_document_text(filename: str, file_bytes: bytes) -> str:
     raise ValueError("Unsupported document type. Upload a PDF or TXT file.")
 
 
-def chunk_text(text: str) -> list:
+def split_by_sections(text: str):
+    sections = re.split(r"(Section \d+\.?\d*|Clause \d+\.?\d*)", clean_text(text))
+
+    chunks = []
+
+    for i in range(1, len(sections), 2):
+        title = sections[i]
+        content = sections[i + 1] if i + 1 < len(sections) else ""
+        chunk = clean_text(title + content)
+        if chunk:
+            chunks.append(chunk)
+
+    return chunks
+
+
+def semantic_chunk(text):
     cleaned_text = clean_text(text)
     if not cleaned_text:
         return []
 
     chunks = []
-    start = 0
-    text_length = len(cleaned_text)
+    current = ""
 
-    while start < text_length:
-        end = min(start + MAX_CHUNK_SIZE, text_length)
-        chunk = cleaned_text[start:end]
+    for sentence in cleaned_text.split(". "):
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+        sentence_text = sentence if sentence.endswith(".") else sentence + "."
+        if len(current) + len(sentence_text) < 800:
+            current += sentence_text + " "
+        else:
+            if current.strip():
+                chunks.append(current.strip())
+            current = sentence_text + " "
 
-        if end < text_length:
-            split_at = max(chunk.rfind("\n\n"), chunk.rfind(". "), chunk.rfind(" "))
-            if split_at >= MIN_CHUNK_SIZE:
-                end = start + split_at + 1
-                chunk = cleaned_text[start:end]
-
-        chunk = chunk.strip()
-        if chunk:
-            chunks.append(chunk)
-
-        if end >= text_length:
-            break
-
-        start = max(end - CHUNK_OVERLAP, start + 1)
+    if current.strip():
+        chunks.append(current.strip())
 
     return chunks
+
+
+def chunk_text(text: str) -> list:
+    structured = split_by_sections(text)
+
+    if len(structured) > 3:
+        return structured
+
+    return semantic_chunk(text)
 
 
 def infer_document_type(filename: str, text: str) -> str:

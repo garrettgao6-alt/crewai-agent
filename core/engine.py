@@ -1,9 +1,9 @@
 from core.critic import review_output
 from core.memory import Memory
 from core.planner import plan_tasks
+from core.retriever import retrieve_context
 from core.router import route_task
 from core.types import AgentExecutor
-from core.vector_store import build_context, format_sources, retrieve
 
 
 memory = Memory()
@@ -57,9 +57,9 @@ def run_engine(prompt: str, agent_executor: AgentExecutor) -> str:
     memory.add("user", prompt)
 
     tasks = plan_tasks(prompt)
-    retrieved_chunks = retrieve(prompt)
-    context = build_context(retrieved_chunks)
-    sources = format_sources(retrieved_chunks)
+    retrieval = retrieve_context(prompt)
+    context = retrieval["context"]
+    sources = retrieval["sources"]
 
     responses = []
 

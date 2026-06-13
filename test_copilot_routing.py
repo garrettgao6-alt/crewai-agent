@@ -3,11 +3,12 @@ from unittest.mock import patch
 from types import SimpleNamespace
 
 import copilot_core
-from core.document_pipeline import chunk_text, process_document
+from core.document_pipeline import chunk_text, process_document, semantic_chunk, split_by_sections
 from core.critic import review_output
 from core.engine import build_task_prompt, ensure_citations, memory, run_engine
 from core.planner import plan_tasks
 import core.planner as planner
+import core.retriever as retriever
 import core.router as embedding_router
 import core.vector_store as vector_store
 from core.router import route_task
@@ -198,16 +199,44 @@ class RagSystemTests(unittest.TestCase):
         memory.clear()
         vector_store.clear_store()
 
-    def test_chunk_text_uses_size_bounds_and_overlap(self):
-        text = " ".join(f"word{i}" for i in range(500))
+    def test_split_by_sections_detects_clause_and_section_titles(self):
+        text = (
+            "Intro text. Section 1 Fire safety requirements. "
+            "Clause 2.1 Egress paths must be maintained. "
+            "Section 3 Energy efficiency requirements."
+        )
+
+        chunks = split_by_sections(text)
+
+        self.assertEqual(len(chunks), 3)
+        self.assertTrue(chunks[0].startswith("Section 1"))
+        self.assertTrue(chunks[1].startswith("Clause 2.1"))
+
+    def test_semantic_chunk_uses_sentence_boundaries(self):
+        text = ". ".join(
+            " ".join(f"word{sentence}_{index}" for index in range(20))
+            for sentence in range(40)
+        )
+
+        chunks = semantic_chunk(text)
+
+        self.assertGreater(len(chunks), 1)
+        self.assertTrue(all(len(chunk) <= 850 for chunk in chunks))
+
+    def test_chunk_text_prefers_structured_sections(self):
+        text = "\n".join(
+            [
+                "Section 1 Fire safety requirements.",
+                "Clause 1.1 Exits must remain clear.",
+                "Section 2 Waterproofing requirements.",
+                "Clause 2.1 Membranes must be compliant.",
+            ]
+        )
 
         chunks = chunk_text(text)
 
-        self.assertGreater(len(chunks), 1)
-        self.assertTrue(all(len(chunk) <= 1000 for chunk in chunks))
-        self.assertTrue(all(len(chunk) >= 500 for chunk in chunks[:-1]))
-        overlap_terms = set(chunks[0][-100:].split()) & set(chunks[1][:140].split())
-        self.assertGreaterEqual(len(overlap_terms), 5)
+        self.assertEqual(len(chunks), 4)
+        self.assertTrue(chunks[0].startswith("Section 1"))
 
     def test_process_txt_document_preserves_metadata(self):
         text = ("National Construction Code fire safety compliance " * 30).encode("utf-8")
@@ -261,6 +290,53 @@ class RagSystemTests(unittest.TestCase):
 
         with patch.object(vector_store, "_get_client", return_value=fake_client):
             ranked = vector_store.rerank("revenue strategy", chunks)
+
+        self.assertEqual(ranked[0]["metadata"]["source"], "b.txt")
+
+    def test_generate_queries_uses_gpt_list_output(self):
+        fake_response = SimpleNamespace(output_text="['egress compliance', 'fire exits NCC', 'building exits']")
+        fake_client = SimpleNamespace(
+            responses=SimpleNamespace(
+                create=lambda **_kwargs: fake_response,
+            ),
+        )
+
+        with patch.object(retriever, "_get_client", return_value=fake_client):
+            self.assertEqual(
+                retriever.generate_queries("NCC exits"),
+                ["egress compliance", "fire exits NCC", "building exits"],
+            )
+
+    def test_retrieve_multi_dedupes_expanded_query_results(self):
+        chunk = {
+            "text": "NCC egress provisions for fire exits.",
+            "metadata": {"source": "ncc.txt", "type": "ncc"},
+            "score": 0.9,
+        }
+
+        with (
+            patch.object(retriever, "generate_queries", return_value=["egress", "fire exits"]),
+            patch.object(retriever, "retrieve", side_effect=[[chunk], [chunk], [chunk]]),
+        ):
+            results = retriever.retrieve_multi("NCC exits")
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["metadata"]["source"], "ncc.txt")
+
+    def test_advanced_rerank_uses_sorted_indices(self):
+        chunks = [
+            {"text": "General growth", "metadata": {"source": "a.txt", "type": "business"}},
+            {"text": "Precise pricing retention strategy", "metadata": {"source": "b.txt", "type": "business"}},
+        ]
+        fake_response = SimpleNamespace(output_text="[1, 0]")
+        fake_client = SimpleNamespace(
+            responses=SimpleNamespace(
+                create=lambda **_kwargs: fake_response,
+            ),
+        )
+
+        with patch.object(retriever, "_get_client", return_value=fake_client):
+            ranked = retriever.rerank("pricing retention", chunks)
 
         self.assertEqual(ranked[0]["metadata"]["source"], "b.txt")
 

@@ -50,6 +50,11 @@ def clear_store() -> None:
     last_retrieval = []
 
 
+def set_last_retrieval(chunks: list[dict]) -> None:
+    global last_retrieval
+    last_retrieval = chunks
+
+
 def add_chunks(chunks: list[dict]) -> int:
     for chunk in chunks:
         text = chunk["text"]
