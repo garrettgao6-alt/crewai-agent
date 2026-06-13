@@ -6,6 +6,7 @@ python-dotenv==1.1.1
 fastapi
 uvicorn
 streamlit
+streamlit-cookies-manager
 requests
 pypdf
 python-docx

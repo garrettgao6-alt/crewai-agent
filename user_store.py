@@ -144,6 +144,30 @@ def get_user_limit_status() -> tuple[int, int]:
     return count_active_users(), get_max_users()
 
 
+def get_user_by_id(user_id: int) -> dict | None:
+    try:
+        with get_connection() as connection:
+            user_row = connection.execute(
+                """
+                SELECT *
+                FROM users
+                WHERE id = ?
+                  AND is_active = 1
+                LIMIT 1
+                """,
+                (user_id,),
+            ).fetchone()
+    except sqlite3.Error as exc:
+        raise UserStoreError("Could not read user.") from exc
+
+    if user_row is None:
+        return None
+
+    user = dict(user_row)
+    user.pop("password_hash", None)
+    return user
+
+
 def hash_password(password: str) -> str:
     salt = secrets.token_hex(16)
     password_hash = hashlib.pbkdf2_hmac(

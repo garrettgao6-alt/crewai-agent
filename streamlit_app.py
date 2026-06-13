@@ -8,6 +8,7 @@ from uuid import uuid4
 
 import requests
 import streamlit as st
+from streamlit_cookies_manager import EncryptedCookieManager
 
 from core.document_pipeline import process_document
 from core.engine import run_engine
@@ -27,6 +28,8 @@ VERSION = "1.0"
 HISTORY_LIMIT = 10
 DEFAULT_NAV = "Dashboard"
 DEFAULT_SECTION = "dashboard"
+COOKIE_PREFIX = "gao_app"
+COOKIE_USER_ID_KEY = "user_id"
 COPILOT_SESSION_CALL_LIMIT = 50
 DOCUMENT_TEXT_LIMIT = 12000
 DOCUMENT_TOTAL_TEXT_LIMIT = 30000
@@ -3381,6 +3384,8 @@ def render_mobile_navigation_tabs() -> None:
 def initialize_auth_state() -> None:
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
+    if "is_logged_in" not in st.session_state:
+        st.session_state.is_logged_in = st.session_state.authenticated
     if "current_user" not in st.session_state:
         st.session_state.current_user = None
     if "user_id" not in st.session_state:
@@ -3393,6 +3398,7 @@ def initialize_auth_state() -> None:
 
 def set_authenticated_user(user: dict) -> None:
     st.session_state.authenticated = True
+    st.session_state.is_logged_in = True
     st.session_state["user"] = user
     st.session_state.current_user = user
     st.session_state.user_id = str(user["id"])
@@ -3402,6 +3408,7 @@ def set_authenticated_user(user: dict) -> None:
 
 def clear_authenticated_user() -> None:
     st.session_state.authenticated = False
+    st.session_state.is_logged_in = False
     st.session_state["user"] = None
     st.session_state.current_user = None
     st.session_state.user_id = str(uuid4())
@@ -3411,7 +3418,56 @@ def clear_authenticated_user() -> None:
     st.session_state.selected_history = None
 
 
-def render_auth_page() -> None:
+def initialize_cookie_manager() -> EncryptedCookieManager:
+    cookies = EncryptedCookieManager(
+        prefix=COOKIE_PREFIX,
+        password=get_cookie_secret(),
+    )
+    if not cookies.ready():
+        st.stop()
+    return cookies
+
+
+def get_cookie_secret() -> str:
+    return (
+        os.getenv("COOKIE_SECRET_KEY")
+        or os.getenv("COOKIE_PASSWORD")
+        or "a-very-secret-key"
+    )
+
+
+def restore_authenticated_user_from_cookie(cookies: EncryptedCookieManager) -> None:
+    if st.session_state.get("authenticated"):
+        return
+
+    cookie_user_id = cookies.get(COOKIE_USER_ID_KEY)
+    if not cookie_user_id:
+        return
+
+    try:
+        user = user_store.get_user_by_id(int(cookie_user_id))
+    except (TypeError, ValueError, user_store.UserStoreError):
+        user = None
+
+    if user is None:
+        cookies[COOKIE_USER_ID_KEY] = ""
+        cookies.save()
+        return
+
+    set_authenticated_user(user)
+
+
+def persist_authenticated_user(cookies: EncryptedCookieManager, user: dict) -> None:
+    cookies[COOKIE_USER_ID_KEY] = str(user["id"])
+    cookies.save()
+
+
+def clear_authentication_cookie(cookies: EncryptedCookieManager) -> None:
+    cookies[COOKIE_USER_ID_KEY] = ""
+    cookies.save()
+
+
+def render_auth_page(cookies: EncryptedCookieManager) -> None:
     st.markdown(
         """
         <div class="auth-container">
@@ -3442,6 +3498,7 @@ def render_auth_page() -> None:
                     st.error("Invalid email or password.")
                 else:
                     set_authenticated_user(user)
+                    persist_authenticated_user(cookies, user)
                     st.rerun()
 
     with create_account_tab:
@@ -3468,6 +3525,7 @@ def render_auth_page() -> None:
                     st.error("Could not create account right now. Please try again later.")
                 else:
                     set_authenticated_user(user)
+                    persist_authenticated_user(cookies, user)
                     st.rerun()
 
 
@@ -4938,31 +4996,34 @@ try:
     config.load_environment()
 except Exception:
     pass
+auth_cookies = initialize_cookie_manager()
 
 init_vectors()
 try:
     user_store.initialize_user_store()
 except user_store.UserStoreError:
-    render_auth_page()
+    render_auth_page(auth_cookies)
     st.error("Could not start the user database. Please contact the administrator.")
     st.stop()
+
+restore_authenticated_user_from_cookie(auth_cookies)
 
 try:
     project_store.initialize_project_store()
 except project_store.ProjectStoreError:
-    render_auth_page()
+    render_auth_page(auth_cookies)
     st.error("Could not start the project database. Please contact the administrator.")
     st.stop()
 
 try:
     template_store.initialize_template_store()
 except template_store.TemplateStoreError:
-    render_auth_page()
+    render_auth_page(auth_cookies)
     st.error("Could not start the template database. Please contact the administrator.")
     st.stop()
 
-if not st.session_state.authenticated:
-    render_auth_page()
+if not st.session_state.get("is_logged_in"):
+    render_auth_page(auth_cookies)
     st.stop()
 
 DEFAULTS = {
@@ -5009,7 +5070,9 @@ with st.sidebar:
     render_user_limit_summary()
 
     if st.button("Sign Out", use_container_width=True):
+        clear_authentication_cookie(auth_cookies)
         clear_authenticated_user()
+        st.session_state.clear()
         st.rerun()
 
 active_section = st.session_state.active_section
