@@ -3,16 +3,18 @@ from agents import (
     run_construction_agent,
     run_general_agent,
 )
-from router import detect_intent
+from core.engine import run_engine
 
 
-def run_copilot(prompt: str) -> str:
-    intent = detect_intent(prompt)
-
-    if intent == "construction":
+def agent_executor(domain, prompt):
+    if domain == "construction":
         return run_construction_agent(prompt)
 
-    if intent == "business":
+    if domain == "business":
         return run_business_agent(prompt)
 
     return run_general_agent(prompt)
+
+
+def run_copilot(prompt: str) -> str:
+    return run_engine(prompt, agent_executor)
