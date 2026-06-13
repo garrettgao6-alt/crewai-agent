@@ -8,12 +8,32 @@ from core.vector_store import (
     format_sources,
     get_last_retrieval,
     retrieve,
+    search_ncc_chunks,
     set_last_retrieval,
 )
 
 
 def _get_client() -> OpenAI:
     return OpenAI()
+
+
+def is_regulatory_query(query: str) -> bool:
+    query_lower = query.lower()
+    return any(term in query_lower for term in ["ncc", "compliance", "code"])
+
+
+def infer_regulatory_filter(query: str) -> str | None:
+    query_lower = query.lower()
+    if "fire" in query_lower:
+        return "fire"
+    if "structure" in query_lower or "structural" in query_lower:
+        return "structure"
+    return None
+
+
+def is_housing_query(query: str) -> bool:
+    query_lower = query.lower()
+    return "housing" in query_lower or "residential" in query_lower or "class 1" in query_lower
 
 
 def generate_queries(query: str):
@@ -139,6 +159,9 @@ Return sorted indices.
 
 
 def retrieve_context(query: str, top_k=5, filter_type=None, user_id="default"):
+    if is_regulatory_query(query):
+        return retrieve_ncc_context(query, top_k=top_k, user_id=user_id)
+
     retrieved = retrieve_multi(query, top_k=top_k, filter_type=filter_type, user_id=user_id)
     ranked = rerank(query, retrieved)[:top_k]
     set_last_retrieval(ranked)
@@ -146,4 +169,24 @@ def retrieve_context(query: str, top_k=5, filter_type=None, user_id="default"):
         "chunks": ranked,
         "context": build_context(ranked),
         "sources": format_sources(ranked),
+    }
+
+
+def retrieve_ncc_context(query: str, top_k=5, user_id="default"):
+    filter_type = infer_regulatory_filter(query)
+    housing = is_housing_query(query)
+    retrieved = search_ncc_chunks(
+        user_id,
+        query,
+        top_k=max(top_k * 3, top_k),
+        filter_type=filter_type,
+        housing=housing,
+    )
+    ranked = rerank(query, retrieved)[:top_k]
+    set_last_retrieval(ranked)
+    return {
+        "chunks": ranked,
+        "context": build_context(ranked),
+        "sources": format_sources(ranked),
+        "legal_mode": True,
     }

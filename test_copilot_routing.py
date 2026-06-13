@@ -6,6 +6,7 @@ import copilot_core
 from core.document_pipeline import chunk_text, process_document, semantic_chunk, split_by_sections
 from core.critic import review_output
 from core.engine import build_task_prompt, ensure_citations, memory, run_engine
+from core.ncc_parser import clauses_to_documents, parse_ncc_clauses
 from core.planner import plan_tasks
 import core.planner as planner
 import core.retriever as retriever
@@ -353,7 +354,7 @@ class RagSystemTests(unittest.TestCase):
                 ["NCC fire exits must satisfy compliant egress provisions."],
                 [{"source": "ncc.txt", "type": "ncc"}],
             )
-            result = run_engine("Analyze NCC fire exits", executor)
+            result = run_engine("Analyze fire exits", executor)
 
         self.assertIn("Context:\nNCC fire exits must satisfy compliant egress provisions.", calls[0][1])
         self.assertIn("Sources:\n[1] ncc.txt", calls[0][1])
@@ -387,6 +388,95 @@ class RagSystemTests(unittest.TestCase):
 
         self.assertEqual(user_a_results, ["NCC user A fire exit compliance content."])
         self.assertEqual(user_b_results, ["Business user B revenue strategy content."])
+
+    def test_ncc_parser_extracts_section_clause_title_and_text(self):
+        text = (
+            "Section C Fire resistance. "
+            "C3.2 Protection of openings Fire doors must protect openings. "
+            "C3.3 Fire separation Walls must resist fire spread."
+        )
+
+        clauses = parse_ncc_clauses(text)
+
+        self.assertEqual(len(clauses), 2)
+        self.assertEqual(clauses[0]["section"], "Section C")
+        self.assertEqual(clauses[0]["clause"], "C3.2")
+        self.assertIn("Protection of openings", clauses[0]["title"])
+        self.assertIn("C3.2", clauses[0]["text"])
+
+    def test_ncc_clauses_store_with_metadata_and_fire_filter(self):
+        text = (
+            "Section C Fire resistance. "
+            "C3.2 Protection of openings Fire doors must protect openings. "
+            "C3.3 Fire separation Fire walls must resist fire spread."
+        )
+        clauses = parse_ncc_clauses(text)
+        documents, metadatas = clauses_to_documents(clauses, "ncc-2025.txt")
+
+        with patch.object(vector_store, "embed_text", return_value=vector_store.np.array([1.0, 0.0])):
+            vector_store.add_ncc_documents("ncc_user", documents, metadatas)
+            results = vector_store.search_ncc_chunks(
+                "ncc_user",
+                "Is this compliant with NCC fire safety?",
+                filter_type="fire",
+            )
+
+        self.assertGreaterEqual(len(results), 1)
+        self.assertEqual(results[0]["metadata"]["code"], "NCC2025")
+        self.assertIn(results[0]["metadata"]["clause"], {"C3.2", "C3.3"})
+        self.assertEqual(results[0]["metadata"]["type"], "fire")
+
+    def test_ncc_retrieval_uses_housing_collection_separately(self):
+        with patch.object(vector_store, "embed_text", return_value=vector_store.np.array([1.0, 0.0])):
+            vector_store.add_ncc_documents(
+                "housing_user",
+                ["C3.2 Fire safety for general NCC buildings."],
+                [{"code": "NCC2025", "section": "Section C", "clause": "C3.2", "source": "ncc.txt", "type": "fire"}],
+            )
+            vector_store.add_ncc_documents(
+                "housing_user",
+                ["C3.2 Housing fire safety provision."],
+                [{"code": "NCC2025", "section": "Section C", "clause": "C3.2", "source": "housing.txt", "type": "fire"}],
+                housing=True,
+            )
+
+            ncc_results = vector_store.search_ncc_chunks("housing_user", "fire safety", filter_type="fire")
+            housing_results = vector_store.search_ncc_chunks(
+                "housing_user",
+                "housing fire safety",
+                filter_type="fire",
+                housing=True,
+            )
+
+        self.assertEqual(ncc_results[0]["metadata"]["source"], "ncc.txt")
+        self.assertEqual(housing_results[0]["metadata"]["source"], "housing.txt")
+
+    def test_engine_uses_ncc_legal_mode_for_compliance_query(self):
+        clauses = parse_ncc_clauses(
+            "Section C Fire resistance. "
+            "C3.2 Protection of openings Fire doors must protect openings."
+        )
+        documents, metadatas = clauses_to_documents(clauses, "ncc-2025.txt")
+        calls = []
+
+        def executor(domain, prompt):
+            calls.append((domain, prompt))
+            return (
+                "Compliance Summary\nGrounded in C3.2.\n"
+                "Relevant Clauses\n* C3.2\n"
+                "Assessment\nCompliant if openings are protected.\n"
+                "Risk Level\nMedium"
+            )
+
+        with patch.object(vector_store, "embed_text", return_value=vector_store.np.array([1.0, 0.0])):
+            vector_store.add_ncc_documents("legal_user", documents, metadatas)
+            result = run_engine("Is this compliant with NCC fire safety?", executor, user_id="legal_user")
+
+        self.assertIn("You are a construction compliance expert.", calls[0][1])
+        self.assertIn("only use provided NCC context", calls[0][1])
+        self.assertIn("C3.2", calls[0][1])
+        self.assertIn("Compliance Summary", result)
+        self.assertIn("C3.2", result)
 
 
 if __name__ == "__main__":

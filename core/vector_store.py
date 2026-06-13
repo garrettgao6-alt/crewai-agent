@@ -19,14 +19,30 @@ def _get_client() -> OpenAI:
     return OpenAI()
 
 
-def _collection_name(user_id: str) -> str:
+def _safe_user_id(user_id: str) -> str:
     safe_user_id = re.sub(r"[^a-zA-Z0-9_-]", "_", str(user_id))
-    return f"user_{safe_user_id or DEFAULT_USER_ID}"
+    return safe_user_id or DEFAULT_USER_ID
+
+
+def _collection_name(user_id: str) -> str:
+    return f"user_{_safe_user_id(user_id)}"
+
+
+def _ncc_collection_name(user_id: str, housing: bool = False) -> str:
+    suffix = "housing" if housing else "ncc"
+    return f"user_{_safe_user_id(user_id)}_{suffix}"
 
 
 def get_collection(user_id: str):
     return client.get_or_create_collection(
         name=_collection_name(user_id),
+        metadata={"hnsw:space": "cosine"},
+    )
+
+
+def get_ncc_collection(user_id: str, housing: bool = False):
+    return client.get_or_create_collection(
+        name=_ncc_collection_name(user_id, housing=housing),
         metadata={"hnsw:space": "cosine"},
     )
 
@@ -75,11 +91,16 @@ def _document_id(user_id: str, text: str, metadata: dict, index: int) -> str:
 def clear_store(user_id: str | None = None) -> None:
     global last_retrieval
     if user_id is not None:
-        collection_name = _collection_name(user_id)
-        try:
-            client.delete_collection(collection_name)
-        except Exception:
-            pass
+        collection_names = [
+            _collection_name(user_id),
+            _ncc_collection_name(user_id),
+            _ncc_collection_name(user_id, housing=True),
+        ]
+        for collection_name in collection_names:
+            try:
+                client.delete_collection(collection_name)
+            except Exception:
+                pass
     else:
         for collection in client.list_collections():
             collection_name = getattr(collection, "name", collection)
@@ -105,6 +126,27 @@ def add_documents(user_id, chunks, metadatas):
     embeddings = [embed_text(chunk).tolist() for chunk in chunks]
     ids = [
         _document_id(str(user_id), chunk, metadatas[index], index)
+        for index, chunk in enumerate(chunks)
+    ]
+
+    collection.upsert(
+        documents=chunks,
+        metadatas=metadatas,
+        embeddings=embeddings,
+        ids=ids,
+    )
+    persist()
+    return len(chunks)
+
+
+def add_ncc_documents(user_id, chunks, metadatas, housing: bool = False):
+    if not chunks:
+        return 0
+
+    collection = get_ncc_collection(str(user_id), housing=housing)
+    embeddings = [embed_text(chunk).tolist() for chunk in chunks]
+    ids = [
+        _document_id(f"{user_id}_{'housing' if housing else 'ncc'}", chunk, metadatas[index], index)
         for index, chunk in enumerate(chunks)
     ]
 
@@ -177,6 +219,23 @@ def search_chunks(user_id, query, top_k=5, filter_type=None):
     return _results_to_chunks(results)
 
 
+def search_ncc_chunks(user_id, query, top_k=5, filter_type=None, housing: bool = False):
+    collection = get_ncc_collection(str(user_id), housing=housing)
+    if collection.count() == 0:
+        return []
+    where = {"type": filter_type} if filter_type else None
+    query_embedding = embed_text(query).tolist()
+
+    results = collection.query(
+        query_embeddings=[query_embedding],
+        n_results=top_k,
+        where=where,
+        include=["documents", "metadatas", "distances"],
+    )
+
+    return _results_to_chunks(results)
+
+
 def retrieve(query, top_k=5, filter_type=None, user_id: str = DEFAULT_USER_ID):
     global last_retrieval
     last_retrieval = search_chunks(user_id, query, top_k=top_k, filter_type=filter_type)
@@ -184,14 +243,26 @@ def retrieve(query, top_k=5, filter_type=None, user_id: str = DEFAULT_USER_ID):
 
 
 def build_context(chunks: list[dict]) -> str:
-    return "\n\n".join(chunk["text"] for chunk in chunks)
+    context_parts = []
+    for chunk in chunks:
+        metadata = chunk.get("metadata", {})
+        clause = metadata.get("clause")
+        section = metadata.get("section")
+        prefix = " ".join(part for part in [section, clause] if part)
+        if prefix:
+            context_parts.append(f"{prefix}\n{chunk['text']}")
+        else:
+            context_parts.append(chunk["text"])
+    return "\n\n".join(context_parts)
 
 
 def format_sources(chunks: list[dict]) -> str:
     sources = []
     seen = set()
     for chunk in chunks:
-        source = chunk["metadata"].get("source", "Unknown source")
+        metadata = chunk["metadata"]
+        clause = metadata.get("clause")
+        source = clause or metadata.get("source", "Unknown source")
         if source in seen:
             continue
         seen.add(source)

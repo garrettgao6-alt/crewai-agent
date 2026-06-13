@@ -11,8 +11,9 @@ import streamlit as st
 
 from copilot_core import run_copilot
 from core.document_pipeline import process_document
+from core.ncc_parser import clauses_to_documents, parse_ncc_clauses
 from core.router import init_vectors
-from core.vector_store import add_documents, build_context, clear_store, format_sources, get_last_retrieval
+from core.vector_store import add_documents, add_ncc_documents, build_context, clear_store, format_sources, get_last_retrieval
 import project_store
 import prompt_store
 import subscription_store
@@ -4274,7 +4275,7 @@ def render_ai_copilot_panel() -> None:
     )
     document_type = st.selectbox(
         "Document type",
-        ["Auto-detect", "NCC", "Business"],
+        ["Auto-detect", "NCC", "Housing", "Business"],
         key="copilot_document_type",
     )
     if st.button("Run AI", key="copilot_run_ai", use_container_width=True):
@@ -4291,16 +4292,28 @@ def render_ai_copilot_panel() -> None:
 
             for uploaded_file in uploaded_files:
                 try:
-                    chunks = process_document(
-                        uploaded_file.name,
-                        uploaded_file.getvalue(),
-                        selected_document_type,
-                    )
-                    indexed_chunks += add_documents(
-                        rag_user_id,
-                        [chunk["text"] for chunk in chunks],
-                        [chunk["metadata"] for chunk in chunks],
-                    )
+                    file_bytes = uploaded_file.getvalue()
+                    if document_type in {"NCC", "Housing"}:
+                        file_text = extract_uploaded_document_text(uploaded_file.name, file_bytes)
+                        clauses = parse_ncc_clauses(file_text)
+                        documents, metadatas = clauses_to_documents(clauses, uploaded_file.name)
+                        indexed_chunks += add_ncc_documents(
+                            rag_user_id,
+                            documents,
+                            metadatas,
+                            housing=document_type == "Housing",
+                        )
+                    else:
+                        chunks = process_document(
+                            uploaded_file.name,
+                            file_bytes,
+                            selected_document_type,
+                        )
+                        indexed_chunks += add_documents(
+                            rag_user_id,
+                            [chunk["text"] for chunk in chunks],
+                            [chunk["metadata"] for chunk in chunks],
+                        )
                 except Exception as exc:
                     document_read_failed = True
                     st.error(f"Could not index {uploaded_file.name}: {exc}")
