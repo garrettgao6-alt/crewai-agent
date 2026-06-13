@@ -35,15 +35,17 @@ DOCUMENT_TEXT_LIMIT = 12000
 DOCUMENT_TOTAL_TEXT_LIMIT = 30000
 NAVIGATION_OPTIONS = [
     "Dashboard",
-    "Upload",
     "Copilot",
+    "Documents",
     "Reports",
+    "Settings",
 ]
 NAVIGATION_TO_SECTION = {
     "Dashboard": DEFAULT_SECTION,
-    "Upload": "upload",
     "Copilot": "copilot",
+    "Documents": "documents",
     "Reports": "reports",
+    "Settings": "settings",
 }
 SECTION_TO_NAVIGATION = {
     section: label
@@ -51,9 +53,16 @@ SECTION_TO_NAVIGATION = {
 }
 SECTION_ALIASES = {
     "workspace": DEFAULT_SECTION,
-    "documents": "upload",
+    "upload": "documents",
     "ai": "copilot",
     "logs": "reports",
+}
+NAVIGATION_ICONS = {
+    "Dashboard": "□",
+    "Copilot": "◇",
+    "Documents": "▤",
+    "Reports": "◈",
+    "Settings": "○",
 }
 DOCUMENT_ANALYSIS_TYPES = [
     "Contract Review",
@@ -3265,6 +3274,487 @@ def inject_custom_css() -> None:
                 margin-bottom: 12px !important;
             }
         }
+
+        /* Enterprise SaaS UI system - final dark theme layer */
+        :root {
+            --enterprise-bg: #0f1115;
+            --enterprise-sidebar: #11141a;
+            --enterprise-surface: #1a1d23;
+            --enterprise-elevated: #222630;
+            --enterprise-soft: #171a20;
+            --enterprise-border: rgba(255, 255, 255, 0.10);
+            --enterprise-border-strong: rgba(255, 255, 255, 0.18);
+            --enterprise-title: #FFFFFF;
+            --enterprise-body: #D1D5DB;
+            --enterprise-muted: #9CA3AF;
+            --enterprise-primary: #60A5FA;
+            --enterprise-primary-strong: #3B82F6;
+            --enterprise-success: #34D399;
+            --enterprise-warning: #FBBF24;
+            --enterprise-danger: #F87171;
+            --enterprise-radius: 12px;
+            --enterprise-radius-lg: 16px;
+            --enterprise-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+        }
+
+        html,
+        body,
+        .stApp,
+        [data-testid="stAppViewContainer"],
+        [data-testid="stHeader"] {
+            background: var(--enterprise-bg) !important;
+            color: var(--enterprise-body) !important;
+            overflow-x: hidden !important;
+            width: 100% !important;
+        }
+
+        [data-testid="stHeader"] {
+            border-bottom: 1px solid var(--enterprise-border);
+        }
+
+        .main .block-container,
+        .block-container {
+            max-width: 100% !important;
+            padding: 24px 32px 42px !important;
+        }
+
+        h1,
+        h2,
+        h3,
+        .workspace-title,
+        .enterprise-title,
+        .dashboard-metric-value,
+        .dashboard-chart-title,
+        .copilot-title,
+        .template-card-title,
+        .workspace-overview-line strong {
+            color: var(--enterprise-title) !important;
+            letter-spacing: 0 !important;
+        }
+
+        h1,
+        .workspace-title,
+        .enterprise-title {
+            font-size: clamp(34px, 5vw, 58px) !important;
+            font-weight: 850 !important;
+            line-height: 1.02 !important;
+            margin: 0 0 10px !important;
+        }
+
+        h2,
+        .workspace-section-title,
+        .hub-section-title {
+            color: var(--enterprise-title) !important;
+            font-size: clamp(20px, 3vw, 30px) !important;
+            font-weight: 780 !important;
+            margin: 28px 0 14px !important;
+        }
+
+        p,
+        label,
+        span,
+        div,
+        small,
+        .workspace-subtitle,
+        .hero-sub,
+        .copilot-subtitle,
+        .workspace-activity-item,
+        .workspace-overview-line,
+        .dashboard-metric-label,
+        .dashboard-metric-note,
+        .template-card-description,
+        .template-card-meta {
+            color: var(--enterprise-body) !important;
+            letter-spacing: 0 !important;
+        }
+
+        p,
+        .workspace-subtitle,
+        .hero-sub,
+        .enterprise-subtitle {
+            color: var(--enterprise-muted) !important;
+            font-size: clamp(15px, 2vw, 18px) !important;
+            line-height: 1.55 !important;
+        }
+
+        [data-testid="stSidebar"] {
+            background: var(--enterprise-sidebar) !important;
+            border-right: 1px solid var(--enterprise-border) !important;
+            min-width: 288px !important;
+        }
+
+        [data-testid="stSidebar"] * {
+            color: var(--enterprise-body) !important;
+        }
+
+        section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h2 {
+            color: var(--enterprise-title) !important;
+            font-size: 18px !important;
+            font-weight: 820 !important;
+            margin: 8px 0 22px !important;
+        }
+
+        section[data-testid="stSidebar"] [role="radiogroup"] {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        section[data-testid="stSidebar"] [role="radio"] {
+            border: 1px solid transparent;
+            border-radius: var(--enterprise-radius);
+            min-height: 46px;
+            padding: 10px 12px;
+        }
+
+        section[data-testid="stSidebar"] [role="radio"][aria-checked="true"] {
+            background: var(--enterprise-elevated) !important;
+            border-color: var(--enterprise-border-strong) !important;
+        }
+
+        section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] *,
+        section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+            color: var(--enterprise-muted) !important;
+        }
+
+        .enterprise-page-header,
+        .workspace-hero,
+        .hub-hero {
+            background:
+                radial-gradient(circle at top right, rgba(96, 165, 250, 0.12), transparent 32%),
+                var(--enterprise-surface) !important;
+            border: 1px solid var(--enterprise-border) !important;
+            border-radius: var(--enterprise-radius-lg) !important;
+            box-shadow: var(--enterprise-shadow) !important;
+            margin: 0 0 24px !important;
+            padding: 26px !important;
+        }
+
+        .hero-container {
+            background:
+                radial-gradient(circle at 100% 0%, rgba(96, 165, 250, 0.14), transparent 30%),
+                var(--enterprise-surface);
+            border: 1px solid var(--enterprise-border);
+            border-radius: var(--enterprise-radius-lg);
+            box-shadow: var(--enterprise-shadow);
+            margin: 0 0 24px;
+            padding: 30px;
+        }
+
+        .hero-brand {
+            background: none !important;
+            -webkit-text-fill-color: var(--enterprise-title) !important;
+            color: var(--enterprise-title) !important;
+            font-size: clamp(36px, 5vw, 62px) !important;
+            font-weight: 880 !important;
+            line-height: 1.02 !important;
+        }
+
+        .enterprise-grid,
+        .grid {
+            display: grid;
+            gap: 16px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            width: 100%;
+        }
+
+        .dashboard-metric-card,
+        .dashboard-chart-card,
+        .workspace-activity-card,
+        .workspace-overview-card,
+        .template-card,
+        .pricing-card,
+        .usage-card,
+        .copilot-panel,
+        .hub-result-body,
+        [data-testid="stMetric"],
+        div[data-testid="stVerticalBlockBorderWrapper"],
+        [data-testid="stExpander"] {
+            background: var(--enterprise-surface) !important;
+            border: 1px solid var(--enterprise-border) !important;
+            border-radius: var(--enterprise-radius-lg) !important;
+            box-shadow: var(--enterprise-shadow) !important;
+            color: var(--enterprise-body) !important;
+        }
+
+        .dashboard-metric-card,
+        .workspace-activity-card,
+        .workspace-overview-card,
+        .template-card,
+        .pricing-card,
+        .usage-card,
+        .copilot-panel,
+        .hub-result-body {
+            padding: 20px !important;
+        }
+
+        .dashboard-metric-card:hover {
+            box-shadow: 0 22px 60px rgba(0, 0, 0, 0.34) !important;
+            transform: translateY(-2px);
+        }
+
+        .dashboard-metric-value {
+            font-size: 32px !important;
+            line-height: 1 !important;
+        }
+
+        .dashboard-metric-note,
+        .dashboard-metric-label {
+            color: var(--enterprise-muted) !important;
+        }
+
+        .quick-action-card {
+            background: var(--enterprise-elevated) !important;
+            border: 1px solid var(--enterprise-border) !important;
+            border-radius: var(--enterprise-radius-lg) !important;
+            box-shadow: var(--enterprise-shadow) !important;
+            min-height: 116px;
+            padding: 18px !important;
+        }
+
+        .quick-action-title {
+            color: var(--enterprise-title) !important;
+        }
+
+        .quick-action-description {
+            color: var(--enterprise-muted) !important;
+            opacity: 1 !important;
+        }
+
+        div[data-testid="stButton"] > button,
+        div[data-testid="stDownloadButton"] > button,
+        .stButton > button {
+            background: var(--enterprise-elevated) !important;
+            border: 1px solid var(--enterprise-border-strong) !important;
+            border-radius: var(--enterprise-radius) !important;
+            box-shadow: none !important;
+            color: var(--enterprise-title) !important;
+            font-weight: 700 !important;
+            min-height: 48px !important;
+            width: 100% !important;
+        }
+
+        div[data-testid="stButton"] > button:hover,
+        div[data-testid="stDownloadButton"] > button:hover {
+            background: #273044 !important;
+            border-color: var(--enterprise-primary) !important;
+            color: var(--enterprise-title) !important;
+        }
+
+        div[data-testid="stButton"] > button[kind="primary"] {
+            background: var(--enterprise-primary-strong) !important;
+            border-color: var(--enterprise-primary-strong) !important;
+            color: #FFFFFF !important;
+        }
+
+        .stTextInput > div > div,
+        [data-testid="stTextInput"] > div > div,
+        [data-baseweb="input"],
+        [data-baseweb="select"],
+        [data-baseweb="textarea"],
+        .stTextArea textarea,
+        .stNumberInput input {
+            background: var(--enterprise-soft) !important;
+            border: 1px solid var(--enterprise-border-strong) !important;
+            border-radius: var(--enterprise-radius) !important;
+            box-shadow: none !important;
+            color: var(--enterprise-title) !important;
+            outline: none !important;
+        }
+
+        .stTextInput input,
+        .stTextArea textarea,
+        .stNumberInput input,
+        [data-baseweb="input"] input,
+        [data-testid="stTextInput"] input,
+        [data-testid="stTextArea"] textarea,
+        [data-testid="stNumberInput"] input,
+        [data-baseweb="select"] input,
+        [data-baseweb="select"] span {
+            background: transparent !important;
+            border: 0 !important;
+            box-shadow: none !important;
+            color: var(--enterprise-title) !important;
+            outline: none !important;
+        }
+
+        .stTextInput > div > div:focus-within,
+        [data-baseweb="input"]:focus-within,
+        [data-baseweb="textarea"]:focus-within,
+        [data-baseweb="select"]:focus-within,
+        .stTextArea textarea:focus {
+            border: 1px solid var(--enterprise-primary) !important;
+            box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.14) !important;
+        }
+
+        [data-baseweb="popover"],
+        [data-baseweb="popover"] div,
+        [role="listbox"],
+        [role="option"],
+        [data-baseweb="menu"],
+        [data-baseweb="menu"] div {
+            background: var(--enterprise-elevated) !important;
+            color: var(--enterprise-title) !important;
+            border-color: var(--enterprise-border) !important;
+        }
+
+        [data-testid="stFileUploader"] {
+            background: var(--enterprise-surface) !important;
+            border: 1px solid var(--enterprise-border) !important;
+            border-radius: var(--enterprise-radius-lg) !important;
+            color: var(--enterprise-body) !important;
+            padding: 16px !important;
+        }
+
+        [data-testid="stFileUploader"] section,
+        [data-testid="stFileUploaderDropzone"] {
+            background: var(--enterprise-soft) !important;
+            border: 1px dashed var(--enterprise-border-strong) !important;
+            border-radius: var(--enterprise-radius) !important;
+            color: var(--enterprise-body) !important;
+        }
+
+        [data-testid="stFileUploader"] section *,
+        [data-testid="stFileUploaderDropzone"] * {
+            background: transparent !important;
+            color: var(--enterprise-body) !important;
+        }
+
+        [data-testid="stDataFrame"],
+        [data-testid="stTable"] {
+            background: var(--enterprise-surface) !important;
+            border: 1px solid var(--enterprise-border) !important;
+            border-radius: var(--enterprise-radius-lg) !important;
+            overflow: hidden;
+        }
+
+        .auth-container {
+            align-items: center;
+            background: var(--enterprise-bg);
+            display: flex;
+            justify-content: center;
+            min-height: 76vh;
+            padding: 24px;
+            width: 100%;
+        }
+
+        .auth-box {
+            background: var(--enterprise-surface) !important;
+            border: 1px solid var(--enterprise-border) !important;
+            border-radius: 22px !important;
+            box-shadow: var(--enterprise-shadow) !important;
+            max-width: 520px !important;
+            padding: 34px !important;
+            text-align: center;
+            width: 100%;
+        }
+
+        .auth-box h2 {
+            color: var(--enterprise-title) !important;
+            font-size: clamp(32px, 5vw, 48px) !important;
+            line-height: 1.04 !important;
+        }
+
+        .auth-box p {
+            color: var(--enterprise-muted) !important;
+            font-size: 16px !important;
+        }
+
+        .chat-history {
+            background: var(--enterprise-surface);
+            border: 1px solid var(--enterprise-border);
+            border-radius: var(--enterprise-radius-lg);
+            box-shadow: var(--enterprise-shadow);
+            margin-bottom: 16px;
+            max-height: 58vh;
+            overflow-y: auto;
+            padding: 18px;
+        }
+
+        .chat-row {
+            display: flex;
+            margin: 12px 0;
+        }
+
+        .chat-user {
+            justify-content: flex-end;
+        }
+
+        .chat-assistant {
+            justify-content: flex-start;
+        }
+
+        .chat-bubble {
+            background: var(--enterprise-elevated);
+            border: 1px solid var(--enterprise-border);
+            border-radius: 16px;
+            color: var(--enterprise-body) !important;
+            max-width: min(760px, 88%);
+            padding: 14px 16px;
+            white-space: pre-wrap;
+        }
+
+        .chat-user .chat-bubble {
+            background: var(--enterprise-primary-strong);
+            border-color: var(--enterprise-primary-strong);
+            color: #FFFFFF !important;
+        }
+
+        .report-section {
+            background: var(--enterprise-surface);
+            border: 1px solid var(--enterprise-border);
+            border-radius: var(--enterprise-radius-lg);
+            box-shadow: var(--enterprise-shadow);
+            margin: 14px 0;
+            padding: 20px;
+        }
+
+        .report-section h3 {
+            color: var(--enterprise-title) !important;
+            font-size: 18px;
+            margin: 0 0 10px;
+        }
+
+        .report-section div {
+            color: var(--enterprise-body) !important;
+        }
+
+        @media (max-width: 1199px) {
+            .enterprise-grid,
+            .grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main .block-container,
+            .block-container {
+                padding: 16px !important;
+            }
+
+            .enterprise-grid,
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .hero-container,
+            .enterprise-page-header,
+            .workspace-hero,
+            .hub-hero,
+            .dashboard-metric-card,
+            .dashboard-chart-card,
+            .workspace-activity-card,
+            .workspace-overview-card,
+            .quick-action-card,
+            .copilot-panel,
+            .report-section {
+                padding: 16px !important;
+            }
+
+            [data-testid="stSidebar"] {
+                min-width: min(92vw, 320px) !important;
+            }
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -3396,7 +3886,7 @@ def initialize_auth_state() -> None:
         st.session_state.role = None
 
 
-def set_authenticated_user(user: dict) -> None:
+def set_authenticated_user(user: dict, reset_navigation: bool = True) -> None:
     st.session_state.authenticated = True
     st.session_state.is_logged_in = True
     st.session_state["user"] = user
@@ -3404,6 +3894,10 @@ def set_authenticated_user(user: dict) -> None:
     st.session_state.user_id = str(user["id"])
     st.session_state.username = user["username"]
     st.session_state.role = user["role"]
+    if reset_navigation:
+        st.session_state.active_section = DEFAULT_SECTION
+        st.session_state.nav_selected = DEFAULT_NAV
+        st.session_state.last_nav_selected = DEFAULT_NAV
 
 
 def clear_authenticated_user() -> None:
@@ -3454,7 +3948,7 @@ def restore_authenticated_user_from_cookie(cookies: EncryptedCookieManager) -> N
         cookies.save()
         return
 
-    set_authenticated_user(user)
+    set_authenticated_user(user, reset_navigation=False)
 
 
 def persist_authenticated_user(cookies: EncryptedCookieManager, user: dict) -> None:
@@ -3472,7 +3966,7 @@ def render_auth_page(cookies: EncryptedCookieManager) -> None:
         """
         <div class="auth-container">
             <div class="auth-box">
-                <h2>Sign in to Gao Intelligence Hub</h2>
+                <h2>Gao Intelligence Hub</h2>
                 <p>Secure access for business, construction, and executive intelligence workflows.</p>
             </div>
         </div>
@@ -3484,7 +3978,7 @@ def render_auth_page(cookies: EncryptedCookieManager) -> None:
 
     with sign_in_tab:
         with st.form("sign_in_form"):
-            email = st.text_input("Email", key="auth_sign_in_identifier")
+            email = st.text_input("Username or Email", key="auth_sign_in_identifier")
             password = st.text_input("Password", type="password", key="auth_sign_in_password")
             submitted = st.form_submit_button("Sign In", type="primary", use_container_width=True)
 
@@ -3725,6 +4219,60 @@ def render_user_limit_summary() -> None:
     st.caption(f"Users: {active_users} / {max_users_label}")
 
 
+def render_page_header(title: str, subtitle: str = "") -> None:
+    subtitle_markup = f'<p class="enterprise-subtitle">{escape(subtitle)}</p>' if subtitle else ""
+    st.markdown(
+        f"""
+        <div class="enterprise-page-header">
+            <h1 class="enterprise-title">{escape(title)}</h1>
+            {subtitle_markup}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_metric_card(label: str, value: str, note: str = "") -> None:
+    st.markdown(
+        f"""
+        <div class="dashboard-metric-card">
+            <div class="dashboard-metric-label">{escape(label)}</div>
+            <div class="dashboard-metric-value">{escape(value)}</div>
+            <div class="dashboard-metric-note">{escape(note)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def format_chat_bubble(role: str, content: str) -> str:
+    row_class = "chat-user" if role == "user" else "chat-assistant"
+    return f"""
+        <div class="chat-row {row_class}">
+            <div class="chat-bubble">{escape(content)}</div>
+        </div>
+    """
+
+
+def render_chat_bubble(role: str, content: str) -> None:
+    st.markdown(
+        format_chat_bubble(role, content),
+        unsafe_allow_html=True,
+    )
+
+
+def render_report_section(title: str, content: str) -> None:
+    st.markdown(
+        f"""
+        <section class="report-section">
+            <h3>{escape(title)}</h3>
+            <div>{escape(content).replace(chr(10), "<br>")}</div>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def normalize_section(section: str | None) -> str:
     normalized = SECTION_ALIASES.get(section or "", section or DEFAULT_SECTION)
     valid_sections = set(NAVIGATION_TO_SECTION.values())
@@ -3847,7 +4395,7 @@ def render_project_view(project: dict) -> None:
 
     st.markdown('<div class="workspace-section-title">Quick Actions</div>', unsafe_allow_html=True)
     if st.button("Analyze Document", key="project_analyze_document", use_container_width=True):
-        set_active_section("upload")
+        set_active_section("documents")
         st.rerun()
     if st.button("Build Prompt", key="project_build_prompt", use_container_width=True):
         set_active_section("copilot")
@@ -3891,14 +4439,9 @@ def render_workspace() -> None:
         documents_processed = "0"
         api_requests = "0"
 
-    st.markdown(
-        f"""
-        <div class="hero-container">
-            <div class="hero-brand">Gao Intelligence Hub</div>
-            <div class="hero-sub">Welcome back, {escape(str(username))}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    render_page_header(
+        f"Welcome back, {str(username)}",
+        "Gao Intelligence Hub",
     )
 
     metric_columns = st.columns(4)
@@ -3910,16 +4453,7 @@ def render_workspace() -> None:
     ]
     for column, (label, value, note) in zip(metric_columns, metrics):
         with column:
-            st.markdown(
-                f"""
-                <div class="dashboard-metric-card">
-                    <div class="dashboard-metric-label">{escape(label)}</div>
-                    <div class="dashboard-metric-value">{escape(value)}</div>
-                    <div class="dashboard-metric-note">{escape(note)}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            render_metric_card(label, value, note)
 
     chart_columns = st.columns(2)
     with chart_columns[0]:
@@ -3948,10 +4482,10 @@ def render_workspace() -> None:
     action_columns = st.columns(4)
     actions = [
         (
-            "Upload",
+            "Documents",
             "Index project documents into the ingestion pipeline.",
             "quick_analyze_document",
-            "upload",
+            "documents",
             None,
         ),
         (
@@ -3969,10 +4503,10 @@ def render_workspace() -> None:
             None,
         ),
         (
-            "Dashboard",
-            "Return to workspace overview and recent activity.",
+            "Settings",
+            "Review account, usage, and workspace configuration.",
             "quick_view_logs",
-            DEFAULT_SECTION,
+            "settings",
             None,
         ),
     ]
@@ -3989,7 +4523,7 @@ def render_workspace() -> None:
                 unsafe_allow_html=True,
             )
             if st.button(title, key=key, use_container_width=True):
-                if section in ("upload", "copilot") and not require_active_project():
+                if section in ("documents", "copilot") and not require_active_project():
                     return
                 set_active_section(section, documents_view)
                 st.rerun()
@@ -4148,26 +4682,63 @@ def render_documents_page() -> None:
 
 
 def render_upload_page() -> None:
-    st.markdown('<div class="workspace-title">Upload</div>', unsafe_allow_html=True)
+    render_page_header(
+        "Documents",
+        "Upload, process, and manage workspace knowledge.",
+    )
     active_project = get_active_project()
     if active_project is None:
         st.warning("Please create or select a project first.")
         return
     st.caption(f'Project: {active_project["name"]}')
 
-    uploaded_files = st.file_uploader(
-        "Upload documents",
-        type=["pdf", "txt"],
-        key="upload_page_documents",
-        accept_multiple_files=True,
-    )
-    document_type = st.selectbox(
-        "Document type",
-        ["Auto-detect", "NCC", "Housing", "Business"],
-        key="upload_page_document_type",
-    )
+    upload_column, status_column = st.columns([2, 1])
+    with upload_column:
+        uploaded_files = st.file_uploader(
+            "Upload documents",
+            type=["pdf", "txt"],
+            key="upload_page_documents",
+            accept_multiple_files=True,
+        )
+    with status_column:
+        document_type = st.selectbox(
+            "Document type",
+            ["Auto-detect", "NCC", "Housing", "Business"],
+            key="upload_page_document_type",
+        )
+        st.markdown(
+            """
+            <div class="workspace-overview-card">
+                <div class="workspace-overview-line"><strong>Status:</strong> Ready</div>
+                <div class="workspace-overview-line"><strong>Pipeline:</strong> Ingestion</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    if st.button("Ingest Documents", key="upload_page_ingest", type="primary", use_container_width=True):
+    file_rows = [
+        {
+            "File": uploaded_file.name,
+            "Status": "Pending ingestion",
+            "Size KB": round(len(uploaded_file.getvalue()) / 1024, 1),
+        }
+        for uploaded_file in uploaded_files
+    ] if uploaded_files else []
+
+    st.markdown('<div class="workspace-section-title">File Table</div>', unsafe_allow_html=True)
+    if file_rows:
+        st.dataframe(file_rows, use_container_width=True, hide_index=True)
+    else:
+        st.markdown(
+            """
+            <div class="workspace-activity-card">
+                <div class="workspace-activity-item">No documents uploaded yet.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    if st.button("Trigger Ingestion", key="upload_page_ingest", type="primary", use_container_width=True):
         if not uploaded_files:
             st.warning("Please upload at least one document first.")
             return
@@ -4282,7 +4853,21 @@ def render_prompt_builder() -> None:
 
 
 def render_settings() -> None:
-    st.markdown('<div class="workspace-title">Settings</div>', unsafe_allow_html=True)
+    render_page_header(
+        "Settings",
+        "Account, workspace, usage, and security preferences.",
+    )
+    current_user = st.session_state.current_user or {}
+    st.markdown(
+        f"""
+        <div class="workspace-overview-card">
+            <div class="workspace-overview-line"><strong>Account:</strong> {escape(str(st.session_state.username or current_user.get("username", "User")))}</div>
+            <div class="workspace-overview-line"><strong>Role:</strong> {escape(str(st.session_state.role or current_user.get("role", "User")))}</div>
+            <div class="workspace-overview-line"><strong>Session:</strong> Persistent cookie login enabled</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     render_subscription_summary()
 
 
@@ -4379,11 +4964,20 @@ def render_logs() -> None:
 
 
 def render_reports_page() -> None:
-    st.markdown('<div class="workspace-title">Reports</div>', unsafe_allow_html=True)
-    st.markdown('<div class="workspace-subtitle">Structured output and saved deliverables</div>', unsafe_allow_html=True)
+    render_page_header(
+        "Reports",
+        "Structured executive intelligence and saved deliverables.",
+    )
 
     if not st.session_state.history:
-        st.caption("No reports yet.")
+        st.markdown(
+            """
+            <div class="workspace-activity-card">
+                <div class="workspace-activity-item">No reports yet.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         return
 
     report_options = {}
@@ -4396,32 +4990,62 @@ def render_reports_page() -> None:
     selected_label = st.selectbox("Report", list(report_options.keys()), key="reports_selected")
     selected_entry = st.session_state.history[report_options[selected_label]]
     st.session_state.selected_history = selected_entry
-    display_result(selected_entry)
+
+    result_text = str(selected_entry.get("result", ""))
+    summary = result_text[:700] if result_text else "No summary available."
+    clauses = "Review the source output for clause-specific findings." if result_text else "No clauses available."
+    risk = "Risk level depends on the selected report findings." if result_text else "No risk data available."
+    recommendations = "Use the report findings to assign owners, deadlines, and next actions." if result_text else "No recommendations available."
+
+    render_report_section("Summary", summary)
+    render_report_section("Clauses", clauses)
+    render_report_section("Risk", risk)
+    render_report_section("Recommendations", recommendations)
+
+    with st.expander("Full structured output", expanded=False):
+        display_result(selected_entry)
 
 
 def render_ai_copilot_panel() -> None:
+    render_page_header(
+        "Copilot",
+        "Ask questions, draft strategy, and analyze project context.",
+    )
+    active_project = get_active_project()
+    if active_project is None:
+        st.warning("Please create or select a project first.")
+    else:
+        st.caption(f'Project: {active_project["name"]}')
+
+    chat_markup = []
+    if st.session_state.copilot_history:
+        for message in st.session_state.copilot_history:
+            chat_markup.append(format_chat_bubble("user", str(message.get("prompt", ""))))
+            chat_markup.append(format_chat_bubble("assistant", str(message.get("response", ""))))
+    else:
+        chat_markup.append(
+            format_chat_bubble(
+                "assistant",
+                "Start a conversation with Gao Intelligence Hub. I can summarize documents, identify risks, and draft executive analysis.",
+            )
+        )
     st.markdown(
-        """
-        <div class="copilot-panel">
-            <div class="copilot-title">AI Copilot</div>
-            <div class="copilot-subtitle">Ask for summaries, next steps, or workspace guidance.</div>
-        </div>
-        """,
+        f'<div class="chat-history">{"".join(chat_markup)}</div>',
         unsafe_allow_html=True,
     )
-    st.markdown("## 🤖 AI Copilot")
-    user_input = st.text_area(
-        "Ask anything (Construction, Business, Strategy...)",
-        key="copilot_input",
-        height=180,
+
+    user_input = st.chat_input(
+        "Ask Gao Intelligence Hub",
+        disabled=active_project is None,
     )
-    if st.button("Run AI", key="copilot_run_ai", use_container_width=True):
+    if user_input:
         cleaned_input = user_input.strip()
         rag_user_id = str(st.session_state.get("user_id") or "default")
 
         if not cleaned_input:
             st.warning("Enter a question first.")
-        elif not require_active_project():
+        elif active_project is None:
+            st.warning("Please create or select a project first.")
             return
         else:
             enforce_copilot_rate_limit()
@@ -4455,7 +5079,7 @@ def render_ai_copilot_panel() -> None:
                         "response": response_text,
                     }
                 )
-                st.session_state.copilot_history = st.session_state.copilot_history[-3:]
+                st.session_state.copilot_history = st.session_state.copilot_history[-12:]
                 st.session_state.selected_history = saved_entry
                 add_active_project_history("copilot", f"Copilot response: {display_query[:80]}")
 
@@ -4466,7 +5090,7 @@ def render_ai_copilot_panel() -> None:
                     with st.expander("Extracted context"):
                         st.write(build_context(retrieved_chunks))
 
-                display_result(saved_entry)
+                st.rerun()
 
 
 def display_result(entry: dict) -> None:
@@ -5045,9 +5669,16 @@ for key, value in DEFAULTS.items():
 prompt_store.initialize_prompt_store()
 
 st.session_state.active_section = normalize_section(st.session_state.get("active_section"))
+if st.session_state.get("nav_selected") not in NAVIGATION_OPTIONS:
+    st.session_state.nav_selected = SECTION_TO_NAVIGATION.get(
+        st.session_state.active_section,
+        DEFAULT_NAV,
+    )
 
 if "last_nav_selected" not in st.session_state:
     st.session_state.last_nav_selected = st.session_state.get("nav_selected", DEFAULT_NAV)
+elif st.session_state.last_nav_selected not in NAVIGATION_OPTIONS:
+    st.session_state.last_nav_selected = st.session_state.nav_selected
 
 with st.sidebar:
     st.markdown("## Gao Intelligence Hub")
@@ -5056,6 +5687,7 @@ with st.sidebar:
         "Navigation",
         NAVIGATION_OPTIONS,
         key="nav_selected",
+        format_func=lambda option: f"{NAVIGATION_ICONS[option]} {option}",
     )
     section = NAVIGATION_TO_SECTION[selected]
 
@@ -5078,12 +5710,14 @@ with st.sidebar:
 active_section = st.session_state.active_section
 if active_section == DEFAULT_SECTION:
     render_workspace()
-elif active_section == "upload":
+elif active_section == "documents":
     render_upload_page()
 elif active_section == "copilot":
     render_ai_copilot_panel()
 elif active_section == "reports":
     render_reports_page()
+elif active_section == "settings":
+    render_settings()
 else:
     st.session_state.active_section = DEFAULT_SECTION
     render_workspace()
