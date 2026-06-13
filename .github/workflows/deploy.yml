@@ -15,6 +15,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Configure SSH
         shell: bash
         run: |
@@ -42,11 +45,20 @@ jobs:
             set -euo pipefail
 
             cd /root/crewai-agent
-            git pull origin main
+            git fetch origin
+            git reset --hard origin/main
 
-            pkill -f 'uvicorn api:app' || true
-            pkill -f 'streamlit run streamlit_app.py' || true
+            chmod +x /root/crewai-agent/deploy.sh
+            cp /root/crewai-agent/webhook.json /root/webhook.json
+            install -m 0644 /root/crewai-agent/deploy/garrett-api.service /etc/systemd/system/garrett-api.service
+            install -m 0644 /root/crewai-agent/deploy/crewai.service /etc/systemd/system/crewai.service
 
-            nohup /root/crewai-agent/venv/bin/uvicorn api:app --host 127.0.0.1 --port 8000 > /root/crewai-agent/uvicorn.log 2>&1 &
-            nohup /root/crewai-agent/venv/bin/streamlit run streamlit_app.py --server.address 0.0.0.0 --server.port 8501 > /root/crewai-agent/streamlit.log 2>&1 &
+            systemctl daemon-reload
+            systemctl enable garrett-api
+            systemctl enable crewai
+            systemctl disable --now garrett-streamlit || true
+            systemctl enable webhook
+            systemctl restart webhook
+
+            /root/crewai-agent/deploy.sh
           EOF
