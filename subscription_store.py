@@ -113,6 +113,24 @@ def ensure_subscription_columns(connection: sqlite3.Connection) -> None:
             format_datetime(renewal),
         ),
     )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS usage_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            event_type TEXT NOT NULL,
+            amount INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_usage_events_user_created
+        ON usage_events (user_id, created_at)
+        """
+    )
 
 
 def _ensure_column(connection: sqlite3.Connection, table_name: str, column_name: str, definition: str) -> None:
@@ -169,6 +187,59 @@ def get_usage(user_id: int) -> dict:
     return dict(row)
 
 
+def load_usage(user_id: int) -> dict:
+    usage = get_usage(user_id)
+    with get_connection() as connection:
+        ensure_subscription_columns(connection)
+        event_rows = connection.execute(
+            """
+            SELECT event_type, amount, created_at
+            FROM usage_events
+            WHERE user_id = ?
+              AND created_at >= ?
+            ORDER BY created_at ASC
+            """,
+            (user_id, usage["subscription_start"]),
+        ).fetchall()
+
+    return {
+        **usage,
+        "events": [dict(row) for row in event_rows],
+    }
+
+
+def save_usage(user_id: int, docs: int = 0, api_calls: int = 0) -> dict:
+    docs = max(int(docs), 0)
+    api_calls = max(int(api_calls), 0)
+    created_at = format_datetime(utc_now())
+
+    with get_connection() as connection:
+        ensure_subscription_columns(connection)
+        _reset_monthly_usage_if_needed(connection, user_id)
+        if docs:
+            connection.execute(
+                """
+                UPDATE users
+                SET current_document_count = current_document_count + ?
+                WHERE id = ?
+                """,
+                (docs, user_id),
+            )
+            _record_usage_event(connection, user_id, "documents", docs, created_at)
+        if api_calls:
+            connection.execute(
+                """
+                UPDATE users
+                SET current_request_count = current_request_count + ?
+                WHERE id = ?
+                """,
+                (api_calls, user_id),
+            )
+            _record_usage_event(connection, user_id, "api_requests", api_calls, created_at)
+
+    return load_usage(user_id)
+
+
 def can_use_ai_request(user_id: int) -> tuple[bool, str]:
     usage = get_usage(user_id)
     return _can_use(usage["current_request_count"], usage["monthly_request_limit"])
@@ -216,8 +287,26 @@ def _increment_usage(user_id: int, count_column: str, limit_column: str) -> dict
             f"UPDATE users SET {count_column} = {count_column} + 1 WHERE id = ?",
             (user_id,),
         )
+        event_type = "api_requests" if count_column == "current_request_count" else "documents"
+        _record_usage_event(connection, user_id, event_type, 1, format_datetime(utc_now()))
 
     return get_usage(user_id)
+
+
+def _record_usage_event(
+    connection: sqlite3.Connection,
+    user_id: int,
+    event_type: str,
+    amount: int,
+    created_at: str,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO usage_events (user_id, event_type, amount, created_at)
+        VALUES (?, ?, ?, ?)
+        """,
+        (user_id, event_type, amount, created_at),
+    )
 
 
 def _reset_monthly_usage_if_needed(connection: sqlite3.Connection, user_id: int) -> None:

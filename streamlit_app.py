@@ -1,6 +1,7 @@
 import json
 from io import BytesIO
 import os
+from datetime import timedelta
 from xml.sax.saxutils import escape
 import time
 
@@ -1937,6 +1938,29 @@ def run_advanced_mode(query: str) -> dict:
     return response.json()
 
 
+def run_copilot_request(user_input: str) -> str:
+    if not os.getenv("OPENAI_API_KEY"):
+        try:
+            import config
+
+            config.load_environment()
+        except Exception:
+            pass
+
+    if not os.getenv("OPENAI_API_KEY"):
+        raise RuntimeError("OPENAI_API_KEY is not configured.")
+
+    try:
+        import config
+
+        llm = config.create_llm()
+        response = llm.invoke(user_input)
+    except Exception as exc:
+        raise RuntimeError("AI Copilot request failed.") from exc
+
+    return str(getattr(response, "content", response))
+
+
 def save_history_entry(
     query: str,
     mode_name: str,
@@ -2650,6 +2674,36 @@ def inject_custom_css() -> None:
             padding: 24px;
         }
 
+        .auth-container {
+            display: flex;
+            justify-content: center;
+            padding: 6rem 1rem 2rem;
+            width: 100%;
+        }
+
+        .auth-box {
+            background: rgba(255, 255, 255, 0.82);
+            border: 1px solid rgba(226, 232, 240, 0.88);
+            border-radius: 20px;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+            max-width: 720px;
+            padding: 2rem;
+            text-align: center;
+            width: 100%;
+        }
+
+        .auth-box h2 {
+            color: #0F172A !important;
+            font-size: 2.1rem;
+            font-weight: 850;
+            margin: 0 0 0.75rem;
+        }
+
+        .auth-box p {
+            color: #64748B !important;
+            margin: 0;
+        }
+
         .auth-title {
             color: #0F172A !important;
             font-size: 28px;
@@ -2895,13 +2949,48 @@ def inject_custom_css() -> None:
         }
 
         .dashboard-chart-card,
-        .copilot-panel {
-            background: #FFFFFF;
+        .copilot-panel,
+        .pricing-card,
+        .usage-card {
+            background: rgba(255, 255, 255, 0.86);
             border: 1px solid #E2E8F0;
             border-radius: 14px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
             padding: 18px;
             width: 100%;
+        }
+
+        .pricing-card {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(239, 246, 255, 0.88));
+            border-radius: 18px;
+            padding: 24px;
+        }
+
+        .pricing-card h3 {
+            color: #4f46e5 !important;
+            font-size: 1rem;
+            font-weight: 800;
+            margin: 0 0 0.7rem;
+        }
+
+        .pricing-card h1 {
+            color: #0F172A !important;
+            font-size: 2.4rem;
+            font-weight: 850;
+            margin: 0 0 0.6rem;
+        }
+
+        .pricing-card p,
+        .usage-card p {
+            color: #64748B !important;
+            margin: 0.35rem 0;
+        }
+
+        .gradient-button-note {
+            color: #4f46e5 !important;
+            font-size: 0.88rem;
+            font-weight: 750;
+            margin-top: 1rem;
         }
 
         .dashboard-chart-title {
@@ -3278,6 +3367,7 @@ def initialize_auth_state() -> None:
 
 def set_authenticated_user(user: dict) -> None:
     st.session_state.authenticated = True
+    st.session_state["user"] = user
     st.session_state.current_user = user
     st.session_state.user_id = user["id"]
     st.session_state.username = user["username"]
@@ -3286,6 +3376,7 @@ def set_authenticated_user(user: dict) -> None:
 
 def clear_authenticated_user() -> None:
     st.session_state.authenticated = False
+    st.session_state["user"] = None
     st.session_state.current_user = None
     st.session_state.user_id = None
     st.session_state.username = None
@@ -3297,60 +3388,61 @@ def clear_authenticated_user() -> None:
 def render_auth_page() -> None:
     st.markdown(
         """
-        <div class="hub-hero">
-            <h1>Gao Intelligence Hub</h1>
-            <h2 class="hero-subtitle">Business, Construction &amp; Executive AI Intelligence Platform</h2>
+        <div class="auth-container">
+            <div class="auth-box">
+                <h2>Sign in to Gao Intelligence Hub</h2>
+                <p>Secure access for business, construction, and executive intelligence workflows.</p>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    with st.container(border=True):
-        sign_in_tab, create_account_tab = st.tabs(["Sign In", "Create Account"])
+    sign_in_tab, create_account_tab = st.tabs(["Sign In", "Register"])
 
-        with sign_in_tab:
-            with st.form("sign_in_form"):
-                identifier = st.text_input("Username or Email", key="auth_sign_in_identifier")
-                password = st.text_input("Password", type="password", key="auth_sign_in_password")
-                submitted = st.form_submit_button("Sign In", type="primary", use_container_width=True)
+    with sign_in_tab:
+        with st.form("sign_in_form"):
+            email = st.text_input("Email", key="auth_sign_in_identifier")
+            password = st.text_input("Password", type="password", key="auth_sign_in_password")
+            submitted = st.form_submit_button("Sign In", type="primary", use_container_width=True)
 
-            if submitted:
+        if submitted:
+            try:
+                user = user_store.authenticate_user(email, password)
+            except user_store.UserStoreError:
+                st.error("Could not sign in right now. Please try again later.")
+            else:
+                if user is None:
+                    st.error("Invalid email or password.")
+                else:
+                    set_authenticated_user(user)
+                    st.rerun()
+
+    with create_account_tab:
+        with st.form("create_account_form"):
+            username = st.text_input("Name", key="auth_create_username")
+            email = st.text_input("Email", key="auth_create_email")
+            password = st.text_input("Password", type="password", key="auth_create_password")
+            confirm_password = st.text_input(
+                "Confirm Password",
+                type="password",
+                key="auth_create_confirm_password",
+            )
+            submitted = st.form_submit_button("Register", type="primary", use_container_width=True)
+
+        if submitted:
+            if password != confirm_password:
+                st.error("Passwords do not match.")
+            else:
                 try:
-                    user = user_store.authenticate_user(identifier, password)
+                    user = user_store.create_user(username, email, password)
+                except ValueError as exc:
+                    st.error(str(exc))
                 except user_store.UserStoreError:
-                    st.error("Could not sign in right now. Please try again later.")
+                    st.error("Could not create account right now. Please try again later.")
                 else:
-                    if user is None:
-                        st.error("Invalid username/email or password.")
-                    else:
-                        set_authenticated_user(user)
-                        st.rerun()
-
-        with create_account_tab:
-            with st.form("create_account_form"):
-                username = st.text_input("Username", key="auth_create_username")
-                email = st.text_input("Email", key="auth_create_email")
-                password = st.text_input("Password", type="password", key="auth_create_password")
-                confirm_password = st.text_input(
-                    "Confirm Password",
-                    type="password",
-                    key="auth_create_confirm_password",
-                )
-                submitted = st.form_submit_button("Create Account", type="primary", use_container_width=True)
-
-            if submitted:
-                if password != confirm_password:
-                    st.error("Passwords do not match.")
-                else:
-                    try:
-                        user = user_store.create_user(username, email, password)
-                    except ValueError as exc:
-                        st.error(str(exc))
-                    except user_store.UserStoreError:
-                        st.error("Could not create account right now. Please try again later.")
-                    else:
-                        set_authenticated_user(user)
-                        st.rerun()
+                    set_authenticated_user(user)
+                    st.rerun()
 
 
 def get_current_user_id() -> int:
@@ -3374,10 +3466,66 @@ def format_renewal_date(value: str | None) -> str:
 
 
 def refresh_subscription_usage() -> dict:
-    usage = subscription_store.get_usage(get_current_user_id())
+    usage = subscription_store.load_usage(get_current_user_id())
     if st.session_state.current_user is not None:
         st.session_state.current_user.update(usage)
     return usage
+
+
+def save_usage(user_id: int, docs: int = 0, api_calls: int = 0) -> dict:
+    return subscription_store.save_usage(user_id, docs, api_calls)
+
+
+def load_usage(user_id: int) -> dict:
+    return subscription_store.load_usage(user_id)
+
+
+def build_usage_trend(usage: dict) -> dict[str, list[int]]:
+    today = subscription_store.utc_now().date()
+    days = [today - timedelta(days=offset) for offset in range(4, -1, -1)]
+    documents = {day: 0 for day in days}
+    api_requests = {day: 0 for day in days}
+
+    for event in usage.get("events", []):
+        created_at = subscription_store.parse_datetime(event.get("created_at"))
+        if created_at is None:
+            continue
+        event_day = created_at.date()
+        if event_day not in documents:
+            continue
+        amount = int(event.get("amount") or 0)
+        if event.get("event_type") == "documents":
+            documents[event_day] += amount
+        elif event.get("event_type") == "api_requests":
+            api_requests[event_day] += amount
+
+    if not any(documents.values()) and int(usage.get("current_document_count") or 0):
+        documents[today] = int(usage.get("current_document_count") or 0)
+    if not any(api_requests.values()) and int(usage.get("current_request_count") or 0):
+        api_requests[today] = int(usage.get("current_request_count") or 0)
+
+    return {
+        "Documents": [documents[day] for day in days],
+        "API Requests": [api_requests[day] for day in days],
+    }
+
+
+def build_agent_usage_chart() -> dict[str, list[int]]:
+    agent_counts = {
+        "Legal": 0,
+        "Finance": 0,
+        "Risk": 0,
+    }
+    for entry in st.session_state.history:
+        query = f'{entry.get("query", "")} {entry.get("category", "")}'.lower()
+        if any(term in query for term in ("legal", "contract", "clause", "tender")):
+            agent_counts["Legal"] += 1
+        if any(term in query for term in ("finance", "payment", "cost", "budget")):
+            agent_counts["Finance"] += 1
+        if any(term in query for term in ("risk", "safety", "compliance", "delay")):
+            agent_counts["Risk"] += 1
+
+    return {agent: [count] for agent, count in agent_counts.items()}
 
 
 def consume_ai_request_or_warn() -> bool:
@@ -3492,6 +3640,7 @@ def set_active_section(section: str, documents_view: str | None = None) -> None:
         "ai": "Agents",
         "automations": "Automations",
         "logs": "Logs",
+        "billing": "Billing",
         "settings": "Settings",
     }
     if section in section_to_navigation:
@@ -3637,6 +3786,14 @@ def render_workspace() -> None:
         documents_processed = str(usage["current_document_count"])
         api_requests = str(usage["current_request_count"])
     except (KeyError, ValueError):
+        usage = {
+            "events": [],
+            "subscription_tier": "Starter",
+            "current_request_count": 0,
+            "monthly_request_limit": 100,
+            "current_document_count": 0,
+            "monthly_document_limit": 20,
+        }
         documents_processed = "0"
         api_requests = "0"
 
@@ -3680,12 +3837,7 @@ def render_workspace() -> None:
             """,
             unsafe_allow_html=True,
         )
-        st.line_chart(
-            {
-                "Documents": [2, 5, 8, 12, 20],
-                "API Requests": [10, 30, 45, 60, 90],
-            }
-        )
+        st.line_chart(build_usage_trend(usage))
 
     with chart_columns[1]:
         st.markdown(
@@ -3696,13 +3848,7 @@ def render_workspace() -> None:
             """,
             unsafe_allow_html=True,
         )
-        st.bar_chart(
-            {
-                "Legal": [12],
-                "Finance": [8],
-                "Risk": [5],
-            }
-        )
+        st.bar_chart(build_agent_usage_chart())
 
     st.markdown('<div class="workspace-section-title">Quick Actions</div>', unsafe_allow_html=True)
     action_columns = st.columns(4)
@@ -3732,7 +3878,7 @@ def render_workspace() -> None:
             "View Logs",
             "Review saved activity and generated intelligence history.",
             "quick_view_logs",
-            "settings",
+            "logs",
             None,
         ),
     ]
@@ -3749,7 +3895,7 @@ def render_workspace() -> None:
                 unsafe_allow_html=True,
             )
             if st.button(title, key=key, use_container_width=True):
-                if section != "settings" and not require_active_project():
+                if section not in ("logs", "settings") and not require_active_project():
                     return
                 set_active_section(section, documents_view)
                 st.rerun()
@@ -3758,27 +3904,27 @@ def render_workspace() -> None:
     render_projects_list()
 
     st.markdown('<div class="workspace-section-title">Recent Activity</div>', unsafe_allow_html=True)
+    if st.session_state.history:
+        activity_items = []
+        for entry in st.session_state.history[:3]:
+            label = entry.get("query", "").replace("\n", " ").strip()
+            if len(label) > 84:
+                label = f"{label[:81]}..."
+            activity_items.append(
+                f'<div class="workspace-activity-item">{escape(str(entry.get("mode", "AI")))}: {escape(label)}</div>'
+            )
+        activity_markup = "\n".join(activity_items)
+    else:
+        activity_markup = '<div class="workspace-activity-item">No activity yet.</div>'
+
     st.markdown(
-        """
+        f"""
         <div class="workspace-activity-card">
-            <div class="workspace-activity-item">Document Analysis: Construction Proposal</div>
-            <div class="workspace-activity-item">Prompt Generated: Marketing Strategy</div>
-            <div class="workspace-activity-item">Automation Created: Project Workflow</div>
+            {activity_markup}
         </div>
         """,
         unsafe_allow_html=True,
     )
-
-    try:
-        usage = refresh_subscription_usage()
-    except ValueError:
-        usage = {
-            "subscription_tier": "Starter",
-            "current_request_count": 0,
-            "monthly_request_limit": 100,
-            "current_document_count": 0,
-            "monthly_document_limit": 20,
-        }
 
     st.markdown('<div class="workspace-section-title">Subscription Overview</div>', unsafe_allow_html=True)
     st.markdown(
@@ -3981,6 +4127,66 @@ def render_settings() -> None:
     render_subscription_summary()
 
 
+def render_billing_page() -> None:
+    st.markdown('<div class="workspace-title">Billing</div>', unsafe_allow_html=True)
+    st.markdown("## Subscription")
+    try:
+        usage = refresh_subscription_usage()
+    except ValueError:
+        st.error("Could not load billing details.")
+        return
+
+    tier = str(usage["subscription_tier"])
+    document_usage = f'{usage["current_document_count"]} / {format_limit(usage["monthly_document_limit"])}'
+    request_usage = f'{usage["current_request_count"]} / {format_limit(usage["monthly_request_limit"])}'
+    renewal_date = format_renewal_date(usage["subscription_end"])
+
+    plan_column, usage_column = st.columns([1, 1])
+    with plan_column:
+        st.markdown(
+            f"""
+            <div class="pricing-card">
+                <h3>Pro Plan</h3>
+                <h1>$29/month</h1>
+                <p>Current account tier: {escape(tier)}</p>
+                <p>Renews {escape(renewal_date)}</p>
+                <p>Stripe checkout integration ready.</p>
+                <div class="gradient-button-note">Manage subscription from your billing portal.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with usage_column:
+        st.markdown(
+            f"""
+            <div class="usage-card">
+                <div class="dashboard-chart-title">Usage This Period</div>
+                <p><strong>Documents used:</strong> {escape(document_usage)}</p>
+                <p><strong>API requests:</strong> {escape(request_usage)}</p>
+                <p><strong>Plan limits:</strong> {escape(format_limit(usage["monthly_document_limit"]))} documents, {escape(format_limit(usage["monthly_request_limit"]))} API requests</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown('<div class="workspace-section-title">Plans</div>', unsafe_allow_html=True)
+    plan_columns = st.columns(4)
+    for column, (plan_name, plan_details) in zip(plan_columns, subscription_store.PLAN_CATALOG.items()):
+        with column:
+            features = "<br>".join(escape(feature) for feature in plan_details["features"])
+            st.markdown(
+                f"""
+                <div class="pricing-card">
+                    <h3>{escape(plan_name)}</h3>
+                    <h1>{escape(str(plan_details["price"]))}</h1>
+                    <p>{features}</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+
 def render_logs() -> None:
     st.markdown('<div class="workspace-title">Logs</div>', unsafe_allow_html=True)
     st.markdown('<div class="hub-section-title">Intelligence History</div>', unsafe_allow_html=True)
@@ -4025,10 +4231,28 @@ def render_ai_copilot_panel() -> None:
     )
     user_input = st.text_area("Ask anything", key="copilot_input", height=180)
     if st.button("Run AI", key="copilot_run_ai", use_container_width=True):
-        if user_input.strip():
-            st.write("AI response placeholder")
-        else:
+        cleaned_input = user_input.strip()
+        if not cleaned_input:
             st.warning("Enter a question first.")
+        elif not consume_ai_request_or_warn():
+            pass
+        else:
+            try:
+                with st.spinner("Running copilot..."):
+                    started_at = time.perf_counter()
+                    response_text = run_copilot_request(cleaned_input)
+                    elapsed_seconds = time.perf_counter() - started_at
+            except RuntimeError as exc:
+                st.error(str(exc))
+            else:
+                payload = {
+                    "category": "copilot",
+                    "confidence": 1.0,
+                    "result": response_text,
+                    "version": VERSION,
+                }
+                save_history_entry(cleaned_input, "Copilot", payload, elapsed_seconds)
+                st.write(response_text)
 
 
 def display_result(entry: dict) -> None:
@@ -4603,6 +4827,7 @@ NAVIGATION_TO_SECTION = {
     "Agents": "ai",
     "Automations": "automations",
     "Logs": "logs",
+    "Billing": "billing",
     "Settings": "settings",
 }
 SECTION_TO_NAVIGATION = {
@@ -4629,6 +4854,7 @@ with st.sidebar:
             "Agents",
             "Automations",
             "Logs",
+            "Billing",
             "Settings",
         ],
         key="nav_selected",
@@ -4666,6 +4892,8 @@ with main_column:
         render_prompt_builder()
     elif active_section == "logs":
         render_logs()
+    elif active_section == "billing":
+        render_billing_page()
     elif active_section == "settings":
         render_settings()
     else:
