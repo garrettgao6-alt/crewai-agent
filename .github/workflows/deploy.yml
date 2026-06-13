@@ -10,8 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup SSH
         run: |
@@ -28,13 +27,9 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key root@170.64.131.149 << 'EOF'
             cd /root/crewai-agent
-
             git pull
-
             pkill -f streamlit || true
             pkill -f uvicorn || true
-
             nohup /root/crewai-agent/venv/bin/uvicorn api:app --host 0.0.0.0 --port 8000 &
             nohup /root/crewai-agent/venv/bin/streamlit run streamlit_app.py --server.address 0.0.0.0 --server.port 8501 &
           EOF
-
