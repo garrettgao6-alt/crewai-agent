@@ -3685,44 +3685,79 @@ def inject_custom_css() -> None:
             font-size: 16px !important;
         }
 
+        .chat-container,
         .chat-history {
             background: var(--enterprise-surface);
             border: 1px solid var(--enterprise-border);
             border-radius: var(--enterprise-radius-lg);
             box-shadow: var(--enterprise-shadow);
-            margin-bottom: 16px;
-            max-height: 58vh;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 96px;
+            max-height: calc(100vh - 300px);
+            min-height: 360px;
             overflow-y: auto;
             padding: 18px;
         }
 
         .chat-row {
             display: flex;
-            margin: 12px 0;
+            margin: 0;
+            width: 100%;
         }
 
-        .chat-user {
+        .chat-user,
+        .user-msg {
+            align-self: flex-end;
             justify-content: flex-end;
         }
 
-        .chat-assistant {
+        .chat-assistant,
+        .ai-msg {
+            align-self: flex-start;
             justify-content: flex-start;
         }
 
-        .chat-bubble {
-            background: var(--enterprise-elevated);
+        .chat-bubble,
+        .ai-msg {
+            background: #1f2937;
             border: 1px solid var(--enterprise-border);
-            border-radius: 16px;
-            color: var(--enterprise-body) !important;
-            max-width: min(760px, 88%);
-            padding: 14px 16px;
+            border-radius: 12px;
+            color: #F9FAFB !important;
+            max-width: 80%;
+            padding: 10px 14px;
             white-space: pre-wrap;
         }
 
-        .chat-user .chat-bubble {
-            background: var(--enterprise-primary-strong);
-            border-color: var(--enterprise-primary-strong);
+        .chat-user .chat-bubble,
+        .user-msg {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            border-radius: 12px;
             color: #FFFFFF !important;
+            max-width: 80%;
+            padding: 10px 14px;
+            white-space: pre-wrap;
+        }
+
+        [data-testid="stChatInput"] {
+            background: var(--enterprise-bg) !important;
+            border-top: 1px solid var(--enterprise-border) !important;
+            bottom: 0 !important;
+            left: 288px !important;
+            padding: 14px 32px 18px !important;
+            position: fixed !important;
+            right: 0 !important;
+            z-index: 999 !important;
+        }
+
+        [data-testid="stChatInput"] > div {
+            background: var(--enterprise-soft) !important;
+            border: 1px solid var(--enterprise-border-strong) !important;
+            border-radius: 16px !important;
+            margin: 0 auto !important;
+            max-width: 960px !important;
         }
 
         .report-section {
@@ -3778,6 +3813,11 @@ def inject_custom_css() -> None:
 
             [data-testid="stSidebar"] {
                 min-width: min(92vw, 320px) !important;
+            }
+
+            [data-testid="stChatInput"] {
+                left: 0 !important;
+                padding: 12px 16px 16px !important;
             }
         }
         </style>
@@ -4272,9 +4312,10 @@ def render_metric_card(label: str, value: str, note: str = "") -> None:
 
 def format_chat_bubble(role: str, content: str) -> str:
     row_class = "chat-user" if role == "user" else "chat-assistant"
+    bubble_class = "user-msg" if role == "user" else "ai-msg"
     return f"""
         <div class="chat-row {row_class}">
-            <div class="chat-bubble">{escape(content)}</div>
+            <div class="chat-bubble {bubble_class}">{escape(content)}</div>
         </div>
     """
 
@@ -5060,7 +5101,7 @@ def render_ai_copilot_panel() -> None:
             )
         )
     st.markdown(
-        f'<div class="chat-history">{"".join(chat_markup)}</div>',
+        f'<div class="chat-container">{"".join(chat_markup)}</div>',
         unsafe_allow_html=True,
     )
 
@@ -5070,7 +5111,7 @@ def render_ai_copilot_panel() -> None:
     )
     if user_input:
         cleaned_input = user_input.strip()
-        rag_user_id = str(st.session_state.get("user_id") or "default")
+        user_id = str(st.session_state.get("user_id") or "default")
 
         if not cleaned_input:
             st.warning("Enter a question first.")
@@ -5085,7 +5126,7 @@ def render_ai_copilot_panel() -> None:
             with st.spinner("Analyzing..."):
                 started_at = time.perf_counter()
                 try:
-                    response_text = run_engine(rag_user_id, cleaned_input)
+                    response_text = run_engine(user_id, cleaned_input)
                 except Exception as exc:
                     response_text = f"Error: {str(exc)}"
                 finally:
