@@ -3817,6 +3817,390 @@ def inject_custom_css() -> None:
                 padding: 12px 16px 16px !important;
             }
         }
+
+        /* Scale-style Construction AI product layer */
+        :root {
+            --enterprise-bg: #020617;
+            --enterprise-sidebar: #020617;
+            --enterprise-surface: #0f172a;
+            --enterprise-elevated: #111c31;
+            --enterprise-soft: #0b1220;
+            --enterprise-border: rgba(148, 163, 184, 0.18);
+            --enterprise-border-strong: rgba(148, 163, 184, 0.28);
+            --enterprise-title: #F8FAFC;
+            --enterprise-body: #CBD5E1;
+            --enterprise-muted: #64748B;
+            --enterprise-primary: #3B82F6;
+            --enterprise-primary-strong: #2563EB;
+            --enterprise-success: #22C55E;
+            --enterprise-warning: #F59E0B;
+            --enterprise-danger: #EF4444;
+            --enterprise-shadow: 0 18px 50px rgba(2, 6, 23, 0.42);
+        }
+
+        .stApp,
+        [data-testid="stAppViewContainer"] {
+            background:
+                linear-gradient(rgba(59, 130, 246, 0.035) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(59, 130, 246, 0.035) 1px, transparent 1px),
+                radial-gradient(circle at 82% 8%, rgba(59, 130, 246, 0.10), transparent 28%),
+                #020617 !important;
+            background-size: 32px 32px, 32px 32px, auto, auto !important;
+        }
+
+        header[data-testid="stHeader"],
+        [data-testid="stToolbar"],
+        [data-testid="stDecoration"],
+        [data-testid="stStatusWidget"] {
+            display: none !important;
+            height: 0 !important;
+            visibility: hidden !important;
+        }
+
+        .main .block-container,
+        .block-container {
+            padding-top: 28px !important;
+        }
+
+        .enterprise-page-header,
+        .construction-hero,
+        .workspace-command-card,
+        .workspace-activity-card,
+        .workspace-overview-card,
+        .dashboard-metric-card,
+        .quick-action-card,
+        .copilot-card,
+        .chat-container,
+        .report-section {
+            animation: enterpriseFadeUp 0.42s ease both;
+        }
+
+        @keyframes enterpriseFadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .construction-hero {
+            background:
+                linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.88)),
+                linear-gradient(90deg, rgba(59, 130, 246, 0.16) 1px, transparent 1px),
+                linear-gradient(rgba(59, 130, 246, 0.12) 1px, transparent 1px) !important;
+            background-size: auto, 44px 44px, 44px 44px !important;
+            border: 1px solid var(--enterprise-border);
+            border-radius: 18px;
+            box-shadow: var(--enterprise-shadow);
+            margin: 24px 0 18px;
+            overflow: hidden;
+            padding: 30px;
+            position: relative;
+        }
+
+        .construction-hero::after {
+            background:
+                linear-gradient(135deg, transparent 0 42%, rgba(59, 130, 246, 0.34) 43% 44%, transparent 45%),
+                linear-gradient(45deg, transparent 0 62%, rgba(148, 163, 184, 0.22) 63% 64%, transparent 65%);
+            content: "";
+            inset: 0;
+            pointer-events: none;
+            position: absolute;
+        }
+
+        .hero-kicker {
+            color: #93C5FD !important;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.11em !important;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        .construction-hero h1 {
+            color: #F8FAFC !important;
+            font-size: clamp(34px, 5vw, 64px) !important;
+            font-weight: 860 !important;
+            letter-spacing: 0 !important;
+            line-height: 1.02 !important;
+            margin: 0 0 14px !important;
+            max-width: 860px;
+        }
+
+        .hero-subline {
+            color: #CBD5E1 !important;
+            display: flex;
+            flex-wrap: wrap;
+            font-size: clamp(20px, 3vw, 30px);
+            font-weight: 760;
+            gap: 10px;
+            line-height: 1.25;
+            margin: 0 0 18px;
+        }
+
+        .hero-support {
+            color: #94A3B8 !important;
+            font-size: 15px !important;
+            line-height: 1.7 !important;
+            max-width: 760px;
+        }
+
+        .hero-data-row {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            margin-top: 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-data-cell {
+            background: rgba(2, 6, 23, 0.48);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 12px;
+            padding: 12px;
+        }
+
+        .hero-data-label {
+            color: #64748B !important;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.08em !important;
+            text-transform: uppercase;
+        }
+
+        .hero-data-value {
+            color: #F8FAFC !important;
+            font-size: 17px;
+            font-weight: 760;
+            margin-top: 7px;
+        }
+
+        .workspace-card-grid {
+            display: grid;
+            gap: 16px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            width: 100%;
+        }
+
+        .workspace-command-card {
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.88));
+            border: 1px solid var(--enterprise-border);
+            border-radius: 14px;
+            box-shadow: 0 12px 34px rgba(2, 6, 23, 0.30);
+            min-height: 148px;
+            overflow: hidden;
+            padding: 18px;
+            position: relative;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+        }
+
+        .workspace-command-card:nth-child(1) { animation-delay: 0.02s; }
+        .workspace-command-card:nth-child(2) { animation-delay: 0.05s; }
+        .workspace-command-card:nth-child(3) { animation-delay: 0.08s; }
+        .workspace-command-card:nth-child(4) { animation-delay: 0.11s; }
+        .workspace-command-card:nth-child(5) { animation-delay: 0.14s; }
+        .workspace-command-card:nth-child(6) { animation-delay: 0.17s; }
+        .workspace-command-card:nth-child(7) { animation-delay: 0.20s; }
+
+        .workspace-command-card::before {
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.44), transparent);
+            content: "";
+            height: 1px;
+            inset: 0 0 auto;
+            position: absolute;
+        }
+
+        .workspace-command-card:hover,
+        .dashboard-metric-card:hover,
+        .quick-action-card:hover {
+            border-color: rgba(59, 130, 246, 0.52) !important;
+            box-shadow: 0 20px 60px rgba(37, 99, 235, 0.12), var(--enterprise-shadow) !important;
+            transform: translateY(-3px);
+        }
+
+        .workspace-card-label {
+            color: #F8FAFC !important;
+            font-size: 16px;
+            font-weight: 780;
+            margin-bottom: 9px;
+        }
+
+        .workspace-card-body {
+            color: #94A3B8 !important;
+            font-size: 13px;
+            line-height: 1.55;
+        }
+
+        .workspace-card-meta {
+            color: #3B82F6 !important;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.07em !important;
+            margin-top: 16px;
+            text-transform: uppercase;
+        }
+
+        .quick-chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 12px 0 18px;
+        }
+
+        .quick-chip {
+            background: rgba(59, 130, 246, 0.10);
+            border: 1px solid rgba(59, 130, 246, 0.24);
+            border-radius: 999px;
+            color: #BFDBFE !important;
+            font-size: 12px;
+            font-weight: 760;
+            padding: 7px 10px;
+        }
+
+        .typing-indicator {
+            align-items: center;
+            background: #1f2937;
+            border: 1px solid var(--enterprise-border);
+            border-radius: 12px;
+            color: #CBD5E1 !important;
+            display: inline-flex;
+            gap: 6px;
+            padding: 10px 14px;
+            width: fit-content;
+        }
+
+        .typing-dot {
+            animation: typingPulse 1.1s ease-in-out infinite;
+            background: #94A3B8;
+            border-radius: 999px;
+            height: 6px;
+            width: 6px;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.16s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.32s; }
+
+        @keyframes typingPulse {
+            0%, 80%, 100% { opacity: 0.28; transform: translateY(0); }
+            40% { opacity: 1; transform: translateY(-2px); }
+        }
+
+        .skeleton-line {
+            animation: shimmer 1.8s linear infinite;
+            background: linear-gradient(90deg, rgba(148, 163, 184, 0.08), rgba(148, 163, 184, 0.18), rgba(148, 163, 184, 0.08));
+            background-size: 200% 100%;
+            border-radius: 999px;
+            height: 10px;
+            margin: 8px 0;
+        }
+
+        @keyframes shimmer {
+            from { background-position: 200% 0; }
+            to { background-position: -200% 0; }
+        }
+
+        .citation-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .citation-pill {
+            background: rgba(100, 116, 139, 0.16);
+            border: 1px solid rgba(148, 163, 184, 0.20);
+            border-radius: 999px;
+            color: #CBD5E1 !important;
+            font-size: 11px;
+            padding: 5px 8px;
+        }
+
+        .ai-msg pre {
+            background: #020617;
+            border: 1px solid rgba(148, 163, 184, 0.20);
+            border-radius: 10px;
+            color: #E2E8F0;
+            overflow-x: auto;
+            padding: 12px;
+            white-space: pre;
+        }
+
+        .ai-msg code {
+            background: rgba(2, 6, 23, 0.72);
+            border-radius: 6px;
+            color: #BFDBFE;
+            padding: 2px 5px;
+        }
+
+        [data-testid="stChatInput"] {
+            background: rgba(2, 6, 23, 0.92) !important;
+            border-top: 1px solid rgba(148, 163, 184, 0.14) !important;
+        }
+
+        [data-testid="stChatInput"] > div {
+            margin-left: auto !important;
+            margin-right: auto !important;
+            max-width: min(720px, 100%) !important;
+        }
+
+        [data-testid="stChatInput"] textarea,
+        [data-testid="stChatInput"] textarea:focus {
+            background: #0f172a !important;
+            border: 1px solid rgba(148, 163, 184, 0.26) !important;
+            border-radius: 14px !important;
+            box-shadow: none !important;
+            color: #F8FAFC !important;
+            max-height: 54px !important;
+            min-height: 48px !important;
+            outline: none !important;
+        }
+
+        [data-testid="stChatInput"] textarea::placeholder {
+            color: #64748B !important;
+        }
+
+        @media (max-width: 1199px) {
+            .workspace-card-grid,
+            .hero-data-row {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            section[data-testid="stSidebar"],
+            [data-testid="stSidebar"] {
+                display: none !important;
+                min-width: 0 !important;
+                width: 0 !important;
+            }
+
+            .main .block-container,
+            .block-container {
+                padding: 20px 16px 48px !important;
+            }
+
+            .workspace-card-grid,
+            .hero-data-row {
+                grid-template-columns: 1fr;
+            }
+
+            .construction-hero {
+                padding: 18px;
+            }
+
+            .hero-subline {
+                font-size: 20px;
+            }
+
+            .chat-container {
+                max-height: calc(100vh - 260px);
+                min-height: 320px;
+            }
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -4305,12 +4689,114 @@ def render_metric_card(label: str, value: str, note: str = "") -> None:
     )
 
 
+def render_construction_hero(username: str) -> None:
+    st.markdown(
+        f"""
+        <section class="construction-hero">
+            <div class="hero-kicker">Construction AI Command Center</div>
+            <h1>AI Construction Intelligence Platform</h1>
+            <div class="hero-subline">
+                <span>Compliance.</span>
+                <span>Risk.</span>
+                <span>Planning.</span>
+                <span>Automation.</span>
+            </div>
+            <p class="hero-support">
+                Welcome back, {escape(username)}. Coordinate NCC compliance, contract review,
+                tender analysis, procurement, and executive workflows from one precise AI workspace.
+            </p>
+            <div class="hero-data-row">
+                <div class="hero-data-cell">
+                    <div class="hero-data-label">Primary Mode</div>
+                    <div class="hero-data-value">Copilot</div>
+                </div>
+                <div class="hero-data-cell">
+                    <div class="hero-data-label">Workflow Layer</div>
+                    <div class="hero-data-value">Construction Ops</div>
+                </div>
+                <div class="hero-data-cell">
+                    <div class="hero-data-label">Evidence</div>
+                    <div class="hero-data-value">Documents + RAG</div>
+                </div>
+                <div class="hero-data-cell">
+                    <div class="hero-data-label">Output</div>
+                    <div class="hero-data-value">Executive-grade</div>
+                </div>
+            </div>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_workspace_card(title: str, description: str, meta: str) -> None:
+    st.markdown(
+        f"""
+        <div class="workspace-command-card">
+            <div class="workspace-card-label">{escape(title)}</div>
+            <div class="workspace-card-body">{escape(description)}</div>
+            <div class="workspace-card-meta">{escape(meta)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_workspace_cards(title: str, cards: list[tuple[str, str, str]]) -> None:
+    st.markdown(f'<div class="workspace-section-title">{escape(title)}</div>', unsafe_allow_html=True)
+    card_markup = "\n".join(
+        (
+            '<div class="workspace-command-card">'
+            f'<div class="workspace-card-label">{escape(card_title)}</div>'
+            f'<div class="workspace-card-body">{escape(description)}</div>'
+            f'<div class="workspace-card-meta">{escape(meta)}</div>'
+            "</div>"
+        )
+        for card_title, description, meta in cards
+    )
+    st.markdown(f'<div class="workspace-card-grid">{card_markup}</div>', unsafe_allow_html=True)
+
+
+def format_message_markdown(content: str) -> str:
+    escaped_content = escape(content)
+    parts = escaped_content.split("```")
+    rendered_parts = []
+    for index, part in enumerate(parts):
+        if index % 2 == 1:
+            rendered_parts.append(f"<pre><code>{part.strip()}</code></pre>")
+        else:
+            text = part.replace("\n", "<br>")
+            text = text.replace("**", "")
+            rendered_parts.append(text)
+    return "".join(rendered_parts)
+
+
+def format_citations(sources: list[str] | None) -> str:
+    if not sources:
+        return ""
+    citation_markup = "".join(
+        f'<span class="citation-pill">[{index}] {escape(source)}</span>'
+        for index, source in enumerate(sources[:4], start=1)
+    )
+    return f'<div class="citation-row">{citation_markup}</div>'
+
+
+def source_labels_from_retrieval(retrieved_chunks: list[dict]) -> list[str]:
+    labels = []
+    for chunk in retrieved_chunks[:4]:
+        metadata = chunk.get("metadata") or {}
+        source = metadata.get("source") or metadata.get("file_name") or metadata.get("document") or "retrieved context"
+        labels.append(str(source))
+    return labels
+
+
 def format_chat_bubble(role: str, content: str) -> str:
     row_class = "chat-user" if role == "user" else "chat-assistant"
     bubble_class = "user-msg" if role == "user" else "ai-msg"
+    rendered_content = escape(content) if role == "user" else format_message_markdown(content)
     return f"""
         <div class="chat-row {row_class}">
-            <div class="chat-bubble {bubble_class}">{escape(content)}</div>
+            <div class="chat-bubble {bubble_class}">{rendered_content}</div>
         </div>
     """
 
@@ -4318,6 +4804,24 @@ def format_chat_bubble(role: str, content: str) -> str:
 def render_chat_bubble(role: str, content: str) -> None:
     st.markdown(
         format_chat_bubble(role, content),
+        unsafe_allow_html=True,
+    )
+
+
+def render_typing_indicator() -> None:
+    st.markdown(
+        """
+        <div class="chat-container">
+            <div class="chat-row chat-assistant">
+                <div class="typing-indicator" aria-label="Assistant is analyzing">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span>Analyzing project context</span>
+                </div>
+            </div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
@@ -4501,51 +5005,130 @@ def render_workspace() -> None:
         documents_processed = "0"
         api_requests = "0"
 
-    render_page_header(
-        f"Welcome back, {str(username)}",
-        "Gao Intelligence Hub",
-    )
+    render_construction_hero(str(username))
+
+    cta_columns = responsive_columns(2)
+    with cta_columns[0]:
+        if st.button("Open Copilot", key="hero_open_copilot", type="primary", use_container_width=True):
+            set_active_section("Copilot")
+            st.rerun()
+    with cta_columns[1]:
+        if st.button("Explore Workspaces", key="hero_explore_workspaces", use_container_width=True):
+            st.session_state["workspace_focus"] = "workspaces"
 
     metric_columns = responsive_columns(4)
     metrics = [
-        ("Active Agents", str(len(EXECUTIVE_AGENT_MODES)), "Executive review modes ready"),
-        ("Documents Processed", documents_processed, "This billing period"),
-        ("API Requests", api_requests, "This billing period"),
-        ("System Status", "Online", "Core services available"),
+        ("Compliance Workflows", "7", "NCC, codes, contracts, tender risk"),
+        ("Documents Indexed", documents_processed, "This billing period"),
+        ("AI Requests", api_requests, "This billing period"),
+        ("Risk Engine", "Online", "Evidence-grounded analysis ready"),
     ]
     for column, (label, value, note) in zip(metric_columns, metrics):
         with column:
             render_metric_card(label, value, note)
 
+    construction_cards = [
+        (
+            "NCC Compliance",
+            "Map project evidence against code obligations and surface missing clauses.",
+            "Compliance intelligence",
+        ),
+        (
+            "Building Codes",
+            "Review technical requirements, exceptions, and project-specific interpretations.",
+            "Code review",
+        ),
+        (
+            "Contracts",
+            "Identify obligations, payment terms, delay risk, and negotiation points.",
+            "Contract risk",
+        ),
+        (
+            "Tender Analysis",
+            "Compare requirements, scope gaps, pricing exposure, and go/no-go signals.",
+            "Tender desk",
+        ),
+        (
+            "Risk Assessment",
+            "Turn document context into ranked risk registers and executive actions.",
+            "Risk controls",
+        ),
+        (
+            "BIM Review",
+            "Coordinate design review notes, assumptions, and model issue summaries.",
+            "Model intelligence",
+        ),
+        (
+            "Procurement",
+            "Plan supplier decisions, long-lead items, substitutions, and commercial exposure.",
+            "Supply workflow",
+        ),
+    ]
+    render_workspace_cards("Construction Workspace", construction_cards)
+
+    business_cards = [
+        (
+            "Market Research",
+            "Summarize market conditions, project pipeline, and opportunity signals.",
+            "Growth intelligence",
+        ),
+        (
+            "Competitor Analysis",
+            "Profile competitors, capability gaps, and positioning opportunities.",
+            "Competitive strategy",
+        ),
+        (
+            "Strategy",
+            "Convert commercial context into priorities, roadmaps, and board-ready narratives.",
+            "Executive planning",
+        ),
+        (
+            "Sales Intelligence",
+            "Draft account plans, qualification notes, and client-facing briefings.",
+            "Revenue workflow",
+        ),
+        (
+            "Financial Analysis",
+            "Assess margin, exposure, spend, and operating scenarios with clear assumptions.",
+            "Commercial lens",
+        ),
+        (
+            "Business Planning",
+            "Create structured business plans, operating cadences, and leadership updates.",
+            "Planning system",
+        ),
+    ]
+    render_workspace_cards("Business Workspace", business_cards)
+
     st.markdown('<div class="workspace-section-title">Quick Actions</div>', unsafe_allow_html=True)
     action_columns = responsive_columns(4)
     actions = [
         (
-            "Documents",
+            "Analyze Document",
             "Index project documents into the ingestion pipeline.",
             "quick_analyze_document",
             "Documents",
             None,
         ),
         (
-            "Copilot",
+            "Build Prompt",
             "Ask the AI workspace about project documents and strategy.",
             "quick_upload_file",
             "Copilot",
             None,
         ),
         (
-            "Reports",
+            "Create Automation",
             "Review structured outputs and saved deliverables.",
             "quick_run_agent",
-            "Reports",
+            "Copilot",
             None,
         ),
         (
-            "Settings",
-            "Review account, usage, and workspace configuration.",
+            "Executive Analysis",
+            "Review account, usage, and executive intelligence.",
             "quick_view_logs",
-            "Settings",
+            "Reports",
             None,
         ),
     ]
@@ -4671,14 +5254,16 @@ def render_ai_request_panel() -> None:
         elif not consume_ai_request_or_warn():
             pass
         else:
+            status_placeholder = st.empty()
             try:
-                with st.spinner("Analyzing..."):
-                    started_at = time.perf_counter()
-                    if is_fast_mode:
-                        payload = run_fast_mode(cleaned_query)
-                    else:
-                        payload = run_advanced_mode(cleaned_query)
-                    elapsed_seconds = time.perf_counter() - started_at
+                with status_placeholder.container():
+                    render_typing_indicator()
+                started_at = time.perf_counter()
+                if is_fast_mode:
+                    payload = run_fast_mode(cleaned_query)
+                else:
+                    payload = run_advanced_mode(cleaned_query)
+                elapsed_seconds = time.perf_counter() - started_at
             except requests.exceptions.RequestException as exc:
                 st.error(f"Request failed: {exc}")
             except ValueError:
@@ -4691,6 +5276,8 @@ def render_ai_request_panel() -> None:
                     elapsed_seconds,
                 )
                 add_active_project_history("ai", f"Prompt generated: {cleaned_query[:80]}")
+            finally:
+                status_placeholder.empty()
 
     if display_entry:
         display_result(display_entry)
@@ -4787,30 +5374,42 @@ def render_upload_page() -> None:
         indexed_chunks = 0
         failed_files = []
 
-        with st.spinner("Indexing documents..."):
-            for uploaded_file in uploaded_files:
-                try:
-                    file_bytes = uploaded_file.getvalue()
-                    if document_type in {"NCC", "Housing"}:
-                        file_text = extract_uploaded_document_text(uploaded_file.name, file_bytes)
-                        clauses = parse_ncc_clauses(file_text)
-                        documents, metadatas = clauses_to_documents(clauses, uploaded_file.name)
-                        indexed_chunks += add_ncc_documents(
-                            rag_user_id,
-                            documents,
-                            metadatas,
-                            housing=document_type == "Housing",
-                        )
-                    else:
-                        chunks = process_document(uploaded_file.name, file_bytes, selected_document_type)
-                        indexed_chunks += add_documents(
-                            rag_user_id,
-                            [chunk["text"] for chunk in chunks],
-                            [chunk["metadata"] for chunk in chunks],
-                        )
-                except Exception as exc:
-                    failed_files.append(uploaded_file.name)
-                    st.error(f"Could not index {uploaded_file.name}: {exc}")
+        status_placeholder = st.empty()
+        with status_placeholder.container():
+            st.markdown(
+                """
+                <div class="workspace-overview-card">
+                    <div class="workspace-overview-line"><strong>Status:</strong> Indexing documents</div>
+                    <div class="skeleton-line"></div>
+                    <div class="skeleton-line"></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        for uploaded_file in uploaded_files:
+            try:
+                file_bytes = uploaded_file.getvalue()
+                if document_type in {"NCC", "Housing"}:
+                    file_text = extract_uploaded_document_text(uploaded_file.name, file_bytes)
+                    clauses = parse_ncc_clauses(file_text)
+                    documents, metadatas = clauses_to_documents(clauses, uploaded_file.name)
+                    indexed_chunks += add_ncc_documents(
+                        rag_user_id,
+                        documents,
+                        metadatas,
+                        housing=document_type == "Housing",
+                    )
+                else:
+                    chunks = process_document(uploaded_file.name, file_bytes, selected_document_type)
+                    indexed_chunks += add_documents(
+                        rag_user_id,
+                        [chunk["text"] for chunk in chunks],
+                        [chunk["metadata"] for chunk in chunks],
+                    )
+            except Exception as exc:
+                failed_files.append(uploaded_file.name)
+                st.error(f"Could not index {uploaded_file.name}: {exc}")
+        status_placeholder.empty()
 
         if indexed_chunks:
             add_active_project_history(
@@ -5048,7 +5647,7 @@ def render_reports_page() -> None:
 def render_ai_copilot_panel() -> None:
     render_page_header(
         "Copilot",
-        "Ask questions, draft strategy, and analyze project context.",
+        "AI engineer and business consultant for construction intelligence.",
     )
     active_project = get_active_project()
     if active_project is None:
@@ -5056,17 +5655,38 @@ def render_ai_copilot_panel() -> None:
     else:
         st.caption(f'Project: {active_project["name"]}')
 
+    chip_columns = responsive_columns(4)
+    quick_prompts = [
+        ("NCC check", "Review this project for NCC compliance gaps and cite relevant evidence."),
+        ("Contract risk", "Summarize the major contract risks, obligations, and negotiation points."),
+        ("Tender decision", "Prepare a tender go/no-go analysis with commercial and delivery risks."),
+        ("Procurement plan", "Create a procurement risk plan for long-lead items and supplier exposure."),
+    ]
+    for column, (label, prompt) in zip(chip_columns, quick_prompts):
+        with column:
+            if st.button(label, key=f"copilot_chip_{label.lower().replace(' ', '_')}", use_container_width=True):
+                st.session_state["copilot_pending_prompt"] = prompt
+
     chat_markup = []
     if st.session_state.copilot_history:
         for message in st.session_state.copilot_history:
             chat_markup.append(format_chat_bubble("user", str(message.get("prompt", ""))))
             chat_markup.append(format_chat_bubble("assistant", str(message.get("response", ""))))
+            chat_markup.append(format_citations(message.get("sources")))
     else:
         chat_markup.append(
             format_chat_bubble(
                 "assistant",
-                "Start a conversation with Gao Intelligence Hub. I can summarize documents, identify risks, and draft executive analysis.",
+                "Ask me to assess compliance, contract exposure, tender risk, procurement constraints, or executive planning. I will keep the answer structured and evidence-aware.",
             )
+        )
+        chat_markup.append(
+            '<div class="quick-chip-row">'
+            '<span class="quick-chip">NCC compliance</span>'
+            '<span class="quick-chip">Contract risk</span>'
+            '<span class="quick-chip">Tender analysis</span>'
+            '<span class="quick-chip">Executive brief</span>'
+            "</div>"
         )
     st.markdown(
         f'<div class="chat-container">{"".join(chat_markup)}</div>',
@@ -5077,8 +5697,9 @@ def render_ai_copilot_panel() -> None:
         "Ask Gao Intelligence Hub",
         disabled=active_project is None,
     )
-    if user_input:
-        cleaned_input = user_input.strip()
+    pending_input = st.session_state.pop("copilot_pending_prompt", "")
+    if user_input or pending_input:
+        cleaned_input = (user_input or pending_input).strip()
         user_id = str(st.session_state.get("user_id") or "default")
 
         if not cleaned_input:
@@ -5091,19 +5712,25 @@ def render_ai_copilot_panel() -> None:
             if not consume_ai_request_or_warn():
                 return
 
-            with st.spinner("Analyzing..."):
-                started_at = time.perf_counter()
-                try:
-                    response_text = run_engine(user_id, cleaned_input)
-                except Exception as exc:
-                    response_text = f"Error: {str(exc)}"
-                finally:
-                    st.session_state.copilot_calls += 1
-                elapsed_seconds = time.perf_counter() - started_at
+            typing_placeholder = st.empty()
+            with typing_placeholder.container():
+                render_typing_indicator()
+
+            started_at = time.perf_counter()
+            try:
+                response_text = run_engine(user_id, cleaned_input)
+            except Exception as exc:
+                response_text = f"Error: {str(exc)}"
+            finally:
+                st.session_state.copilot_calls += 1
+                typing_placeholder.empty()
+            elapsed_seconds = time.perf_counter() - started_at
 
             if response_text.startswith("Error:"):
                 st.error(response_text)
             else:
+                retrieved_chunks = get_last_retrieval()
+                source_labels = source_labels_from_retrieval(retrieved_chunks)
                 payload = {
                     "category": "copilot",
                     "confidence": 1.0,
@@ -5116,13 +5743,13 @@ def render_ai_copilot_panel() -> None:
                     {
                         "prompt": display_query,
                         "response": response_text,
+                        "sources": source_labels,
                     }
                 )
                 st.session_state.copilot_history = st.session_state.copilot_history[-12:]
                 st.session_state.selected_history = saved_entry
                 add_active_project_history("copilot", f"Copilot response: {display_query[:80]}")
 
-                retrieved_chunks = get_last_retrieval()
                 if retrieved_chunks:
                     st.markdown("### Sources Used")
                     st.write(format_sources(retrieved_chunks))
@@ -5501,15 +6128,20 @@ def render_project_intelligence_review() -> None:
             try:
                 from executive_agents import run_executive_agent_team
 
-                with st.spinner("Running executive agent team..."):
-                    started_at = time.perf_counter()
-                    payload = run_executive_agent_team(
-                        review_type,
-                        ready_documents_text,
-                        agent_mode,
-                    )
-                    elapsed_seconds = time.perf_counter() - started_at
+                status_placeholder = st.empty()
+                with status_placeholder.container():
+                    render_typing_indicator()
+                started_at = time.perf_counter()
+                payload = run_executive_agent_team(
+                    review_type,
+                    ready_documents_text,
+                    agent_mode,
+                )
+                elapsed_seconds = time.perf_counter() - started_at
+                status_placeholder.empty()
             except Exception:
+                if "status_placeholder" in locals():
+                    status_placeholder.empty()
                 payload = {
                     "category": "executive",
                     "confidence": 0.0,
@@ -5651,7 +6283,7 @@ def render_automation_intelligence() -> None:
 st.set_page_config(
     page_title="Gao Intelligence Hub",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
 )
 inject_custom_css()
 initialize_auth_state()
