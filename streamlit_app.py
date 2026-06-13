@@ -2168,12 +2168,14 @@ def inject_custom_css() -> None:
         body {
             width: 100%;
             overflow-x: hidden !important;
+            max-width: 100vw !important;
         }
 
         *,
         *::before,
         *::after {
             box-sizing: border-box;
+            max-width: 100%;
         }
 
         .stApp {
@@ -2187,8 +2189,8 @@ def inject_custom_css() -> None:
         .block-container {
             max-width: 100% !important;
             padding-top: 2rem !important;
-            padding-left: 3rem !important;
-            padding-right: 3rem !important;
+            padding-left: 16px !important;
+            padding-right: 16px !important;
             padding-bottom: 3rem !important;
             width: 100% !important;
         }
@@ -2239,8 +2241,10 @@ def inject_custom_css() -> None:
         }
 
         .table-wrapper,
+        table,
         [data-testid="stTable"],
         [data-testid="stDataFrame"] {
+            display: block;
             max-width: 100%;
             overflow-x: auto;
         }
@@ -3305,6 +3309,7 @@ def inject_custom_css() -> None:
             background: var(--enterprise-bg) !important;
             color: var(--enterprise-body) !important;
             overflow-x: hidden !important;
+            max-width: 100vw !important;
             width: 100% !important;
         }
 
@@ -3315,7 +3320,27 @@ def inject_custom_css() -> None:
         .main .block-container,
         .block-container {
             max-width: 100% !important;
-            padding: 24px 32px 42px !important;
+            padding: 24px 16px 42px !important;
+        }
+
+        [data-testid="stAppViewContainer"],
+        [data-testid="stMain"],
+        [data-testid="stVerticalBlock"],
+        [data-testid="stHorizontalBlock"],
+        [data-testid="column"],
+        [data-testid="stSidebar"],
+        .element-container,
+        .stMarkdown {
+            max-width: 100% !important;
+            overflow-x: hidden !important;
+        }
+
+        [data-testid="stHorizontalBlock"] {
+            width: 100% !important;
+        }
+
+        [data-testid="column"] {
+            min-width: 0 !important;
         }
 
         h1,
@@ -4273,6 +4298,11 @@ def render_report_section(title: str, content: str) -> None:
     )
 
 
+def responsive_columns(count: int):
+    """Return Streamlit columns styled by CSS to collapse cleanly on mobile."""
+    return st.columns(count, gap="medium")
+
+
 def normalize_section(section: str | None) -> str:
     normalized = SECTION_ALIASES.get(section or "", section or DEFAULT_SECTION)
     valid_sections = set(NAVIGATION_TO_SECTION.values())
@@ -4444,7 +4474,7 @@ def render_workspace() -> None:
         "Gao Intelligence Hub",
     )
 
-    metric_columns = st.columns(4)
+    metric_columns = responsive_columns(4)
     metrics = [
         ("Active Agents", str(len(EXECUTIVE_AGENT_MODES)), "Executive review modes ready"),
         ("Documents Processed", documents_processed, "This billing period"),
@@ -4479,7 +4509,7 @@ def render_workspace() -> None:
         st.bar_chart(build_agent_usage_chart())
 
     st.markdown('<div class="workspace-section-title">Quick Actions</div>', unsafe_allow_html=True)
-    action_columns = st.columns(4)
+    action_columns = responsive_columns(4)
     actions = [
         (
             "Documents",
@@ -4915,7 +4945,7 @@ def render_billing_page() -> None:
         )
 
     st.markdown('<div class="workspace-section-title">Plans</div>', unsafe_allow_html=True)
-    plan_columns = st.columns(4)
+    plan_columns = responsive_columns(4)
     for column, (plan_name, plan_details) in zip(plan_columns, subscription_store.PLAN_CATALOG.items()):
         with column:
             features = "<br>".join(escape(feature) for feature in plan_details["features"])
