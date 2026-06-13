@@ -2235,17 +2235,43 @@ def inject_custom_css() -> None:
         }
 
         [data-testid="stSidebar"] {
-            background: #FFFFFF !important;
-            color: #0F172A !important;
+            background: #0f172a !important;
+            color: white !important;
         }
 
         [data-testid="stSidebar"] * {
-            color: #0F172A !important;
+            color: white !important;
         }
 
         section[data-testid="stSidebar"] {
-            background: #FFFFFF !important;
-            border-right: 1px solid var(--hub-border);
+            background: #0f172a !important;
+            border-right: 1px solid rgba(148, 163, 184, 0.18);
+        }
+
+        section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h2 {
+            color: #FFFFFF !important;
+            font-size: 1.2rem;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 1rem;
+        }
+
+        section[data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+        section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] * {
+            color: #CBD5E1 !important;
+        }
+
+        section[data-testid="stSidebar"] [data-testid="stRadio"] label,
+        section[data-testid="stSidebar"] [data-testid="stRadio"] label *,
+        section[data-testid="stSidebar"] [role="radiogroup"] *,
+        section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] * {
+            color: #E5E7EB !important;
+        }
+
+        section[data-testid="stSidebar"] div[data-testid="stButton"] > button {
+            background: rgba(15, 23, 42, 0.92) !important;
+            border-color: rgba(148, 163, 184, 0.28) !important;
+            color: #F8FAFC !important;
         }
 
         section[data-testid="stSidebar"] [data-testid="stExpander"] {
@@ -2868,6 +2894,42 @@ def inject_custom_css() -> None:
             opacity: 0.85;
         }
 
+        .dashboard-chart-card,
+        .copilot-panel {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 14px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+            padding: 18px;
+            width: 100%;
+        }
+
+        .dashboard-chart-title {
+            color: #0F172A !important;
+            font-size: 1rem;
+            font-weight: 800;
+            margin-bottom: 0.7rem;
+        }
+
+        .copilot-panel {
+            position: sticky;
+            top: 1rem;
+        }
+
+        .copilot-title {
+            color: #0F172A !important;
+            font-size: 1.25rem;
+            font-weight: 800;
+            margin-bottom: 0.35rem;
+        }
+
+        .copilot-subtitle {
+            color: #64748B !important;
+            font-size: 0.88rem;
+            line-height: 1.45;
+            margin-bottom: 1rem;
+        }
+
         .workspace-activity-card,
         .workspace-overview-card {
             background: #FFFFFF;
@@ -3424,6 +3486,17 @@ def render_user_limit_summary() -> None:
 
 def set_active_section(section: str, documents_view: str | None = None) -> None:
     st.session_state.active_section = section
+    section_to_navigation = {
+        "workspace": "Dashboard",
+        "documents": "Documents",
+        "ai": "Agents",
+        "automations": "Automations",
+        "logs": "Logs",
+        "settings": "Settings",
+    }
+    if section in section_to_navigation:
+        st.session_state.nav_selected = section_to_navigation[section]
+        st.session_state.last_nav_selected = section_to_navigation[section]
     if documents_view is not None:
         st.session_state.documents_view = documents_view
 
@@ -3596,6 +3669,40 @@ def render_workspace() -> None:
                 """,
                 unsafe_allow_html=True,
             )
+
+    chart_columns = st.columns(2)
+    with chart_columns[0]:
+        st.markdown(
+            """
+            <div class="dashboard-chart-card">
+                <div class="dashboard-chart-title">Usage Trend</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.line_chart(
+            {
+                "Documents": [2, 5, 8, 12, 20],
+                "API Requests": [10, 30, 45, 60, 90],
+            }
+        )
+
+    with chart_columns[1]:
+        st.markdown(
+            """
+            <div class="dashboard-chart-card">
+                <div class="dashboard-chart-title">Agent Usage</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.bar_chart(
+            {
+                "Legal": [12],
+                "Finance": [8],
+                "Risk": [5],
+            }
+        )
 
     st.markdown('<div class="workspace-section-title">Quick Actions</div>', unsafe_allow_html=True)
     action_columns = st.columns(4)
@@ -3873,6 +3980,9 @@ def render_settings() -> None:
     st.markdown('<div class="workspace-title">Settings</div>', unsafe_allow_html=True)
     render_subscription_summary()
 
+
+def render_logs() -> None:
+    st.markdown('<div class="workspace-title">Logs</div>', unsafe_allow_html=True)
     st.markdown('<div class="hub-section-title">Intelligence History</div>', unsafe_allow_html=True)
     st.download_button(
         "Export History",
@@ -3897,10 +4007,28 @@ def render_settings() -> None:
                 use_container_width=True,
             ):
                 st.session_state.selected_history = entry
-                st.session_state.active_section = "ai"
+                set_active_section("ai")
                 st.rerun()
     else:
         st.caption("No history yet.")
+
+
+def render_ai_copilot_panel() -> None:
+    st.markdown(
+        """
+        <div class="copilot-panel">
+            <div class="copilot-title">AI Copilot</div>
+            <div class="copilot-subtitle">Ask for summaries, next steps, or workspace guidance.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    user_input = st.text_area("Ask anything", key="copilot_input", height=180)
+    if st.button("Run AI", key="copilot_run_ai", use_container_width=True):
+        if user_input.strip():
+            st.write("AI response placeholder")
+        else:
+            st.warning("Enter a question first.")
 
 
 def display_result(entry: dict) -> None:
@@ -4469,53 +4597,80 @@ if "active_project_id" not in st.session_state:
 
 prompt_store.initialize_prompt_store()
 
+NAVIGATION_TO_SECTION = {
+    "Dashboard": "workspace",
+    "Documents": "documents",
+    "Agents": "ai",
+    "Automations": "automations",
+    "Logs": "logs",
+    "Settings": "settings",
+}
+SECTION_TO_NAVIGATION = {
+    section: navigation for navigation, section in NAVIGATION_TO_SECTION.items()
+}
+
+if "nav_selected" not in st.session_state:
+    st.session_state.nav_selected = SECTION_TO_NAVIGATION.get(
+        st.session_state.active_section,
+        "Dashboard",
+    )
+
+if "last_nav_selected" not in st.session_state:
+    st.session_state.last_nav_selected = st.session_state.nav_selected
+
 with st.sidebar:
+    st.markdown("## Gao Intelligence Hub")
+
+    selected = st.radio(
+        "Navigation",
+        [
+            "Dashboard",
+            "Documents",
+            "Agents",
+            "Automations",
+            "Logs",
+            "Settings",
+        ],
+        key="nav_selected",
+    )
+
+    if selected != st.session_state.last_nav_selected:
+        set_active_section(NAVIGATION_TO_SECTION[selected])
+        st.session_state.last_nav_selected = selected
+        st.rerun()
+
     current_user = st.session_state.current_user or {}
     st.caption(f"Logged in as: {st.session_state.username or current_user.get('username', 'User')}")
     st.caption(f"Role: {st.session_state.role or current_user.get('role', 'User')}")
     render_user_limit_summary()
 
-    if st.button("🏠 Workspace", use_container_width=True):
-        set_active_section("workspace")
-        st.rerun()
-    if st.button("📄 Documents", use_container_width=True):
-        set_active_section("documents", "document")
-        st.rerun()
-    if st.button("📁 Projects", use_container_width=True):
-        set_active_section("projects")
-        st.rerun()
-    if st.button("⚡ Automations", use_container_width=True):
-        set_active_section("automations")
-        st.rerun()
-    if st.button("🛒 Marketplace", use_container_width=True):
-        set_active_section("marketplace")
-        st.rerun()
-    if st.button("🧠 AI Center", use_container_width=True):
-        set_active_section("ai")
-        st.rerun()
-    if st.button("⚙️ Settings", use_container_width=True):
-        set_active_section("settings")
-        st.rerun()
-
     if st.button("Sign Out", use_container_width=True):
         clear_authenticated_user()
         st.rerun()
 
-active_section = st.session_state.active_section
-if active_section == "workspace":
-    render_workspace()
-elif active_section == "documents":
-    render_documents_page()
-elif active_section == "projects":
-    render_projects_page()
-elif active_section == "automations":
-    render_automation_page()
-elif active_section == "marketplace":
-    render_marketplace()
-elif active_section == "ai":
-    render_prompt_builder()
-elif active_section == "settings":
-    render_settings()
-else:
-    st.session_state.active_section = "workspace"
-    render_workspace()
+main_column, copilot_column = st.columns([3, 1])
+
+with main_column:
+    active_section = st.session_state.active_section
+    if active_section == "workspace":
+        render_workspace()
+    elif active_section == "documents":
+        render_documents_page()
+    elif active_section == "projects":
+        render_projects_page()
+    elif active_section == "automations":
+        render_automation_page()
+    elif active_section == "marketplace":
+        render_marketplace()
+    elif active_section == "ai":
+        render_prompt_builder()
+    elif active_section == "logs":
+        render_logs()
+    elif active_section == "settings":
+        render_settings()
+    else:
+        st.session_state.active_section = "workspace"
+        render_workspace()
+
+with copilot_column:
+    render_ai_copilot_panel()
