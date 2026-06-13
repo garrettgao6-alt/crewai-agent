@@ -2729,6 +2729,50 @@ def inject_custom_css() -> None:
             padding: 8px 11px;
         }
 
+        .workspace-title {
+            color: #0F172A !important;
+            font-size: clamp(24px, 3rem, 48px);
+            font-weight: 850;
+            line-height: 1.08;
+            margin: 4px 0 6px;
+        }
+
+        .workspace-subtitle {
+            color: #475569 !important;
+            font-size: clamp(14px, 1rem, 16px);
+            font-weight: 650;
+            margin-bottom: 18px;
+        }
+
+        .workspace-section-title {
+            color: #0F172A !important;
+            font-size: clamp(18px, 1.25rem, 24px);
+            font-weight: 800;
+            margin: 22px 0 10px;
+        }
+
+        .workspace-activity-card,
+        .workspace-overview-card {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
+            padding: 16px;
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .workspace-activity-item,
+        .workspace-overview-line {
+            color: #475569 !important;
+            font-size: 14px;
+            line-height: 1.55;
+            margin: 6px 0;
+        }
+
+        .workspace-overview-line strong {
+            color: #0F172A !important;
+        }
+
         div[data-testid="stVerticalBlockBorderWrapper"] {
             background: #FFFFFF;
             border-color: #E2E8F0 !important;
@@ -2846,6 +2890,8 @@ def inject_custom_css() -> None:
             div[data-testid="stButton"] > button,
             div[data-testid="stDownloadButton"] > button {
                 width: 100% !important;
+                min-height: 56px !important;
+                border-radius: 16px !important;
             }
 
             textarea {
@@ -3218,6 +3264,217 @@ def render_user_limit_summary() -> None:
 
     max_users_label = "Unlimited" if max_users == 0 else str(max_users)
     st.caption(f"Users: {active_users} / {max_users_label}")
+
+
+def set_active_section(section: str, documents_view: str | None = None) -> None:
+    st.session_state.active_section = section
+    if documents_view is not None:
+        st.session_state.documents_view = documents_view
+
+
+def render_workspace() -> None:
+    current_user = st.session_state.current_user or {}
+    username = st.session_state.username or current_user.get("username", "User")
+    st.markdown(
+        f"""
+        <div class="workspace-title">Welcome back, {escape(str(username))}</div>
+        <div class="workspace-subtitle">Gao Intelligence Hub</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown('<div class="workspace-section-title">Quick Actions</div>', unsafe_allow_html=True)
+    if st.button("Analyze Document", key="quick_analyze_document", use_container_width=True):
+        set_active_section("documents", "document")
+        st.rerun()
+    if st.button("Build Prompt", key="quick_build_prompt", use_container_width=True):
+        set_active_section("ai")
+        st.rerun()
+    if st.button("Create Automation", key="quick_create_automation", use_container_width=True):
+        set_active_section("automations")
+        st.rerun()
+    if st.button("Executive Analysis", key="quick_executive_analysis", use_container_width=True):
+        set_active_section("documents", "executive")
+        st.rerun()
+
+    st.markdown('<div class="workspace-section-title">Recent Activity</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="workspace-activity-card">
+            <div class="workspace-activity-item">Document Analysis: Construction Proposal</div>
+            <div class="workspace-activity-item">Prompt Generated: Marketing Strategy</div>
+            <div class="workspace-activity-item">Automation Created: Project Workflow</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    try:
+        usage = refresh_subscription_usage()
+    except ValueError:
+        usage = {
+            "subscription_tier": "Starter",
+            "current_request_count": 0,
+            "monthly_request_limit": 100,
+            "current_document_count": 0,
+            "monthly_document_limit": 20,
+        }
+
+    st.markdown('<div class="workspace-section-title">Subscription Overview</div>', unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div class="workspace-overview-card">
+            <div class="workspace-overview-line"><strong>Plan:</strong> {escape(str(usage["subscription_tier"]))}</div>
+            <div class="workspace-overview-line"><strong>Usage:</strong> {escape(str(usage["current_request_count"]))} / {escape(format_limit(usage["monthly_request_limit"]))}</div>
+            <div class="workspace-overview-line"><strong>Documents:</strong> {escape(str(usage["current_document_count"]))} / {escape(format_limit(usage["monthly_document_limit"]))}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_prompt_library() -> None:
+    categories = prompt_store.list_categories()
+    if not categories:
+        st.caption("No prompts available.")
+        return
+
+    selected_category = st.selectbox("Category", categories, key="prompt_library_category")
+    prompts = prompt_store.list_prompts(selected_category)
+    prompt_options = {prompt["name"]: prompt["id"] for prompt in prompts}
+
+    selected_prompt_name = st.selectbox(
+        "Prompt",
+        list(prompt_options.keys()),
+        key="prompt_library_prompt",
+    )
+    selected_prompt_id = prompt_options[selected_prompt_name]
+
+    if st.button("Load Prompt Template", use_container_width=True):
+        selected_prompt = prompt_store.get_prompt(selected_prompt_id)
+        if selected_prompt:
+            st.session_state.query = selected_prompt["content"]
+
+
+def render_ai_request_panel() -> None:
+    st.markdown('<div class="hub-section-title">AI Workspace</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        mode = st.radio(
+            "Routing Mode",
+            ["Fast Mode", "Advanced Agent Routing"],
+            index=0,
+            horizontal=True,
+        )
+        is_fast_mode = mode == "Fast Mode"
+        mode_name = "Fast" if is_fast_mode else "Advanced"
+        st.caption(f"Active mode: {mode_name}")
+
+        query = st.text_area(
+            "Request",
+            height=220,
+            placeholder="Enter a request for the gateway...",
+            key="query",
+        )
+        submitted = st.button("Submit", type="primary", use_container_width=True)
+
+    display_entry = st.session_state.selected_history
+
+    if submitted:
+        cleaned_query = query.strip()
+
+        if not cleaned_query:
+            st.warning("Please enter a request.")
+        elif not consume_ai_request_or_warn():
+            pass
+        else:
+            try:
+                with st.spinner("Analyzing..."):
+                    started_at = time.perf_counter()
+                    if is_fast_mode:
+                        payload = run_fast_mode(cleaned_query)
+                    else:
+                        payload = run_advanced_mode(cleaned_query)
+                    elapsed_seconds = time.perf_counter() - started_at
+            except requests.exceptions.RequestException as exc:
+                st.error(f"Request failed: {exc}")
+            except ValueError:
+                st.error("Request failed: FastAPI returned invalid JSON.")
+            else:
+                display_entry = save_history_entry(
+                    cleaned_query,
+                    mode_name,
+                    payload,
+                    elapsed_seconds,
+                )
+
+    if display_entry:
+        display_result(display_entry)
+
+
+def render_documents_page() -> None:
+    st.markdown('<div class="workspace-title">Documents</div>', unsafe_allow_html=True)
+    view_options = ["document", "executive"]
+    selected_view = st.radio(
+        "Documents View",
+        view_options,
+        index=view_options.index(st.session_state.get("documents_view", "document")),
+        format_func=lambda value: "Document Intelligence" if value == "document" else "Executive Analysis",
+        horizontal=True,
+    )
+    st.session_state.documents_view = selected_view
+
+    if selected_view == "executive":
+        render_project_intelligence_review()
+    else:
+        render_document_analysis()
+
+
+def render_automation_page() -> None:
+    st.markdown('<div class="workspace-title">Automations</div>', unsafe_allow_html=True)
+    render_automation_intelligence()
+
+
+def render_prompt_builder() -> None:
+    st.markdown('<div class="workspace-title">AI Center</div>', unsafe_allow_html=True)
+    with st.expander("Prompt Library", expanded=True):
+        render_prompt_library()
+    with st.expander("Form Builder", expanded=False):
+        render_form_builder()
+    render_ai_request_panel()
+
+
+def render_settings() -> None:
+    st.markdown('<div class="workspace-title">Settings</div>', unsafe_allow_html=True)
+    render_subscription_summary()
+
+    st.markdown('<div class="hub-section-title">Intelligence History</div>', unsafe_allow_html=True)
+    st.download_button(
+        "Export History",
+        data=json.dumps(st.session_state.history, indent=2),
+        file_name="history.json",
+        mime="application/json",
+        use_container_width=True,
+    )
+
+    if st.button("Clear History", use_container_width=True):
+        st.session_state.history = []
+        st.session_state.selected_history = None
+
+    if st.session_state.history:
+        for index, entry in enumerate(st.session_state.history[:HISTORY_LIMIT]):
+            label = entry["query"].replace("\n", " ").strip()
+            if len(label) > 60:
+                label = f"{label[:57]}..."
+            if st.button(
+                f"{index + 1}. {entry['mode']} - {label}",
+                key=f"settings_history_{index}",
+                use_container_width=True,
+            ):
+                st.session_state.selected_history = entry
+                st.session_state.active_section = "ai"
+                st.rerun()
+    else:
+        st.caption("No history yet.")
 
 
 def display_result(entry: dict) -> None:
@@ -3742,131 +3999,51 @@ if "selected_history" not in st.session_state:
 if "query" not in st.session_state:
     st.session_state.query = ""
 
-prompt_store.initialize_prompt_store()
+if "active_section" not in st.session_state:
+    st.session_state.active_section = "workspace"
 
-render_hero()
-render_mobile_guide()
-render_mobile_navigation_tabs()
-render_status_cards()
+if "documents_view" not in st.session_state:
+    st.session_state.documents_view = "document"
+
+prompt_store.initialize_prompt_store()
 
 with st.sidebar:
     current_user = st.session_state.current_user or {}
     st.caption(f"Logged in as: {st.session_state.username or current_user.get('username', 'User')}")
     st.caption(f"Role: {st.session_state.role or current_user.get('role', 'User')}")
     render_user_limit_summary()
-    render_subscription_summary()
+
+    if st.button("🏠 Workspace", use_container_width=True):
+        set_active_section("workspace")
+        st.rerun()
+    if st.button("📄 Documents", use_container_width=True):
+        set_active_section("documents", "document")
+        st.rerun()
+    if st.button("⚡ Automations", use_container_width=True):
+        set_active_section("automations")
+        st.rerun()
+    if st.button("🧠 AI Center", use_container_width=True):
+        set_active_section("ai")
+        st.rerun()
+    if st.button("⚙️ Settings", use_container_width=True):
+        set_active_section("settings")
+        st.rerun()
+
     if st.button("Sign Out", use_container_width=True):
         clear_authenticated_user()
         st.rerun()
 
-    with st.expander("📚 Prompt Library", expanded=True):
-        categories = prompt_store.list_categories()
-        if categories:
-            selected_category = st.selectbox("Category", categories, key="prompt_library_category")
-            prompts = prompt_store.list_prompts(selected_category)
-            prompt_options = {prompt["name"]: prompt["id"] for prompt in prompts}
-
-            selected_prompt_name = st.selectbox(
-                "Prompt",
-                list(prompt_options.keys()),
-                key="prompt_library_prompt",
-            )
-            selected_prompt_id = prompt_options[selected_prompt_name]
-
-            if st.button("Load Prompt Template", use_container_width=True):
-                selected_prompt = prompt_store.get_prompt(selected_prompt_id)
-                if selected_prompt:
-                    st.session_state.query = selected_prompt["content"]
-        else:
-            st.caption("No prompts available.")
-
-    with st.expander("🧩 Form Builder", expanded=False):
-        render_form_builder()
-
-    with st.expander("📄 Document Intelligence", expanded=False):
-        render_document_analysis()
-
-    with st.expander("🧠 Executive Intelligence Center", expanded=False):
-        render_project_intelligence_review()
-
-    with st.expander("⚙️ Automation Intelligence", expanded=False):
-        render_automation_intelligence()
-
-    with st.expander("🕘 Intelligence History", expanded=False):
-        st.download_button(
-            "Export History",
-            data=json.dumps(st.session_state.history, indent=2),
-            file_name="history.json",
-            mime="application/json",
-            use_container_width=True,
-        )
-
-        if st.button("Clear History", use_container_width=True):
-            st.session_state.history = []
-            st.session_state.selected_history = None
-
-        if st.session_state.history:
-            for index, entry in enumerate(st.session_state.history[:HISTORY_LIMIT]):
-                label = entry["query"].replace("\n", " ").strip()
-                if len(label) > 60:
-                    label = f"{label[:57]}..."
-                if st.button(
-                    f"{index + 1}. {entry['mode']} - {label}",
-                    key=f"history_{index}",
-                    use_container_width=True,
-                ):
-                    st.session_state.selected_history = entry
-        else:
-            st.caption("No history yet.")
-
-st.markdown('<div class="hub-section-title">Workspace</div>', unsafe_allow_html=True)
-with st.container(border=True):
-    mode = st.radio(
-        "Routing Mode",
-        ["Fast Mode", "Advanced Agent Routing"],
-        index=0,
-        horizontal=True,
-    )
-    is_fast_mode = mode == "Fast Mode"
-    mode_name = "Fast" if is_fast_mode else "Advanced"
-    st.caption(f"Active mode: {mode_name}")
-
-    query = st.text_area(
-        "Request",
-        height=220,
-        placeholder="Enter a request for the gateway...",
-        key="query",
-    )
-    submitted = st.button("Submit", type="primary", use_container_width=True)
-display_entry = st.session_state.selected_history
-
-if submitted:
-    cleaned_query = query.strip()
-
-    if not cleaned_query:
-        st.warning("Please enter a request.")
-    elif not consume_ai_request_or_warn():
-        pass
-    else:
-        try:
-            with st.spinner("Analyzing..."):
-                started_at = time.perf_counter()
-                if is_fast_mode:
-                    payload = run_fast_mode(cleaned_query)
-                else:
-                    payload = run_advanced_mode(cleaned_query)
-                elapsed_seconds = time.perf_counter() - started_at
-        except requests.exceptions.RequestException as exc:
-            st.error(f"Request failed: {exc}")
-        except ValueError:
-            st.error("Request failed: FastAPI returned invalid JSON.")
-        else:
-            display_entry = save_history_entry(
-                cleaned_query,
-                mode_name,
-                payload,
-                elapsed_seconds,
-            )
-
-if display_entry:
-    display_result(display_entry)
+active_section = st.session_state.active_section
+if active_section == "workspace":
+    render_workspace()
+elif active_section == "documents":
+    render_documents_page()
+elif active_section == "automations":
+    render_automation_page()
+elif active_section == "ai":
+    render_prompt_builder()
+elif active_section == "settings":
+    render_settings()
+else:
+    st.session_state.active_section = "workspace"
+    render_workspace()
