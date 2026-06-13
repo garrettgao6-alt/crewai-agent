@@ -3,6 +3,8 @@ import os
 
 from openai import OpenAI
 
+from core.skills import build_skill_chain
+
 
 PLANNER_MODEL = os.getenv("OPENAI_PLANNER_MODEL", "gpt-4o-mini")
 ALLOWED_TASKS = {"analysis", "risk", "strategy", "finance", "general"}
@@ -77,3 +79,11 @@ Return JSON only:
         return _validate_tasks(data.get("tasks", ["general"]))
     except Exception:
         return _fallback_plan_tasks(prompt)
+
+
+def plan_skills(prompt: str, *, is_rag_response: bool = False, client_deliverable: bool = True) -> list[str]:
+    return build_skill_chain(
+        prompt,
+        is_rag_response=is_rag_response,
+        client_deliverable=client_deliverable,
+    )

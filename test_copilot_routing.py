@@ -15,7 +15,7 @@ from core.report_generator import generate_report
 import core.retriever as retriever
 import core.router as embedding_router
 import core.vector_store as vector_store
-from core.router import route_task
+from core.router import route_skill, route_skill_chain, route_task
 from router import detect_intent
 
 
@@ -86,6 +86,18 @@ class CoreEngineTests(unittest.TestCase):
             self.assertEqual(route_task("strategy"), "business")
             self.assertEqual(route_task("finance"), "business")
             self.assertEqual(route_task("unknown"), "general")
+
+    def test_enterprise_skill_routing_rules(self):
+        self.assertEqual(route_skill("Is this NCC compliant?"), "ncc-compliance")
+        self.assertEqual(route_skill("Review this contract clause"), "contract-review")
+        self.assertEqual(route_skill("Analyze this tender response"), "tender-analysis")
+        self.assertEqual(route_skill("Build a business growth plan"), "business-strategy")
+
+    def test_enterprise_skill_chain_adds_quality_and_delivery_skills(self):
+        self.assertEqual(
+            route_skill_chain("NCC fire compliance", is_rag_response=True),
+            ["ncc-compliance", "rag-quality", "critic-review", "report-generator"],
+        )
 
     def test_embedding_router_picks_best_domain(self):
         embedding_router.DOMAIN_VECTORS["construction"] = embedding_router.np.array([1.0, 0.0])

@@ -5,11 +5,12 @@ from agents import (
 )
 from core.critic import review_output
 from core.memory import Memory
-from core.planner import plan_tasks
+from core.planner import plan_skills, plan_tasks
 from core.reasoning import build_reasoning_prompt, chunks_to_clauses
 from core.report_generator import generate_report
 from core.retriever import retrieve_multi
 from core.router import route_task
+from core.skills import format_skill_context
 
 
 memory = Memory()
@@ -29,8 +30,10 @@ def run_engine(user_id, prompt, document_text=None):
     history = memory.get(user_id)
     tasks = plan_tasks(prompt)
     retrieved_chunks = retrieve_multi(user_id, prompt)
+    skill_chain = plan_skills(prompt, is_rag_response=bool(retrieved_chunks))
     clauses = chunks_to_clauses(retrieved_chunks)
     reasoning_prompt = build_reasoning_prompt(prompt, clauses)
+    reasoning_prompt = f"{reasoning_prompt}{format_skill_context(skill_chain)}"
 
     if document_text:
         reasoning_prompt = f"{reasoning_prompt}\n\nAdditional document text:\n{document_text}"
@@ -49,6 +52,7 @@ def run_engine(user_id, prompt, document_text=None):
             {
                 "task": task,
                 "domain": domain,
+                "skills": skill_chain,
                 "result": result,
             }
         )
@@ -56,6 +60,7 @@ def run_engine(user_id, prompt, document_text=None):
     final_output = generate_report(
         {
             "summary": "AI system execution report generated from planner, router, RAG, reasoning, agents, and critic.",
+            "skills": skill_chain,
             "clauses": [clause["clause"] for clause in clauses],
             "analysis": "\n\n".join([result["result"] for result in results]),
             "risk": "AUTO",

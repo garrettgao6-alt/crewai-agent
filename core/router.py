@@ -1,6 +1,8 @@
 import numpy as np
 from openai import OpenAI
 
+from core.skills import build_skill_chain, route_primary_skill
+
 
 DOMAIN_VECTORS = {
     "construction": None,
@@ -74,3 +76,15 @@ def route_task(task: str) -> str:
         return max(scores, key=scores.get)
     except Exception:
         return _fallback_route_task(task)
+
+
+def route_skill(query: str) -> str | None:
+    return route_primary_skill(query)
+
+
+def route_skill_chain(query: str, *, is_rag_response: bool = False, client_deliverable: bool = True) -> list[str]:
+    return build_skill_chain(
+        query,
+        is_rag_response=is_rag_response,
+        client_deliverable=client_deliverable,
+    )
