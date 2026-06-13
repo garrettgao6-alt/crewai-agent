@@ -2767,6 +2767,27 @@ def inject_custom_css() -> None:
             margin: 0;
         }
 
+        .hero-container {
+            padding: 2rem 0 1rem 0;
+        }
+
+        .hero-brand {
+            font-size: 3.2rem;
+            font-weight: 800;
+            line-height: 1.05;
+            background: linear-gradient(90deg, #4f46e5, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent !important;
+        }
+
+        .hero-sub {
+            font-size: 1.2rem;
+            color: #6b7280 !important;
+            margin-top: 0.5rem;
+        }
+
         .workspace-hero {
             background: #FFFFFF;
             border: 1px solid #E2E8F0;
@@ -2785,12 +2806,18 @@ def inject_custom_css() -> None:
         }
 
         .dashboard-metric-card {
-            background: #FFFFFF;
-            border: 1px solid #E2E8F0;
-            border-radius: 8px;
-            box-shadow: 0 10px 26px rgba(15, 23, 42, 0.05);
+            background: linear-gradient(145deg, #ffffff, #f3f4f6);
+            border: 1px solid rgba(226, 232, 240, 0.78);
+            border-radius: 16px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
             min-height: 132px;
-            padding: 1.2rem 1.25rem;
+            padding: 20px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .dashboard-metric-card:hover {
+            box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+            transform: translateY(-4px);
         }
 
         .dashboard-metric-label {
@@ -2816,27 +2843,29 @@ def inject_custom_css() -> None:
         }
 
         .quick-action-card {
-            background: #FFFFFF;
-            border: 1px solid #E2E8F0;
-            border-radius: 8px;
-            box-shadow: 0 10px 26px rgba(15, 23, 42, 0.05);
-            margin-bottom: 0.75rem;
+            background: linear-gradient(135deg, #4f46e5, #6366f1);
+            border: 1px solid rgba(255, 255, 255, 0.20);
+            border-radius: 16px;
+            box-shadow: 0 12px 26px rgba(79, 70, 229, 0.22);
+            color: white !important;
+            margin-bottom: 10px;
             min-height: 112px;
-            padding: 1.1rem 1.15rem;
+            padding: 18px;
         }
 
         .quick-action-title {
-            color: #0F172A !important;
-            font-size: 1rem;
-            font-weight: 800;
+            color: white !important;
+            font-size: 1.1rem;
+            font-weight: 600;
             line-height: 1.25;
             margin-bottom: 0.45rem;
         }
 
         .quick-action-description {
-            color: #64748B !important;
-            font-size: 0.88rem;
+            color: white !important;
+            font-size: 0.9rem;
             line-height: 1.45;
+            opacity: 0.85;
         }
 
         .workspace-activity-card,
@@ -3540,9 +3569,9 @@ def render_workspace() -> None:
 
     st.markdown(
         f"""
-        <div class="workspace-hero">
-            <div class="hero-title">Welcome back, {escape(str(username))}</div>
-            <div class="hero-subtitle">Gao Intelligence Hub</div>
+        <div class="hero-container">
+            <div class="hero-brand">Gao Intelligence Hub</div>
+            <div class="hero-sub">Welcome back, {escape(str(username))}</div>
         </div>
         """,
         unsafe_allow_html=True,
