@@ -2100,9 +2100,29 @@ def inject_custom_css() -> None:
             --hub-accent-soft: #EFF6FF;
         }
 
+        html,
+        body {
+            width: 100%;
+            overflow-x: hidden !important;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
         .stApp {
             background: var(--hub-bg);
             color: var(--hub-text) !important;
+            overflow-x: hidden !important;
+            width: 100%;
+        }
+
+        .block-container {
+            max-width: 100% !important;
+            padding: 12px !important;
+            width: 100% !important;
         }
 
         h1, h2, h3 {
@@ -2110,12 +2130,89 @@ def inject_custom_css() -> None:
             letter-spacing: 0;
         }
 
+        h1 {
+            font-size: clamp(24px, 3rem, 48px);
+        }
+
+        h2 {
+            font-size: clamp(18px, 2rem, 32px);
+        }
+
         label, p, span, div {
             color: #0F172A;
         }
 
+        p {
+            color: #475569 !important;
+            font-size: clamp(14px, 1rem, 16px);
+        }
+
         p, span, div, small {
             letter-spacing: 0;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        input,
+        textarea,
+        select {
+            max-width: 100% !important;
+            width: 100% !important;
+        }
+
+        button {
+            border-radius: 12px !important;
+            min-height: 48px;
+            max-width: 100%;
+            width: 100%;
+        }
+
+        .table-wrapper,
+        [data-testid="stTable"],
+        [data-testid="stDataFrame"] {
+            max-width: 100%;
+            overflow-x: auto;
+        }
+
+        .grid {
+            display: grid;
+            gap: 16px;
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .card,
+        .section,
+        .hero,
+        .hub-hero,
+        .status-card-native,
+        .mobile-guide-card,
+        .hub-result-body,
+        .subscription-mobile-card,
+        .subscription-desktop-metrics {
+            width: 100%;
+            max-width: 100%;
+        }
+
+        @media (min-width: 1200px) {
+            .grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 1199px) {
+            .grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         [data-testid="InputInstructions"],
@@ -2351,7 +2448,7 @@ def inject_custom_css() -> None:
 
         div[data-testid="stButton"] > button,
         div[data-testid="stDownloadButton"] > button {
-            border-radius: 7px;
+            border-radius: 12px;
             border: 1px solid #CBD5E1;
             font-weight: 600;
             width: 100%;
@@ -2376,11 +2473,13 @@ def inject_custom_css() -> None:
             padding: 34px 34px;
             margin: 8px 0 18px;
             box-shadow: 0 14px 40px rgba(15, 23, 42, 0.07);
+            max-width: 100%;
+            width: 100%;
         }
 
         .hub-hero h1 {
             color: #0F172A !important;
-            font-size: 46px;
+            font-size: clamp(24px, 3rem, 48px);
             line-height: 1.08;
             margin: 0 0 8px;
             font-weight: 800;
@@ -2388,30 +2487,34 @@ def inject_custom_css() -> None:
 
         .hub-hero h2 {
             color: #2563EB !important;
-            font-size: 1.35rem;
+            font-size: clamp(18px, 2rem, 32px);
             margin: 0 0 12px;
             font-weight: 700 !important;
         }
 
         .hero-subtitle {
             color: #2563EB !important;
-            font-size: 1.35rem;
+            font-size: clamp(18px, 2rem, 32px);
             font-weight: 700 !important;
             line-height: 1.4;
         }
 
         .hub-hero p {
             color: #475569 !important;
-            font-size: 16px;
+            font-size: clamp(14px, 1rem, 16px);
             line-height: 1.55;
-            max-width: 820px;
+            max-width: 100%;
             margin: 0;
         }
 
         .status-card-native {
+            background: #FFFFFF;
+            border: 1px solid var(--hub-border);
+            border-radius: 12px;
             box-sizing: border-box;
             min-height: 190px;
-            padding: 8px 4px;
+            padding: 16px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
         }
 
         .status-card-top {
@@ -2431,7 +2534,7 @@ def inject_custom_css() -> None:
             font-size: 22px;
             height: 44px;
             justify-content: center;
-            width: 44px;
+            width: 2.75rem;
         }
 
         .status-card-badge {
@@ -2467,15 +2570,13 @@ def inject_custom_css() -> None:
         }
 
         @media (hover: hover) and (pointer: fine) {
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.status-card-native):hover {
+            .status-card-native:hover {
                 box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
                 transform: translateY(-4px);
             }
         }
 
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(.status-card-native) {
-            background: #FFFFFF;
-            border-radius: 18px !important;
+        .status-card-native {
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
@@ -2636,9 +2737,7 @@ def inject_custom_css() -> None:
 
         @media (max-width: 768px) {
             .block-container {
-                padding-left: 1rem !important;
-                padding-right: 1rem !important;
-                padding-top: 1rem !important;
+                padding: 12px !important;
                 max-width: 100% !important;
             }
 
@@ -2646,22 +2745,6 @@ def inject_custom_css() -> None:
                 padding: 16px;
                 margin-top: 20px;
                 margin-bottom: 20px;
-            }
-
-            .hub-hero h1 {
-                font-size: 31px;
-            }
-
-            .hub-hero h2 {
-                font-size: 1.1rem;
-            }
-
-            .hero-subtitle {
-                font-size: 1.1rem !important;
-            }
-
-            .hub-hero p {
-                font-size: 14px;
             }
 
             .hub-mobile-tabs {
@@ -2756,7 +2839,7 @@ def inject_custom_css() -> None:
             }
 
             div[data-testid="column"] {
-                min-width: 100% !important;
+                min-width: 0 !important;
                 width: 100% !important;
             }
 
@@ -2883,23 +2966,20 @@ def render_status_cards() -> None:
             "description": "Board-ready reports powered by executive agent modes.",
         },
     ]
-    columns = st.columns(4, gap="medium")
-    for column, card in zip(columns, cards):
-        with column:
-            with st.container(border=True):
-                st.markdown(
-                    f"""
-                    <div class="status-card-native">
-                        <div class="status-card-top">
-                            <div class="status-card-icon">{card["icon"]}</div>
-                            <div class="status-card-badge">Active</div>
-                        </div>
-                        <div class="status-card-title">{card["title"]}</div>
-                        <div class="status-card-description">{card["description"]}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+    card_markup = "\n".join(
+        f"""
+        <div class="status-card-native card">
+            <div class="status-card-top">
+                <div class="status-card-icon">{card["icon"]}</div>
+                <div class="status-card-badge">Active</div>
+            </div>
+            <div class="status-card-title">{escape(card["title"])}</div>
+            <div class="status-card-description">{escape(card["description"])}</div>
+        </div>
+        """
+        for card in cards
+    )
+    st.markdown(f'<div class="grid status-card-grid">{card_markup}</div>', unsafe_allow_html=True)
 
 
 def render_mobile_navigation_tabs() -> None:
@@ -2961,54 +3041,52 @@ def render_auth_page() -> None:
         unsafe_allow_html=True,
     )
 
-    left_column, center_column, right_column = st.columns([1, 1.25, 1])
-    with center_column:
-        with st.container(border=True):
-            sign_in_tab, create_account_tab = st.tabs(["Sign In", "Create Account"])
+    with st.container(border=True):
+        sign_in_tab, create_account_tab = st.tabs(["Sign In", "Create Account"])
 
-            with sign_in_tab:
-                with st.form("sign_in_form"):
-                    identifier = st.text_input("Username or Email", key="auth_sign_in_identifier")
-                    password = st.text_input("Password", type="password", key="auth_sign_in_password")
-                    submitted = st.form_submit_button("Sign In", type="primary", use_container_width=True)
+        with sign_in_tab:
+            with st.form("sign_in_form"):
+                identifier = st.text_input("Username or Email", key="auth_sign_in_identifier")
+                password = st.text_input("Password", type="password", key="auth_sign_in_password")
+                submitted = st.form_submit_button("Sign In", type="primary", use_container_width=True)
 
-                if submitted:
+            if submitted:
+                try:
+                    user = user_store.authenticate_user(identifier, password)
+                except user_store.UserStoreError:
+                    st.error("Could not sign in right now. Please try again later.")
+                else:
+                    if user is None:
+                        st.error("Invalid username/email or password.")
+                    else:
+                        set_authenticated_user(user)
+                        st.rerun()
+
+        with create_account_tab:
+            with st.form("create_account_form"):
+                username = st.text_input("Username", key="auth_create_username")
+                email = st.text_input("Email", key="auth_create_email")
+                password = st.text_input("Password", type="password", key="auth_create_password")
+                confirm_password = st.text_input(
+                    "Confirm Password",
+                    type="password",
+                    key="auth_create_confirm_password",
+                )
+                submitted = st.form_submit_button("Create Account", type="primary", use_container_width=True)
+
+            if submitted:
+                if password != confirm_password:
+                    st.error("Passwords do not match.")
+                else:
                     try:
-                        user = user_store.authenticate_user(identifier, password)
+                        user = user_store.create_user(username, email, password)
+                    except ValueError as exc:
+                        st.error(str(exc))
                     except user_store.UserStoreError:
-                        st.error("Could not sign in right now. Please try again later.")
+                        st.error("Could not create account right now. Please try again later.")
                     else:
-                        if user is None:
-                            st.error("Invalid username/email or password.")
-                        else:
-                            set_authenticated_user(user)
-                            st.rerun()
-
-            with create_account_tab:
-                with st.form("create_account_form"):
-                    username = st.text_input("Username", key="auth_create_username")
-                    email = st.text_input("Email", key="auth_create_email")
-                    password = st.text_input("Password", type="password", key="auth_create_password")
-                    confirm_password = st.text_input(
-                        "Confirm Password",
-                        type="password",
-                        key="auth_create_confirm_password",
-                    )
-                    submitted = st.form_submit_button("Create Account", type="primary", use_container_width=True)
-
-                if submitted:
-                    if password != confirm_password:
-                        st.error("Passwords do not match.")
-                    else:
-                        try:
-                            user = user_store.create_user(username, email, password)
-                        except ValueError as exc:
-                            st.error(str(exc))
-                        except user_store.UserStoreError:
-                            st.error("Could not create account right now. Please try again later.")
-                        else:
-                            set_authenticated_user(user)
-                            st.rerun()
+                        set_authenticated_user(user)
+                        st.rerun()
 
 
 def get_current_user_id() -> int:
@@ -3145,16 +3223,26 @@ def render_user_limit_summary() -> None:
 def display_result(entry: dict) -> None:
     st.markdown('<div class="hub-section-title">Response</div>', unsafe_allow_html=True)
     with st.container(border=True):
-        metric_columns = st.columns(4)
-        metric_columns[0].metric("Mode", str(entry.get("mode", "")))
-        metric_columns[1].metric("Response Time", f"{entry.get('elapsed_seconds', 0.0):.1f}s")
-        metric_columns[2].metric("Category", str(entry.get("category", "")))
-        metric_columns[3].metric("Confidence", str(entry.get("confidence", "")))
-
-        detail_columns = st.columns(2)
-        detail_columns[0].metric("Version", str(entry.get("version", "")))
+        result_metrics = [
+            ("Mode", str(entry.get("mode", ""))),
+            ("Response Time", f"{entry.get('elapsed_seconds', 0.0):.1f}s"),
+            ("Category", str(entry.get("category", ""))),
+            ("Confidence", str(entry.get("confidence", ""))),
+            ("Version", str(entry.get("version", ""))),
+        ]
         if entry.get("agent_mode"):
-            detail_columns[1].metric("Agent Mode", str(entry.get("agent_mode", "")))
+            result_metrics.append(("Agent Mode", str(entry.get("agent_mode", ""))))
+
+        result_metric_markup = "\n".join(
+            f"""
+            <div class="subscription-desktop-metric">
+                <div class="subscription-desktop-label">{escape(label)}</div>
+                <div class="subscription-desktop-value">{escape(value)}</div>
+            </div>
+            """
+            for label, value in result_metrics
+        )
+        st.markdown(f'<div class="grid">{result_metric_markup}</div>', unsafe_allow_html=True)
 
         st.markdown("#### Result")
         st.markdown(
