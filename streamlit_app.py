@@ -3320,7 +3320,7 @@ def inject_custom_css() -> None:
         .main .block-container,
         .block-container {
             max-width: 100% !important;
-            padding: 24px 16px 42px !important;
+            padding: 24px !important;
         }
 
         [data-testid="stAppViewContainer"],
@@ -3360,7 +3360,7 @@ def inject_custom_css() -> None:
         h1,
         .workspace-title,
         .enterprise-title {
-            font-size: clamp(34px, 5vw, 58px) !important;
+            font-size: clamp(32px, 5vw, 52px) !important;
             font-weight: 850 !important;
             line-height: 1.02 !important;
             margin: 0 0 10px !important;
@@ -3370,9 +3370,9 @@ def inject_custom_css() -> None:
         .workspace-section-title,
         .hub-section-title {
             color: var(--enterprise-title) !important;
-            font-size: clamp(20px, 3vw, 30px) !important;
+            font-size: 20px !important;
             font-weight: 780 !important;
-            margin: 28px 0 14px !important;
+            margin: 24px 0 16px !important;
         }
 
         p,
@@ -3398,7 +3398,7 @@ def inject_custom_css() -> None:
         .hero-sub,
         .enterprise-subtitle {
             color: var(--enterprise-muted) !important;
-            font-size: clamp(15px, 2vw, 18px) !important;
+            font-size: 14px !important;
             line-height: 1.55 !important;
         }
 
@@ -3510,7 +3510,7 @@ def inject_custom_css() -> None:
         .usage-card,
         .copilot-panel,
         .hub-result-body {
-            padding: 20px !important;
+            padding: 24px !important;
         }
 
         .dashboard-metric-card:hover {
@@ -3534,7 +3534,7 @@ def inject_custom_css() -> None:
             border-radius: var(--enterprise-radius-lg) !important;
             box-shadow: var(--enterprise-shadow) !important;
             min-height: 116px;
-            padding: 18px !important;
+            padding: 24px !important;
         }
 
         .quick-action-title {
@@ -4526,29 +4526,6 @@ def render_workspace() -> None:
         with column:
             render_metric_card(label, value, note)
 
-    chart_columns = st.columns(2)
-    with chart_columns[0]:
-        st.markdown(
-            """
-            <div class="dashboard-chart-card">
-                <div class="dashboard-chart-title">Usage Trend</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.line_chart(build_usage_trend(usage))
-
-    with chart_columns[1]:
-        st.markdown(
-            """
-            <div class="dashboard-chart-card">
-                <div class="dashboard-chart-title">Agent Usage</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.bar_chart(build_agent_usage_chart())
-
     st.markdown('<div class="workspace-section-title">Quick Actions</div>', unsafe_allow_html=True)
     action_columns = responsive_columns(4)
     actions = [
@@ -5413,9 +5390,10 @@ def render_document_analysis() -> None:
             read_failed = True
             st.error(f"Could not read uploaded file: {exc}")
         else:
-            st.write(f"File name: {uploaded_file.name}")
-            st.write(f"Extracted character count: {len(document_text)}")
-            st.write(f"Truncated: {'Yes' if truncated else 'No'}")
+            st.caption(
+                f"{uploaded_file.name} · {len(document_text)} characters"
+                f" · {'Truncated' if truncated else 'Full text'}"
+            )
             if truncated:
                 st.warning(f"File content was truncated to first {DOCUMENT_TEXT_LIMIT} characters.")
 
@@ -5472,9 +5450,10 @@ def render_project_intelligence_review() -> None:
                 had_file_error = True
                 st.error(f"Could not read {uploaded_file.name}: {exc}")
             else:
-                st.write(f"File name: {uploaded_file.name}")
-                st.write(f"Extracted character count: {len(document_text)}")
-                st.write(f"Truncated: {'Yes' if file_truncated else 'No'}")
+                st.caption(
+                    f"{uploaded_file.name} · {len(document_text)} characters"
+                    f" · {'Truncated' if file_truncated else 'Full text'}"
+                )
                 documents.append(
                     {
                         "file_name": uploaded_file.name,
