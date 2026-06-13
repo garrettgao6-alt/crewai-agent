@@ -13,7 +13,7 @@ from core.document_pipeline import process_document
 from core.engine import run_engine
 from core.ncc_parser import clauses_to_documents, parse_ncc_clauses
 from core.router import init_vectors
-from core.vector_store import add_documents, add_ncc_documents, build_context, clear_store, format_sources, get_last_retrieval
+from core.vector_store import add_documents, add_ncc_documents, build_context, format_sources, get_last_retrieval
 import project_store
 import prompt_store
 import subscription_store
@@ -32,24 +32,25 @@ DOCUMENT_TEXT_LIMIT = 12000
 DOCUMENT_TOTAL_TEXT_LIMIT = 30000
 NAVIGATION_OPTIONS = [
     "Dashboard",
-    "Documents",
-    "Agents",
-    "Automations",
-    "Logs",
-    "Billing",
-    "Settings",
+    "Upload",
+    "Copilot",
+    "Reports",
 ]
 NAVIGATION_TO_SECTION = {
     "Dashboard": DEFAULT_SECTION,
-    "Documents": "documents",
-    "Agents": "ai",
-    "Automations": "automations",
-    "Logs": "logs",
-    "Billing": "billing",
-    "Settings": "settings",
+    "Upload": "upload",
+    "Copilot": "copilot",
+    "Reports": "reports",
+}
+SECTION_TO_NAVIGATION = {
+    section: label
+    for label, section in NAVIGATION_TO_SECTION.items()
 }
 SECTION_ALIASES = {
     "workspace": DEFAULT_SECTION,
+    "documents": "upload",
+    "ai": "copilot",
+    "logs": "reports",
 }
 DOCUMENT_ANALYSIS_TYPES = [
     "Contract Review",
@@ -3668,7 +3669,7 @@ def render_user_limit_summary() -> None:
 
 def normalize_section(section: str | None) -> str:
     normalized = SECTION_ALIASES.get(section or "", section or DEFAULT_SECTION)
-    valid_sections = set(NAVIGATION_TO_SECTION.values()) | {"projects", "marketplace"}
+    valid_sections = set(NAVIGATION_TO_SECTION.values())
     if normalized not in valid_sections:
         return DEFAULT_SECTION
     return normalized
@@ -3677,6 +3678,9 @@ def normalize_section(section: str | None) -> str:
 def set_active_section(section: str, documents_view: str | None = None) -> str:
     normalized_section = normalize_section(section)
     st.session_state.active_section = normalized_section
+    if normalized_section in SECTION_TO_NAVIGATION:
+        st.session_state.nav_selected = SECTION_TO_NAVIGATION[normalized_section]
+        st.session_state.last_nav_selected = st.session_state.nav_selected
     if documents_view is not None:
         st.session_state.documents_view = documents_view
     return normalized_section
@@ -3729,7 +3733,7 @@ def render_new_project_form() -> None:
                 st.error("Could not create project right now.")
             else:
                 st.session_state.active_project_id = project["id"]
-                st.session_state.active_section = "projects"
+                set_active_section(DEFAULT_SECTION)
                 st.rerun()
 
 
@@ -3751,7 +3755,7 @@ def render_projects_list(title: str = "Recent Projects") -> None:
             project_label = f'{project_label} - {project["description"]}'
         if st.button(project_label, key=f'project_select_{project["id"]}', use_container_width=True):
             st.session_state.active_project_id = project["id"]
-            st.session_state.active_section = "projects"
+            set_active_section(DEFAULT_SECTION)
             st.rerun()
 
 
@@ -3785,16 +3789,16 @@ def render_project_view(project: dict) -> None:
 
     st.markdown('<div class="workspace-section-title">Quick Actions</div>', unsafe_allow_html=True)
     if st.button("Analyze Document", key="project_analyze_document", use_container_width=True):
-        set_active_section("documents", "document")
+        set_active_section("upload")
         st.rerun()
     if st.button("Build Prompt", key="project_build_prompt", use_container_width=True):
-        set_active_section("ai")
+        set_active_section("copilot")
         st.rerun()
     if st.button("Create Automation", key="project_create_automation", use_container_width=True):
-        set_active_section("automations")
+        set_active_section("copilot")
         st.rerun()
     if st.button("Executive Analysis", key="project_executive_analysis", use_container_width=True):
-        set_active_section("documents", "executive")
+        set_active_section("copilot")
         st.rerun()
 
     render_project_history(project["id"])
@@ -3886,31 +3890,31 @@ def render_workspace() -> None:
     action_columns = st.columns(4)
     actions = [
         (
-            "Analyze Document",
-            "Review contracts, tenders, reports, and business documents.",
+            "Upload",
+            "Index project documents into the ingestion pipeline.",
             "quick_analyze_document",
-            "documents",
-            "document",
+            "upload",
+            None,
         ),
         (
-            "Upload File",
-            "Open the document workspace and upload source files.",
+            "Copilot",
+            "Ask the AI workspace about project documents and strategy.",
             "quick_upload_file",
-            "documents",
-            "document",
+            "copilot",
+            None,
         ),
         (
-            "Run Agent",
-            "Start an executive agent review for a selected project.",
+            "Reports",
+            "Review structured outputs and saved deliverables.",
             "quick_run_agent",
-            "documents",
-            "executive",
+            "reports",
+            None,
         ),
         (
-            "View Logs",
-            "Review saved activity and generated intelligence history.",
+            "Dashboard",
+            "Return to workspace overview and recent activity.",
             "quick_view_logs",
-            "logs",
+            DEFAULT_SECTION,
             None,
         ),
     ]
@@ -3927,7 +3931,7 @@ def render_workspace() -> None:
                 unsafe_allow_html=True,
             )
             if st.button(title, key=key, use_container_width=True):
-                if section not in ("logs", "settings") and not require_active_project():
+                if section in ("upload", "copilot") and not require_active_project():
                     return
                 set_active_section(section, documents_view)
                 st.rerun()
@@ -4083,6 +4087,71 @@ def render_documents_page() -> None:
         render_project_intelligence_review()
     else:
         render_document_analysis()
+
+
+def render_upload_page() -> None:
+    st.markdown('<div class="workspace-title">Upload</div>', unsafe_allow_html=True)
+    active_project = get_active_project()
+    if active_project is None:
+        st.warning("Please create or select a project first.")
+        return
+    st.caption(f'Project: {active_project["name"]}')
+
+    uploaded_files = st.file_uploader(
+        "Upload documents",
+        type=["pdf", "txt"],
+        key="upload_page_documents",
+        accept_multiple_files=True,
+    )
+    document_type = st.selectbox(
+        "Document type",
+        ["Auto-detect", "NCC", "Housing", "Business"],
+        key="upload_page_document_type",
+    )
+
+    if st.button("Ingest Documents", key="upload_page_ingest", type="primary", use_container_width=True):
+        if not uploaded_files:
+            st.warning("Please upload at least one document first.")
+            return
+
+        rag_user_id = str(st.session_state.get("user_id") or "default")
+        selected_document_type = None if document_type == "Auto-detect" else document_type.lower()
+        indexed_chunks = 0
+        failed_files = []
+
+        with st.spinner("Indexing documents..."):
+            for uploaded_file in uploaded_files:
+                try:
+                    file_bytes = uploaded_file.getvalue()
+                    if document_type in {"NCC", "Housing"}:
+                        file_text = extract_uploaded_document_text(uploaded_file.name, file_bytes)
+                        clauses = parse_ncc_clauses(file_text)
+                        documents, metadatas = clauses_to_documents(clauses, uploaded_file.name)
+                        indexed_chunks += add_ncc_documents(
+                            rag_user_id,
+                            documents,
+                            metadatas,
+                            housing=document_type == "Housing",
+                        )
+                    else:
+                        chunks = process_document(uploaded_file.name, file_bytes, selected_document_type)
+                        indexed_chunks += add_documents(
+                            rag_user_id,
+                            [chunk["text"] for chunk in chunks],
+                            [chunk["metadata"] for chunk in chunks],
+                        )
+                except Exception as exc:
+                    failed_files.append(uploaded_file.name)
+                    st.error(f"Could not index {uploaded_file.name}: {exc}")
+
+        if indexed_chunks:
+            add_active_project_history(
+                "upload",
+                f"Documents ingested: {indexed_chunks} chunks",
+            )
+            st.success(f"Indexed {indexed_chunks} document chunks.")
+        if failed_files:
+            st.warning(f"Some files could not be indexed: {', '.join(failed_files)}")
 
 
 def render_automation_page() -> None:
@@ -4251,6 +4320,27 @@ def render_logs() -> None:
         st.caption("No history yet.")
 
 
+def render_reports_page() -> None:
+    st.markdown('<div class="workspace-title">Reports</div>', unsafe_allow_html=True)
+    st.markdown('<div class="workspace-subtitle">Structured output and saved deliverables</div>', unsafe_allow_html=True)
+
+    if not st.session_state.history:
+        st.caption("No reports yet.")
+        return
+
+    report_options = {}
+    for index, entry in enumerate(st.session_state.history[:HISTORY_LIMIT]):
+        label = entry.get("query", "").replace("\n", " ").strip() or "Untitled report"
+        if len(label) > 72:
+            label = f"{label[:69]}..."
+        report_options[f"{index + 1}. {entry.get('mode', 'Report')} - {label}"] = index
+
+    selected_label = st.selectbox("Report", list(report_options.keys()), key="reports_selected")
+    selected_entry = st.session_state.history[report_options[selected_label]]
+    st.session_state.selected_history = selected_entry
+    display_result(selected_entry)
+
+
 def render_ai_copilot_panel() -> None:
     st.markdown(
         """
@@ -4267,60 +4357,13 @@ def render_ai_copilot_panel() -> None:
         key="copilot_input",
         height=180,
     )
-    uploaded_files = st.file_uploader(
-        "Upload documents",
-        type=["pdf", "txt"],
-        key="copilot_document_upload",
-        accept_multiple_files=True,
-    )
-    document_type = st.selectbox(
-        "Document type",
-        ["Auto-detect", "NCC", "Housing", "Business"],
-        key="copilot_document_type",
-    )
     if st.button("Run AI", key="copilot_run_ai", use_container_width=True):
         cleaned_input = user_input.strip()
-        document_read_failed = False
-        indexed_chunks = 0
         rag_user_id = str(st.session_state.get("user_id") or "default")
-
-        if uploaded_files:
-            clear_store(rag_user_id)
-            selected_document_type = None
-            if document_type != "Auto-detect":
-                selected_document_type = document_type.lower()
-
-            for uploaded_file in uploaded_files:
-                try:
-                    file_bytes = uploaded_file.getvalue()
-                    if document_type in {"NCC", "Housing"}:
-                        file_text = extract_uploaded_document_text(uploaded_file.name, file_bytes)
-                        clauses = parse_ncc_clauses(file_text)
-                        documents, metadatas = clauses_to_documents(clauses, uploaded_file.name)
-                        indexed_chunks += add_ncc_documents(
-                            rag_user_id,
-                            documents,
-                            metadatas,
-                            housing=document_type == "Housing",
-                        )
-                    else:
-                        chunks = process_document(
-                            uploaded_file.name,
-                            file_bytes,
-                            selected_document_type,
-                        )
-                        indexed_chunks += add_documents(
-                            rag_user_id,
-                            [chunk["text"] for chunk in chunks],
-                            [chunk["metadata"] for chunk in chunks],
-                        )
-                except Exception as exc:
-                    document_read_failed = True
-                    st.error(f"Could not index {uploaded_file.name}: {exc}")
 
         if not cleaned_input:
             st.warning("Enter a question first.")
-        elif document_read_failed:
+        elif not require_active_project():
             return
         else:
             enforce_copilot_rate_limit()
@@ -4347,7 +4390,7 @@ def render_ai_copilot_panel() -> None:
                     "version": VERSION,
                 }
                 display_query = cleaned_input
-                save_history_entry(display_query, "Copilot", payload, elapsed_seconds)
+                saved_entry = save_history_entry(display_query, "Copilot", payload, elapsed_seconds)
                 st.session_state.copilot_history.append(
                     {
                         "prompt": display_query,
@@ -4355,10 +4398,8 @@ def render_ai_copilot_panel() -> None:
                     }
                 )
                 st.session_state.copilot_history = st.session_state.copilot_history[-3:]
-                st.markdown("### Result")
-                st.write(response_text)
-                if indexed_chunks:
-                    st.caption(f"Indexed {indexed_chunks} document chunks.")
+                st.session_state.selected_history = saved_entry
+                add_active_project_history("copilot", f"Copilot response: {display_query[:80]}")
 
                 retrieved_chunks = get_last_retrieval()
                 if retrieved_chunks:
@@ -4366,6 +4407,8 @@ def render_ai_copilot_panel() -> None:
                     st.write(format_sources(retrieved_chunks))
                     with st.expander("Extracted context"):
                         st.write(build_context(retrieved_chunks))
+
+                display_result(saved_entry)
 
 
 def display_result(entry: dict) -> None:
@@ -4969,31 +5012,15 @@ with st.sidebar:
         clear_authenticated_user()
         st.rerun()
 
-main_column, copilot_column = st.columns([3, 1])
-
-with main_column:
-    active_section = st.session_state.active_section
-    if active_section == DEFAULT_SECTION:
-        render_workspace()
-    elif active_section == "documents":
-        render_documents_page()
-    elif active_section == "projects":
-        render_projects_page()
-    elif active_section == "automations":
-        render_automation_page()
-    elif active_section == "marketplace":
-        render_marketplace()
-    elif active_section == "ai":
-        render_prompt_builder()
-    elif active_section == "logs":
-        render_logs()
-    elif active_section == "billing":
-        render_billing_page()
-    elif active_section == "settings":
-        render_settings()
-    else:
-        st.session_state.active_section = DEFAULT_SECTION
-        render_workspace()
-
-with copilot_column:
+active_section = st.session_state.active_section
+if active_section == DEFAULT_SECTION:
+    render_workspace()
+elif active_section == "upload":
+    render_upload_page()
+elif active_section == "copilot":
     render_ai_copilot_panel()
+elif active_section == "reports":
+    render_reports_page()
+else:
+    st.session_state.active_section = DEFAULT_SECTION
+    render_workspace()
