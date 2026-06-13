@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import copilot_core
 from core.critic import review_output
-from core.engine import memory, run_engine
+from core.engine import build_task_prompt, memory, run_engine
 from core.planner import plan_tasks
 from core.router import route_task
 from router import detect_intent
@@ -43,17 +43,29 @@ class CopilotDispatcherTests(unittest.TestCase):
             self.assertEqual(
                 copilot_core.run_copilot("Analyze this risk"),
                 (
+                    "--- Analysis ---\n"
+                    "[Task: analysis]\n"
                     "construction response with enough detail for critic validation\n\n"
+                    "--- Risk ---\n"
+                    "[Task: risk]\n"
                     "construction response with enough detail for critic validation"
                 ),
             )
             self.assertEqual(
                 copilot_core.run_copilot("Improve strategy"),
-                "business response with enough detail for critic validation",
+                (
+                    "--- Strategy ---\n"
+                    "[Task: strategy]\n"
+                    "business response with enough detail for critic validation"
+                ),
             )
             self.assertEqual(
                 copilot_core.run_copilot("Hello there"),
-                "general response with enough detail for critic validation",
+                (
+                    "--- General ---\n"
+                    "[Task: general]\n"
+                    "general response with enough detail for critic validation"
+                ),
             )
 
 
@@ -76,22 +88,44 @@ class CoreEngineTests(unittest.TestCase):
 
         def executor(domain, prompt):
             calls.append((domain, prompt))
-            return f"{domain} output for {prompt}"
+            return f"{domain} output for {prompt.splitlines()[0]}"
 
         result = run_engine("Analyze risk and strategy", executor)
 
         self.assertEqual(
             calls,
             [
-                ("construction", "Analyze risk and strategy"),
-                ("construction", "Analyze risk and strategy"),
-                ("business", "Analyze risk and strategy"),
+                (
+                    "construction",
+                    "Perform detailed analysis\n\nUser request:\nAnalyze risk and strategy",
+                ),
+                (
+                    "construction",
+                    "Identify and assess risks\n\nUser request:\nAnalyze risk and strategy",
+                ),
+                (
+                    "business",
+                    "Provide strategic recommendations\n\nUser request:\nAnalyze risk and strategy",
+                ),
             ],
         )
+        self.assertIn("--- Analysis ---\n[Task: analysis]", result)
+        self.assertIn("--- Risk ---\n[Task: risk]", result)
+        self.assertIn("--- Strategy ---\n[Task: strategy]", result)
+        self.assertIn("construction output for Perform detailed analysis", result)
+        self.assertIn("construction output for Identify and assess risks", result)
+        self.assertIn("business output for Provide strategic recommendations", result)
+        self.assertNotIn("construction output for Provide strategic recommendations", result)
         self.assertIn("construction output", result)
         self.assertIn("business output", result)
         self.assertEqual(memory.get(2)[0]["role"], "user")
         self.assertEqual(memory.get(2)[1]["role"], "assistant")
+
+    def test_build_task_prompt_uses_focused_task_context(self):
+        self.assertEqual(
+            build_task_prompt("risk", "Analyze risk and strategy"),
+            "Identify and assess risks\n\nUser request:\nAnalyze risk and strategy",
+        )
 
     def test_critic_marks_short_outputs(self):
         self.assertEqual(review_output("short"), "short\n\n[Critic]: Response may be too short.")
