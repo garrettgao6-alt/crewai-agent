@@ -1,35 +1,48 @@
-name: FINAL_DEPLOY
+name: Deploy
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup SSH
+      - name: Configure SSH
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p ~/.ssh
-          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/server_key
+          chmod 600 ~/.ssh/server_key
           ssh-keyscan -H 170.64.131.149 >> ~/.ssh/known_hosts
 
       - name: Test SSH
+        shell: bash
         run: |
-          ssh -i ~/.ssh/deploy_key root@170.64.131.149 "echo SSH SUCCESS"
+          set -euo pipefail
+          ssh -i ~/.ssh/server_key -o IdentitiesOnly=yes root@170.64.131.149 'echo "SSH SUCCESS"'
 
       - name: Deploy
+        shell: bash
         run: |
-          ssh -i ~/.ssh/deploy_key root@170.64.131.149 << 'EOF'
+          set -euo pipefail
+          ssh -i ~/.ssh/server_key -o IdentitiesOnly=yes root@170.64.131.149 'bash -se' << 'EOF'
+            set -euo pipefail
+
             cd /root/crewai-agent
-            git pull
-            pkill -f streamlit || true
-            pkill -f uvicorn || true
-            nohup /root/crewai-agent/venv/bin/uvicorn api:app --host 0.0.0.0 --port 8000 &
-            nohup /root/crewai-agent/venv/bin/streamlit run streamlit_app.py --server.address 0.0.0.0 --server.port 8501 &
+            git pull origin main
+
+            pkill -f 'uvicorn api:app' || true
+            pkill -f 'streamlit run streamlit_app.py' || true
+
+            nohup /root/crewai-agent/venv/bin/uvicorn api:app --host 127.0.0.1 --port 8000 > /root/crewai-agent/uvicorn.log 2>&1 &
+            nohup /root/crewai-agent/venv/bin/streamlit run streamlit_app.py --server.address 0.0.0.0 --server.port 8501 > /root/crewai-agent/streamlit.log 2>&1 &
           EOF
