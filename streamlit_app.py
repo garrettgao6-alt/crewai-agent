@@ -20,12 +20,12 @@ from streamlit_cookies_manager import EncryptedCookieManager
 from core.document_pipeline import process_document
 from core.engine import run_engine
 from core.ncc_parser import clauses_to_documents, parse_ncc_clauses
-from core.router import init_vectors
 from core.vector_store import build_context, format_sources
 import project_store
 import report_store
 from core.ingestion import ingest_document
 from core import ncc_library
+from public_demo_ui import render_demo
 import prompt_store
 import subscription_store
 import template_store
@@ -5016,6 +5016,12 @@ def render_workspace_cards(title: str, cards: list[tuple[str, str, str]]) -> Non
         for card_title, description, meta in cards
     )
     st.markdown(f'<div class="workspace-card-grid">{card_markup}</div>', unsafe_allow_html=True)
+    if is_guest_user():
+        selected = st.selectbox("Choose a sample review", [card[0] for card in cards], key=f"sample_choice_{title}")
+        if st.button("Open sample workflow", key=f"sample_open_{title}"):
+            st.session_state["public_demo_workflow"] = selected
+            set_active_section("Copilot")
+            st.rerun()
 
 
 def format_message_markdown(content: str) -> str:
@@ -5081,17 +5087,6 @@ def render_typing_indicator() -> None:
         </div>
         """,
         unsafe_allow_html=True,
-    )
-
-
-def build_guest_copilot_response(prompt: str) -> str:
-    topic = prompt.strip()[:120] or "your construction workflow"
-    return (
-        "Guest preview response:\n\n"
-        f"- I can help frame a first-pass view of: {topic}\n"
-        "- For compliance, contracts, tenders, BIM, procurement, and reports, sign in to use project memory and document evidence.\n"
-        "- Uploads, citations, advanced agent routing, and saved reports are gated to protect customer data and API usage.\n\n"
-        "Suggested next step: create a project, upload source documents, then run a full Construction AI analysis."
     )
 
 
@@ -5321,6 +5316,8 @@ def render_workspace() -> None:
         api_requests = "0"
 
     render_construction_hero(str(username))
+    if is_guest_user():
+        st.info("Explore synthetic sample documents, 13 rule-based reviews, scenario calculations and downloadable reports without registration or AI token usage. Private uploads and live AI require sign-in.")
 
     cta_columns = responsive_columns(2)
     with cta_columns[0]:
@@ -5329,6 +5326,9 @@ def render_workspace() -> None:
             st.rerun()
     with cta_columns[1]:
         if st.button("Explore Workspaces", key="hero_explore_workspaces", use_container_width=True):
+            if is_guest_user():
+                set_active_section("Copilot")
+                st.rerun()
             st.session_state["workspace_focus"] = "workspaces"
 
     metric_columns = responsive_columns(4)
@@ -5336,7 +5336,7 @@ def render_workspace() -> None:
         ("Compliance Workflows", "7", "NCC, codes, contracts, tender risk"),
         ("Documents Indexed", documents_processed, "This billing period"),
         ("AI Requests", api_requests, "This billing period"),
-        ("Risk Engine", "Online", "Evidence-grounded analysis ready"),
+        ("Review mode", "Sample" if is_guest_user() else "Live AI", "Synthetic rules, zero tokens" if is_guest_user() else "Uses project evidence and account quota"),
     ]
     for column, (label, value, note) in zip(metric_columns, metrics):
         with column:
@@ -5433,8 +5433,8 @@ def render_workspace() -> None:
             None,
         ),
         (
-            "Create Automation",
-            "Review structured outputs and saved deliverables.",
+            "Review Workflow",
+            "Run a review and download its evidence and calculations.",
             "quick_run_agent",
             "Copilot",
             None,
@@ -5460,10 +5460,7 @@ def render_workspace() -> None:
                 unsafe_allow_html=True,
             )
             if st.button(title, key=key, use_container_width=True):
-                if section == "Documents" and is_guest_user():
-                    show_login_modal("Sign in to upload documents and run document intelligence.")
-                    st.stop()
-                if section == "Documents" and not require_active_project():
+                if section == "Documents" and not is_guest_user() and not require_active_project():
                     return
                 set_active_section(section, documents_view)
                 st.rerun()
@@ -5637,8 +5634,8 @@ def render_upload_page() -> None:
         "Upload, process, and manage workspace knowledge.",
     )
     if is_guest_user():
-        show_login_modal("Sign in to upload documents and use the ingestion pipeline.")
-        st.stop()
+        render_demo("Documents", render_pdf_download)
+        return
     active_project = get_active_project()
     if active_project is None:
         st.warning("Please create or select a project first.")
@@ -5956,8 +5953,8 @@ def render_reports_page() -> None:
         "Structured executive intelligence and saved deliverables.",
     )
     if is_guest_user():
-        show_login_modal("Sign in to generate, save, and export reports.")
-        st.stop()
+        render_demo("Reports", render_pdf_download)
+        return
 
     if get_active_project() is None:
         st.info("Select a project to view its saved reports.")
@@ -5999,6 +5996,9 @@ def render_reports_page() -> None:
 
 
 def render_ai_copilot_panel() -> None:
+    if is_guest_user():
+        render_demo("Copilot", render_pdf_download)
+        return
     render_page_header(
         "Copilot",
         "AI engineer and business consultant for construction intelligence.",
@@ -6067,22 +6067,6 @@ def render_ai_copilot_panel() -> None:
 
         if not cleaned_input:
             st.warning("Enter a question first.")
-        elif is_guest_user():
-            guest_calls = int(st.session_state.get("guest_copilot_calls", 0))
-            if guest_calls >= GUEST_COPILOT_SESSION_LIMIT:
-                show_login_modal("Sign in to continue with Copilot and unlock full Construction AI capabilities.")
-                st.stop()
-            response_text = build_guest_copilot_response(cleaned_input)
-            st.session_state.guest_copilot_calls = guest_calls + 1
-            st.session_state.copilot_history.append(
-                {
-                    "prompt": cleaned_input,
-                    "response": response_text,
-                    "sources": [],
-                }
-            )
-            st.session_state.copilot_history = st.session_state.copilot_history[-12:]
-            st.rerun()
         elif active_project is None:
             st.warning("Please create or select a project first.")
             return
@@ -6687,7 +6671,7 @@ except Exception:
     pass
 auth_cookies = initialize_cookie_manager()
 
-init_vectors()
+# Routing vectors are initialized lazily by authenticated AI requests only.
 try:
     user_store.initialize_user_store()
 except user_store.UserStoreError:
@@ -6752,7 +6736,7 @@ with st.sidebar:
 
     if is_guest_user():
         st.caption("Exploring as: Guest")
-        st.caption("Role: Preview")
+        st.caption("Role: Isolated sample workspace")
         if st.button("Login / Sign Up", key="sidebar_auth", use_container_width=True):
             show_login_modal("Sign in to unlock projects, uploads, reports, and advanced AI.")
     else:
