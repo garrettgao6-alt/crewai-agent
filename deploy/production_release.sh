@@ -206,6 +206,7 @@ for attempt in $(seq 1 30); do
 done
 curl --fail --silent http://127.0.0.1:8000/health >/dev/null
 curl --fail --silent http://127.0.0.1:8501/_stcore/health >/dev/null
+"$new_runtime/bin/python" deploy/install_private_download_proxy.py
 "$new_runtime/bin/python" deploy/production_verify.py > "$backup_dir/acceptance.log" 2>&1 || { echo 'Production acceptance failed; rolling back. Private log retained.'; test ! -f /root/gao-latest-acceptance.json || cat /root/gao-latest-acceptance.json; exit 1; }
 cp /root/gao-latest-acceptance.json "$backup_dir/acceptance.json"
 printf '%s\n' "$target" > "$app/.release_sha"

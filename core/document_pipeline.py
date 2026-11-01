@@ -31,13 +31,51 @@ def extract_txt_text(file_bytes: bytes) -> str:
         return clean_text(file_bytes.decode("latin-1", errors="ignore"))
 
 
-def extract_document_text(filename: str, file_bytes: bytes) -> str:
-    suffix = filename.rsplit(".", 1)[-1].lower()
-    if suffix == "pdf":
-        return extract_pdf_text(file_bytes)
-    if suffix == "txt":
-        return extract_txt_text(file_bytes)
-    raise ValueError("Unsupported document type. Upload a PDF or TXT file.")
+def _office_archive(data):
+    import zipfile
+    archive=zipfile.ZipFile(BytesIO(data));items=archive.infolist()
+    if len(items)>5000 or sum(i.file_size for i in items)>40*1024*1024 or any(i.file_size>20*1024*1024 for i in items):
+        raise ValueError('Office document exceeds the safe expanded-size limit. Split the file.')
+    return archive
+
+
+def native_pages(filename,data):
+    suffix=filename.rsplit('.',1)[-1].lower()
+    if suffix=='pdf':
+        from PyPDF2 import PdfReader
+        reader=PdfReader(BytesIO(data))
+        if reader.is_encrypted:raise ValueError('Encrypted PDFs are not supported. Upload an unlocked copy.')
+        if len(reader.pages)>500:raise ValueError('PDF exceeds 500 pages. Split the file.')
+        pages=[(n,page.extract_text() or '') for n,page in enumerate(reader.pages,1)]
+    elif suffix=='docx':
+        from docx import Document
+        _office_archive(data).close();document=Document(BytesIO(data))
+        text=[p.text for p in document.paragraphs]
+        for table in document.tables:
+            text.extend(' | '.join(cell.text for cell in row.cells) for row in table.rows)
+        pages=[(1,'\n'.join(text))]
+    elif suffix=='xlsx':
+        from openpyxl import load_workbook
+        _office_archive(data).close();book=load_workbook(BytesIO(data),read_only=True,data_only=False,keep_links=False)
+        pages=[];cells=0
+        try:
+            for number,sheet in enumerate(book.worksheets,1):
+                rows=['Worksheet: '+sheet.title]
+                for row in sheet.iter_rows():
+                    cells+=len(row)
+                    if cells>100000:raise ValueError('Workbook exceeds 100,000 cells. Split the file.')
+                    values=['%s: %s'%(cell.coordinate,str(cell.value)) for cell in row if cell.value is not None]
+                    if values:rows.append(' | '.join(values))
+                pages.append((number,'\n'.join(rows)))
+        finally:book.close()
+    elif suffix=='txt':pages=[(1,extract_txt_text(data))]
+    else:raise ValueError('Supported searchable documents: PDF, TXT, DOCX and XLSX.')
+    if sum(len(text.encode('utf-8')) for _,text in pages)>80000:raise ValueError('Extracted text exceeds the 80 KB indexing limit. Split the document; the original is retained.')
+    return pages
+
+
+def extract_document_text(filename: str,file_bytes: bytes)->str:
+    return clean_text('\n'.join(text for _,text in native_pages(filename,file_bytes)))
 
 
 def split_by_sections(text: str):

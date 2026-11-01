@@ -75,6 +75,9 @@ def backup(app,backup_dir):
                         connection=sqlite3.connect(f'file:{file}?mode=ro',uri=True)
                         try:assert connection.execute('PRAGMA quick_check').fetchone()[0]=='ok'
                         finally:connection.close()
+            try:from .operations import verify_document_store
+            except ImportError:from operations import verify_document_store
+            verify_document_store(Path(restored)/'crewai-agent')
         digest=hashlib.file_digest(archive.open('rb'),'sha256').hexdigest()
         manifest={'archive':archive.name,'sha256':digest,'external_paths':[str(p) for p in extras],'online':True,'restore_integrity_checked':True}
         (backup_dir/'manifest.json').write_text(json.dumps(manifest,indent=2))

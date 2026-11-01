@@ -122,5 +122,6 @@ def run_engine(user_id, prompt, document_text=None, *, project_id=None, return_d
         return _run_engine(user_id,prompt,document_text,project_id=project_id,return_details=return_details)
     project_store.require_project_access(user_id,project_id)
     from core.private_ai import scope
-    with scope(user_id,project_id):
+    from core.document_store import retrieval_snapshot
+    with scope(user_id,project_id), retrieval_snapshot(project_store.document_scope(user_id,project_id)):
         return _run_engine(user_id,prompt,document_text,project_id=project_id,return_details=return_details)

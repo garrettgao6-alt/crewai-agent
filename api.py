@@ -1,3 +1,11 @@
+import logging,re
+class PrivateDownloadLogFilter(logging.Filter):
+    def filter(self,record):
+        if isinstance(record.args,tuple):
+            record.args=tuple(re.sub(r'/private-download/[A-Za-z0-9_-]+','/private-download/[redacted]',item) if isinstance(item,str) else item for item in record.args)
+        return True
+logging.getLogger('uvicorn.access').addFilter(PrivateDownloadLogFilter())
+
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field, field_validator
@@ -89,3 +97,17 @@ def report(project_id: int, report_id: str, user=Depends(authenticated_user)):
     if result is None:
         raise HTTPException(404, "Report not found.")
     return result
+
+
+@app.get('/private-download/{ticket}')
+def private_download(ticket: str):
+    from fastapi.responses import FileResponse,Response
+    import download_service
+    from urllib.parse import quote
+    try:item=download_service.consume(ticket)
+    except (PermissionError,ValueError,OSError):raise HTTPException(404,'Download unavailable or expired. Return to the project page and refresh the link.')
+    except RuntimeError:raise HTTPException(500,'The retained original failed its integrity check. Contact an administrator.')
+    headers={'Cache-Control':'private, no-store','Pragma':'no-cache','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff'}
+    if item.get('path'):return FileResponse(item['path'],filename=item['filename'],media_type='application/octet-stream',headers=headers)
+    headers['Content-Disposition']="attachment; filename*=UTF-8''"+quote(item['filename'])
+    return Response(content=item['data'],media_type=item['media_type'],headers=headers)

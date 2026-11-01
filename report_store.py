@@ -49,3 +49,16 @@ def get_report(user_id, project_id, report_id):
         return json.loads(row['payload']) if row else None
     finally:
         connection.close()
+
+
+def list_report_summaries(user_id,project_id,*,category=None,limit=1000):
+    """List bounded metadata without loading every saved model's issue payload."""
+    project_store.require_project_access(user_id,project_id)
+    connection=_connect()
+    try:
+        sql="SELECT id,created_at,json_extract(payload,'$.query') AS query FROM reports WHERE user_id=? AND project_id=? AND json_valid(payload)"
+        args=[int(user_id),int(project_id)]
+        if category is not None:sql+=" AND json_extract(payload,'$.category')=?";args.append(str(category))
+        sql+=' ORDER BY created_at DESC LIMIT ?';args.append(min(max(int(limit),1),1000))
+        return [dict(row) for row in connection.execute(sql,args)]
+    finally:connection.close()

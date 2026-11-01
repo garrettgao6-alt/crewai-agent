@@ -24,3 +24,7 @@ guest_ai_budget.db-*
 
 .snapshot.lock
 private_ai.db*
+
+project_documents/
+.file-parser.lock
+documents.db*
