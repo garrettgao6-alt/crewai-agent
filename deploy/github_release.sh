@@ -4,7 +4,7 @@ set -euo pipefail
 umask 077
 mode=${1:-verify}
 target=${2:?Exact release SHA required}
-case "$mode" in verify|backup|deploy) ;; *) echo 'Invalid release operation' >&2; exit 2;; esac
+case "$mode" in verify|backup|deploy|monitor) ;; *) echo 'Invalid release operation' >&2; exit 2;; esac
 [[ "$target" =~ ^[0-9a-f]{40}$ ]] || { echo 'Invalid release SHA' >&2; exit 2; }
 host=209.38.93.248
 trusted_host_digest=81647e644f59cd3f4485129bc7695536eb0bd5e6bd4ce55b492c0df163f83d22
@@ -55,7 +55,9 @@ if ! ssh "${ssh_options[@]}" "root@$host" 'test "$(id -u)" -eq 0 && test -d /roo
     echo '::error title=SSH authentication failed::The validated deployment key was rejected by the current server. Compare the public-key fingerprint in the job summary with the server authorized_keys. No application or data changes were made.'
     exit 1
 fi
-if [ "$mode" = verify ]; then
+if [ "$mode" = monitor ]; then
+    ssh "${ssh_options[@]}" "root@$host" 'bash /root/crewai-agent/deploy/run_operations.sh watchdog'
+elif [ "$mode" = verify ]; then
     ssh "${ssh_options[@]}" "root@$host" 'systemctl is-active crewai garrett-api && curl --fail --silent http://127.0.0.1:8501/_stcore/health && curl --fail --silent http://127.0.0.1:8000/health && cat /root/crewai-agent/.release_sha'
 else
     # An old run must never replace a newer main release.

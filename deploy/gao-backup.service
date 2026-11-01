@@ -1,0 +1,13 @@
+[Unit]
+Description=Gao Intelligence encrypted off-server backup and restore verification
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+UMask=0077
+ExecStart=/bin/bash /root/crewai-agent/deploy/run_operations.sh backup
+TimeoutStartSec=7200
+Nice=15
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
