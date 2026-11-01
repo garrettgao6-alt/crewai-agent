@@ -360,3 +360,37 @@ def authenticate_user(identifier: str, password: str) -> dict | None:
             return user
     except sqlite3.Error as exc:
         raise UserStoreError("Could not sign in.") from exc
+
+
+# Opaque server-side sessions: never trust a user ID supplied by a cookie/client.
+def _ensure_sessions(connection):
+    connection.execute("CREATE TABLE IF NOT EXISTS auth_sessions (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL)")
+
+
+def create_session(user_id, lifetime_seconds=604800):
+    from datetime import timedelta
+    if get_user_by_id(user_id) is None:
+        raise PermissionError("Invalid account.")
+    token = secrets.token_urlsafe(48)
+    expiry = (datetime.now(timezone.utc) + timedelta(seconds=lifetime_seconds)).isoformat()
+    with get_connection() as connection:
+        _ensure_sessions(connection)
+        connection.execute("INSERT INTO auth_sessions VALUES (?,?,?)", (hashlib.sha256(token.encode()).hexdigest(), int(user_id), expiry))
+    return token
+
+
+def resolve_session(token):
+    if not token or not isinstance(token, str):
+        return None
+    with get_connection() as connection:
+        _ensure_sessions(connection)
+        row = connection.execute("SELECT user_id FROM auth_sessions WHERE token_hash=? AND expires_at>?", (hashlib.sha256(token.encode()).hexdigest(), utc_now())).fetchone()
+    return get_user_by_id(row['user_id']) if row else None
+
+
+def revoke_session(token):
+    if not token:
+        return
+    with get_connection() as connection:
+        _ensure_sessions(connection)
+        connection.execute("DELETE FROM auth_sessions WHERE token_hash=?", (hashlib.sha256(token.encode()).hexdigest(),))
