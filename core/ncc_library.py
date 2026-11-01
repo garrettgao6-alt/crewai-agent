@@ -151,6 +151,11 @@ def search_local_references(user_id, query, top_k=5, context=None):
     from core.ncc_catalog import check_owner, search_catalog
     try:
         check_owner(library_root(), path, user_id)
+        relative_parts = path.relative_to(library_root()).parts
+        configured_default = os.getenv("NCC_DEFAULT_REFERENCE", "").strip()
+        managed = (relative_parts and relative_parts[0] == "private") or (configured_default and path == resolve_reference(configured_default))
+        if managed and (not path.is_dir() or not (path / ".ncc-index.sqlite3").is_file()):
+            raise NCCReferenceError("The managed NCC catalog index is unavailable. Rebuild the catalog; unfiltered PDF or older-edition fallback is disabled.")
         if path.is_dir():
             indexed = search_catalog(user_id, path, query, context, top_k)
             if indexed is not None:
