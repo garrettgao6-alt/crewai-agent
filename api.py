@@ -6,6 +6,9 @@ import report_store
 import user_store
 import subscription_store
 
+# The API is a separate process; load its own provider configuration.
+user_store.load_local_environment()
+
 app = FastAPI()
 bearer = HTTPBearer(auto_error=False)
 
