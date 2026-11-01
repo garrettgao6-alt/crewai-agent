@@ -4507,8 +4507,6 @@ def initialize_cookie_manager() -> EncryptedCookieManager:
         prefix=COOKIE_PREFIX,
         password=get_cookie_secret(),
     )
-    if not cookies.ready():
-        st.stop()
     return cookies
 
 
@@ -4537,7 +4535,17 @@ def get_cookie_secret() -> str:
         temporary.unlink(missing_ok=True)
 
 
+def cookie_manager_ready(cookies: EncryptedCookieManager) -> bool:
+    """Test jars have no browser handshake; real managers must report readiness."""
+    ready = getattr(cookies, "ready", None)
+    return bool(ready()) if ready is not None else True
+
+
 def restore_authenticated_user_from_cookie(cookies: EncryptedCookieManager) -> None:
+    if not cookie_manager_ready(cookies):
+        if st.session_state.get("is_logged_in"):
+            clear_authenticated_user()
+        return
     token = cookies.get(COOKIE_SESSION_KEY)
     user = user_store.resolve_session(token) if token else None
     if user is None:
@@ -4584,6 +4592,10 @@ def render_auth_page(cookies: EncryptedCookieManager) -> None:
     )
     if gate_message:
         st.info(gate_message)
+
+    if not cookie_manager_ready(cookies):
+        st.warning("Secure sign-in is waiting for the browser cookie component. Reload this page or try another browser. The public sample workspace remains available using Close sign-in.")
+        return
 
     sign_in_tab, create_account_tab = st.tabs(["Sign In", "Create Account"])
 
@@ -6728,7 +6740,6 @@ with st.sidebar:
     st.selectbox(
         "Navigation",
         options=navigation_options,
-        index=navigation_options.index(st.session_state["active_section"]),
         key="nav_selected",
         on_change=sync_navigation_selection,
         format_func=lambda option: f"{NAVIGATION_ICONS[option]} {option}",

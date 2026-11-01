@@ -111,3 +111,22 @@ def test_close_protected_page_sign_in_returns_to_dashboard(app):
     click_label(app, "Close sign-in")
     assert app.session_state["active_section"] == "Dashboard"
     assert not any(field.key == "auth_sign_in_identifier" for field in app.text_input)
+
+
+def test_unavailable_cookie_component_does_not_block_public_demo(app, monkeypatch):
+    import sys
+    cookies = sys.modules["ui_test_cookies"].cookies
+    monkeypatch.setattr(cookies, "ready", lambda: False, raising=False)
+    def unreadable(*args, **kwargs):
+        raise AssertionError("Unready browser cookie storage accessed")
+    monkeypatch.setattr(cookies, "get", unreadable)
+    app.run()
+    assert not app.exception
+    click_label(app, "Open Copilot")
+    click_label(app, "Run sample review")
+    assert app.session_state["public_demo_result"]["ai_tokens"] == 0
+    click_label(app, "Login / Sign Up")
+    assert any("Secure sign-in is waiting" in item.value for item in app.warning)
+    assert not any(field.label == "Password" for field in app.text_input)
+    click_label(app, "Close sign-in")
+    assert app.session_state["active_section"] == "Dashboard"
