@@ -53,6 +53,7 @@ NAVIGATION_OPTIONS = [
     "Dashboard",
     "Copilot",
     "Documents",
+    "BIM",
     "Reports",
     "Settings",
 ]
@@ -65,6 +66,7 @@ SECTION_ALIASES = {
     "dashboard": DEFAULT_SECTION,
     "upload": "Documents",
     "documents": "Documents",
+    "bim": "BIM",
     "ai": "Copilot",
     "copilot": "Copilot",
     "logs": "Reports",
@@ -75,6 +77,7 @@ NAVIGATION_ICONS = {
     "Dashboard": "□",
     "Copilot": "◇",
     "Documents": "▤",
+    "BIM": "▦",
     "Reports": "◈",
     "Settings": "○",
 }
@@ -5379,9 +5382,9 @@ def render_workspace() -> None:
             "Risk controls",
         ),
         (
-            "BIM Review",
-            "Coordinate design review notes, assumptions, and model issue summaries.",
-            "Model intelligence",
+            "BIM Model Checks",
+            "Inspect IFC identifiers, units, dimensions and model data; export element-linked findings.",
+            "IFC data quality",
         ),
         (
             "Procurement",
@@ -5390,6 +5393,8 @@ def render_workspace() -> None:
         ),
     ]
     render_workspace_cards("Construction Workspace", construction_cards)
+    if st.button('Open BIM Model Checks',key='open_bim_checks',use_container_width=True):
+        set_active_section('BIM');st.rerun()
 
     business_cards = [
         (
@@ -5636,109 +5641,51 @@ def render_documents_page() -> None:
         render_document_analysis()
 
 
+def _library_project_changed(key):
+    selected=st.session_state.get(key)
+    project_store.require_project_access(get_current_user_id(),selected)
+    st.session_state.active_project_id=selected
+    sync_project_session()
+
+
+def select_library_project(page):
+    owner=get_current_user_id();projects=project_store.list_projects(owner,limit=1000)
+    if not projects:
+        st.info('Create a project before adding private files or IFC models.')
+        if st.button('Create or select a project',key='library_empty_'+page):
+            set_active_section(DEFAULT_SECTION);st.rerun()
+        return None
+    options=[p['id'] for p in projects];names={p['id']:p['name'] for p in projects}
+    active=st.session_state.get('active_project_id')
+    if active not in options:
+        active=options[0];st.session_state.active_project_id=active;sync_project_session()
+    key=f'library_project_{owner}_{page}'
+    st.session_state[key]=active
+    st.selectbox('Project',options,format_func=lambda value:names[value],key=key,on_change=_library_project_changed,args=(key,))
+    return get_active_project()
+
+
 def render_upload_page() -> None:
-    render_page_header(
-        "Documents",
-        "Upload, process, and manage workspace knowledge.",
-    )
+    render_page_header('Documents','Retain, index and manage project-owned file versions.')
     if is_guest_user():
-        render_demo("Documents", render_pdf_download)
-        return
-    active_project = get_active_project()
-    if active_project is None:
-        st.warning("Please create or select a project first.")
-        return
-    st.caption(f'Project: {active_project["name"]}')
+        render_demo('Documents',render_pdf_download);return
+    project=select_library_project('documents')
+    if project is None:return
+    st.caption('Project: '+project['name'])
+    from document_management_ui import render
+    render(get_current_user_id(),project['id'])
 
-    upload_column, status_column = st.columns([2, 1])
-    with upload_column:
-        uploaded_files = st.file_uploader(
-            "Upload documents",
-            type=["pdf", "txt"],
-            key="upload_page_documents",
-            accept_multiple_files=True,
-        )
-    with status_column:
-        document_type = st.selectbox(
-            "Document type",
-            ["Auto-detect", "NCC", "Housing", "Business"],
-            key="upload_page_document_type",
-        )
-        st.markdown(
-            """
-            <div class="workspace-overview-card">
-                <div class="workspace-overview-line"><strong>Status:</strong> Ready</div>
-                <div class="workspace-overview-line"><strong>Pipeline:</strong> Ingestion</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
 
-    reference_edition = st.text_input("Reference edition / volume", placeholder="Enter the actual NCC edition and volume", key="upload_ncc_edition")
-
-    file_rows = [
-        {
-            "File": uploaded_file.name,
-            "Status": "Pending ingestion",
-            "Size KB": round(len(uploaded_file.getvalue()) / 1024, 1),
-        }
-        for uploaded_file in uploaded_files
-    ] if uploaded_files else []
-
-    st.markdown('<div class="workspace-section-title">File Table</div>', unsafe_allow_html=True)
-    if file_rows:
-        st.dataframe(file_rows, use_container_width=True, hide_index=True)
-    else:
-        st.markdown(
-            """
-            <div class="workspace-activity-card">
-                <div class="workspace-activity-item">No documents uploaded yet.</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    if st.button("Trigger Ingestion", key="upload_page_ingest", type="primary", use_container_width=True):
-        if not uploaded_files:
-            st.warning("Please upload at least one document first.")
-            return
-
-        selected_document_type = None if document_type == "Auto-detect" else document_type.lower()
-        indexed_chunks = 0
-        failed_files = []
-
-        status_placeholder = st.empty()
-        with status_placeholder.container():
-            st.markdown(
-                """
-                <div class="workspace-overview-card">
-                    <div class="workspace-overview-line"><strong>Status:</strong> Indexing documents</div>
-                    <div class="skeleton-line"></div>
-                    <div class="skeleton-line"></div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        for uploaded_file in uploaded_files:
-            try:
-                file_bytes = uploaded_file.getvalue()
-                indexed_chunks += ingest_document(
-                    get_current_user_id(), active_project["id"], uploaded_file.name,
-                    file_bytes, selected_document_type, edition=reference_edition,
-                )
-            except Exception as exc:
-                failed_files.append(uploaded_file.name)
-                st.error(f"Could not index {uploaded_file.name}: {exc}")
-        status_placeholder.empty()
-
-        if indexed_chunks:
-            add_active_project_history(
-                "upload",
-                f"Documents ingested: {indexed_chunks} chunks",
-            )
-            st.success(f"Indexed {indexed_chunks} document chunks.")
-        if failed_files:
-            st.warning(f"Some files could not be indexed: {', '.join(failed_files)}")
+def render_bim_page() -> None:
+    render_page_header('BIM Model Checks','Real IFC data-quality inspection with element-linked findings.')
+    if is_guest_user():
+        st.info('Sign in and select a project to inspect a private IFC model. Guest reviews use a synthetic issue log; no guest model is parsed.')
+        render_demo('Copilot',render_pdf_download);return
+    project=select_library_project('bim')
+    if project is None:return
+    st.caption('Project: '+project['name'])
+    from bim_ui import render
+    render(get_current_user_id(),project['id'])
 
 
 def render_automation_page() -> None:
@@ -6767,6 +6714,8 @@ if active_section == DEFAULT_SECTION:
     render_workspace()
 elif active_section == "Documents":
     render_upload_page()
+elif active_section == "BIM":
+    render_bim_page()
 elif active_section == "Copilot":
     render_ai_copilot_panel()
 elif active_section == "Reports":
