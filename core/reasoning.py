@@ -7,7 +7,8 @@ DEFAULT_REASONING_MODEL = os.getenv("OPENAI_REASONING_MODEL", "gpt-4o-mini")
 
 
 def _get_client() -> OpenAI:
-    return OpenAI()
+    from core.private_ai import client
+    return client(OpenAI)
 
 
 def build_reasoning_prompt(query, clauses):

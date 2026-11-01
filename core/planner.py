@@ -11,7 +11,8 @@ ALLOWED_TASKS = {"analysis", "risk", "strategy", "finance", "general"}
 
 
 def _get_client() -> OpenAI:
-    return OpenAI()
+    from core.private_ai import client
+    return client(OpenAI)
 
 
 def _fallback_plan_tasks(prompt: str) -> list:

@@ -33,10 +33,9 @@ def agent_executor(domain, prompt):
     return run_general_agent(prompt)
 
 
-def run_engine(user_id, prompt, document_text=None, *, project_id=None, return_details=False):
+def _run_engine(user_id, prompt, document_text=None, *, project_id=None, return_details=False):
     scope = project_store.document_scope(user_id, project_id) if project_id is not None else str(user_id)
     history = memory.get(scope)
-    tasks = plan_tasks(prompt)
     reference_context = ncc_library.load_project_context(user_id, project_id) if project_id is not None else {}
     try:
         retrieved_chunks = (
@@ -71,6 +70,7 @@ def run_engine(user_id, prompt, document_text=None, *, project_id=None, return_d
         for chunk in retrieved_chunks
     )
     insufficient_evidence = is_regulatory_query(prompt) and not has_regulatory_reference
+    tasks = [] if insufficient_evidence else plan_tasks(prompt)
     if insufficient_evidence:
         tasks = []
         results.append({"result": "Insufficient NCC reference found. Upload reference documents for this project or configure a readable NCC reference path. No compliance conclusion has been made."})
@@ -115,3 +115,12 @@ def run_engine(user_id, prompt, document_text=None, *, project_id=None, return_d
     if return_details:
         return {"result": final_output, "sources": sources, "category": "copilot", "version": "2.0", "status": "insufficient_evidence" if insufficient_evidence else "draft"}
     return final_output
+
+
+def run_engine(user_id, prompt, document_text=None, *, project_id=None, return_details=False):
+    if project_id is None:
+        return _run_engine(user_id,prompt,document_text,project_id=project_id,return_details=return_details)
+    project_store.require_project_access(user_id,project_id)
+    from core.private_ai import scope
+    with scope(user_id,project_id):
+        return _run_engine(user_id,prompt,document_text,project_id=project_id,return_details=return_details)

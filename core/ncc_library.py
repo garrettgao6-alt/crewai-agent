@@ -1,3 +1,4 @@
+from core.storage_lock import Connection as SnapshotConnection
 """Persistent, per-user references to an operator-approved server NCC directory."""
 import math
 import os
@@ -75,7 +76,7 @@ def reference_files(value, user_id=None):
 
 @contextmanager
 def _connection():
-    connection = sqlite3.connect(DB_PATH)
+    connection = sqlite3.connect(DB_PATH, factory=SnapshotConnection)
     try:
         with connection:
             connection.execute("CREATE TABLE IF NOT EXISTS ncc_references (user_id TEXT PRIMARY KEY, path TEXT NOT NULL, edition TEXT NOT NULL)")

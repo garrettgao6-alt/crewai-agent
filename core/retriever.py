@@ -15,7 +15,8 @@ from core.vector_store import (
 
 
 def _get_client() -> OpenAI:
-    return OpenAI()
+    from core.private_ai import client
+    return client(OpenAI)
 
 
 def is_regulatory_query(query: str) -> bool:
