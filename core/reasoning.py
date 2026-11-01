@@ -58,7 +58,10 @@ def chunks_to_clauses(chunks: list[dict]) -> list[dict]:
         clauses.append(
             {
                 "clause": clause,
-                "content": chunk.get("text", ""),
+                "content": (
+                    f"Reference: {metadata.get('code', '')}; {metadata.get('source', '')}\n"
+                    + chunk.get("text", "")
+                ) if metadata.get("reference_kind") in {"server_local_ncc", "project_ncc"} else chunk.get("text", ""),
                 "section": metadata.get("section", ""),
                 "title": metadata.get("title", ""),
             }

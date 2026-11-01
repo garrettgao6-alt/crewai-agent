@@ -11,6 +11,11 @@ from core.report_generator import generate_report
 from core.retriever import retrieve_multi
 from core.router import route_task
 from core.skills import format_skill_context
+from core.retriever import is_regulatory_query
+from core.vector_store import format_sources
+import project_store
+import hashlib
+import json
 
 
 memory = Memory()
@@ -26,10 +31,14 @@ def agent_executor(domain, prompt):
     return run_general_agent(prompt)
 
 
-def run_engine(user_id, prompt, document_text=None):
-    history = memory.get(user_id)
+def run_engine(user_id, prompt, document_text=None, *, project_id=None, return_details=False):
+    scope = project_store.document_scope(user_id, project_id) if project_id is not None else str(user_id)
+    history = memory.get(scope)
     tasks = plan_tasks(prompt)
-    retrieved_chunks = retrieve_multi(user_id, prompt)
+    retrieved_chunks = (
+        retrieve_multi(scope, prompt, reference_user_id=user_id)
+        if project_id is not None else retrieve_multi(scope, prompt)
+    )
     skill_chain = plan_skills(prompt, is_rag_response=bool(retrieved_chunks))
     clauses = chunks_to_clauses(retrieved_chunks)
     reasoning_prompt = build_reasoning_prompt(prompt, clauses)
@@ -42,6 +51,16 @@ def run_engine(user_id, prompt, document_text=None):
         reasoning_prompt = f"{reasoning_prompt}\n\nConversation history:\n{history}"
 
     results = []
+
+    has_regulatory_reference = any(
+        (chunk.get("metadata") or {}).get("code")
+        or (chunk.get("metadata") or {}).get("type") in {"ncc", "housing"}
+        for chunk in retrieved_chunks
+    )
+    insufficient_evidence = is_regulatory_query(prompt) and not has_regulatory_reference
+    if insufficient_evidence:
+        tasks = []
+        results.append({"result": "Insufficient NCC reference found. Upload reference documents for this project or configure a readable NCC reference path. No compliance conclusion has been made."})
 
     for task in tasks:
         domain = route_task(task)
@@ -63,12 +82,20 @@ def run_engine(user_id, prompt, document_text=None):
             "skills": skill_chain,
             "clauses": [clause["clause"] for clause in clauses],
             "analysis": "\n\n".join([result["result"] for result in results]),
-            "risk": "AUTO",
-            "recommendations": "AUTO",
+            "risk": "Not independently assessed. Review the assessment and source evidence.",
+            "recommendations": "Human review required before any compliance or commercial decision.",
         }
     )
 
-    memory.add(user_id, "user", prompt)
-    memory.add(user_id, "assistant", final_output)
-
+    sources = []
+    for chunk in retrieved_chunks:
+        snapshot = {"text": chunk.get("text", ""), "metadata": dict(chunk.get("metadata") or {})}
+        snapshot["sha256"] = hashlib.sha256(json.dumps(snapshot, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+        sources.append(snapshot)
+    if sources:
+        final_output += "\n\nSources\n" + format_sources(sources)
+    memory.add(scope, "user", prompt)
+    memory.add(scope, "assistant", final_output)
+    if return_details:
+        return {"result": final_output, "sources": sources, "category": "copilot", "version": "2.0", "status": "insufficient_evidence" if insufficient_evidence else "draft"}
     return final_output

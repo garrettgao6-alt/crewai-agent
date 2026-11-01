@@ -3,10 +3,10 @@ import re
 from core.document_pipeline import clean_text
 
 
-NCC_MARKER_PATTERN = re.compile(r"(C\d+\.\d+|Section [A-Z])")
+NCC_MARKER_PATTERN = re.compile(r"\b([A-Z]{1,3}\d+[A-Z]\d+(?:\.\d+)*|[A-Z]\d+\.\d+|Section [A-Z])\b")
 
 
-def parse_ncc_clauses(text: str, default_type: str = "fire") -> list[dict]:
+def parse_ncc_clauses(text: str, default_type: str = "general") -> list[dict]:
     cleaned_text = clean_text(text)
     parts = NCC_MARKER_PATTERN.split(cleaned_text)
 
