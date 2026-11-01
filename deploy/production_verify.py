@@ -106,6 +106,7 @@ finally:
     for token in tokens: user_store.revoke_session(token)
     for scope in scopes: vector_store.clear_store(scope)
     with user_store.get_connection() as connection:
+        user_store._ensure_sessions(connection)
         for user,_ in users:
             connection.execute('UPDATE users SET is_active=0 WHERE id=?',(user['id'],))
             connection.execute('DELETE FROM auth_sessions WHERE user_id=?',(user['id'],))

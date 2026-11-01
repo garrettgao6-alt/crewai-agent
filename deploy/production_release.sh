@@ -134,6 +134,26 @@ python3 -m venv "$new_runtime"
 "$new_runtime/bin/python" -m pip install -r "$release/source/requirements.txt" > "$backup_dir/dependency-install.log" 2>&1 || { echo 'Dependency installation failed; log retained privately.'; exit 1; }
 "$new_runtime/bin/python" -m pip install pytest==8.4.2 'markdown-it-py>=3,<4' >> "$backup_dir/dependency-install.log" 2>&1
 "$new_runtime/bin/python" -m compileall -q "$release/source/api.py" "$release/source/core" "$release/source/streamlit_app.py"
+# Check the actual configured provider before stopping the current application.
+"$new_runtime/bin/python" - "$app/.env" <<'PY'
+import os, sys
+from dotenv import load_dotenv
+from openai import OpenAI
+load_dotenv(sys.argv[1])
+try:
+    client = OpenAI(timeout=20, max_retries=0)
+    result = client.embeddings.create(model='text-embedding-3-large', input='Deployment readiness check')
+    if not result.data or not result.data[0].embedding:
+        raise RuntimeError('Empty embedding response')
+    result = client.responses.create(model=os.getenv('OPENAI_REASONING_MODEL', 'gpt-4o-mini'), input='Reply OK.', max_output_tokens=16)
+    if not result.output_text:
+        raise RuntimeError('Empty model response')
+except Exception as exc:
+    # Provider exception strings may include credentials; never print them.
+    print('PROVIDER_PREFLIGHT_FAILED', type(exc).__name__, 'status='+str(getattr(exc, 'status_code', 'unknown')))
+    sys.exit(1)
+print('PROVIDER_PREFLIGHT_PASSED')
+PY
 if [ "$api_unit_existed" = false ] && ss -ltn | grep -qE ':8000[[:space:]]'; then echo 'Port 8000 is already owned by another service; stopping safely.'; exit 1; fi
 if [ "${#active_services[@]}" -gt 0 ]; then systemctl stop "${active_services[@]}"; fi
 stopped=true
