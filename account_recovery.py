@@ -1,5 +1,7 @@
 """Bounded, single-use email recovery codes. No codes or passwords are logged."""
 import hashlib
+import base64
+import requests
 import hmac
 import os
 import re
@@ -28,19 +30,35 @@ def _email(value):
 
 
 def delivery_ready():
+    if os.getenv('MAIL_PROVIDER') == 'gmail_api':
+        return all(os.getenv(k) for k in ('GMAIL_CLIENT_ID', 'GMAIL_CLIENT_SECRET', 'GMAIL_REFRESH_TOKEN', 'SMTP_FROM'))
     return bool(os.getenv('SMTP_HOST') and os.getenv('SMTP_FROM'))
 
 
 def _send(email, code):
     if not delivery_ready():
         raise user_store.UserStoreError('Email recovery is temporarily unavailable. Please contact support.')
-    host = os.environ['SMTP_HOST']
-    port = int(os.getenv('SMTP_PORT', '587'))
     message = EmailMessage()
     message['From'] = os.environ['SMTP_FROM']
     message['To'] = email
     message['Subject'] = 'Gao Intelligence password reset code'
     message.set_content(f'Your verification code is: {code}\n\nIt expires in 10 minutes and can be used once. If you did not request this, ignore this email. Never share this code.')
+    if os.getenv('MAIL_PROVIDER') == 'gmail_api':
+        response = requests.post('https://oauth2.googleapis.com/token', data={
+            'client_id': os.environ['GMAIL_CLIENT_ID'],
+            'client_secret': os.environ['GMAIL_CLIENT_SECRET'],
+            'refresh_token': os.environ['GMAIL_REFRESH_TOKEN'],
+            'grant_type': 'refresh_token',
+        }, timeout=15)
+        response.raise_for_status()
+        token = response.json()['access_token']
+        response = requests.post('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
+            headers={'Authorization': 'Bearer ' + token},
+            json={'raw': base64.urlsafe_b64encode(message.as_bytes()).decode()}, timeout=15)
+        response.raise_for_status()
+        return
+    host = os.environ['SMTP_HOST']
+    port = int(os.getenv('SMTP_PORT', '587'))
     context = ssl.create_default_context()
     use_ssl = os.getenv('SMTP_SSL', 'false').lower() == 'true'
     client = smtplib.SMTP_SSL(host, port, timeout=15, context=context) if use_ssl else smtplib.SMTP(host, port, timeout=15)

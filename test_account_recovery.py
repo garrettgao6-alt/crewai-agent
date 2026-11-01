@@ -53,3 +53,26 @@ def test_delivery_unavailable_and_failure(account,monkeypatch):
     monkeypatch.setattr(r,'_send',fail)
     assert r.request_code(user['email'])==r.GENERIC_RESPONSE
     with u.get_connection() as c:assert c.execute('SELECT count(*) FROM password_recovery').fetchone()[0]==0
+
+def test_gmail_api_https_transport(account,monkeypatch):
+    import base64
+    monkeypatch.undo()
+    monkeypatch.setenv('MAIL_PROVIDER','gmail_api')
+    for key in ('GMAIL_CLIENT_ID','GMAIL_CLIENT_SECRET','GMAIL_REFRESH_TOKEN'):
+        monkeypatch.setenv(key,'test-secret')
+    monkeypatch.setenv('SMTP_FROM','sender@example.test')
+    calls=[]
+    class Response:
+        def raise_for_status(self):pass
+        def json(self):return {'access_token':'test-access-token'}
+    def post(url,**kwargs):
+        calls.append((url,kwargs));return Response()
+    monkeypatch.setattr(r.requests,'post',post)
+    assert r.delivery_ready()
+    r._send('recipient@example.test','12345678')
+    assert calls[0][0]=='https://oauth2.googleapis.com/token'
+    assert calls[1][0]=='https://gmail.googleapis.com/gmail/v1/users/me/messages/send'
+    assert '12345678' in base64.urlsafe_b64decode(calls[1][1]['json']['raw']).decode()
+    assert calls[1][1]['headers']['Authorization']=='Bearer test-access-token'
+    monkeypatch.delenv('GMAIL_REFRESH_TOKEN')
+    assert not r.delivery_ready()
