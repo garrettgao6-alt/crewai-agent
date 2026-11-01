@@ -4597,7 +4597,7 @@ def render_auth_page(cookies: EncryptedCookieManager) -> None:
         st.warning("Secure sign-in is waiting for the browser cookie component. Reload this page or try another browser. The public sample workspace remains available using Close sign-in.")
         return
 
-    sign_in_tab, create_account_tab = st.tabs(["Sign In", "Create Account"])
+    sign_in_tab, create_account_tab, recovery_tab = st.tabs(["Sign In", "Create Account", "Forgot password?"])
 
     with sign_in_tab:
         with st.form("sign_in_form"):
@@ -4644,6 +4644,10 @@ def render_auth_page(cookies: EncryptedCookieManager) -> None:
                     set_authenticated_user(user)
                     persist_authenticated_user(cookies, user)
                     st.rerun()
+
+    with recovery_tab:
+        from account_ui import render_recovery
+        render_recovery()
 
 
 def show_login_modal(message: str = "Sign in to continue.") -> None:
@@ -5830,6 +5834,11 @@ def render_settings() -> None:
         """,
         unsafe_allow_html=True,
     )
+    from account_ui import render_username_settings
+    updated_user = render_username_settings(current_user)
+    if updated_user:
+        set_authenticated_user(updated_user, reset_navigation=False)
+        st.rerun()
     render_subscription_summary()
     render_ncc_reference_settings()
 
