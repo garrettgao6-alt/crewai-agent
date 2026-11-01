@@ -162,3 +162,11 @@ def test_protected_operator_default_is_available_without_cross_account_private_a
     library.clear_reference('alice')
     assert library.load_reference('alice') is None
     assert library.load_reference('bob')['operator_default']
+
+
+def test_missing_managed_index_never_falls_back_to_unfiltered_pdf_search(root, monkeypatch):
+    result=import_all()
+    (Path(result['path'])/'.ncc-index.sqlite3').unlink()
+    monkeypatch.setattr(library,'_read_pages',lambda *args: pytest.fail('No unfiltered PDF fallback'))
+    with pytest.raises(library.NCCReferenceError,match='index is unavailable'):
+        library.search_local_references('alice','NCC fire walls',context={'building_class':'1a','jurisdiction':'VIC'})
