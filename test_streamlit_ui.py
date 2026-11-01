@@ -86,3 +86,10 @@ def test_login_form_submission_survives_full_script_rerun(app):
     click_label(app, "Sign Out")
     assert not app.session_state["is_logged_in"]
     assert user_store.resolve_session(token) is None
+
+
+def test_close_protected_page_sign_in_returns_to_dashboard(app):
+    app.selectbox(key="nav_selected").select("Reports").run()
+    click_label(app, "Close sign-in")
+    assert app.session_state["active_section"] == "Dashboard"
+    assert not any(field.key == "auth_sign_in_identifier" for field in app.text_input)

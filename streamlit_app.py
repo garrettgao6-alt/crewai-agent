@@ -4533,6 +4533,7 @@ def clear_authentication_cookie(cookies: EncryptedCookieManager) -> None:
 def render_auth_page(cookies: EncryptedCookieManager) -> None:
     if st.button("Close sign-in", key="close_auth_modal"):
         st.session_state.pop("auth_modal_open", None)
+        st.session_state["active_section"] = DEFAULT_SECTION
         st.rerun()
     gate_message = st.session_state.pop("auth_gate_message", "")
     st.markdown(
