@@ -77,6 +77,16 @@ def embed_text(text: str) -> np.ndarray:
         raise RuntimeError("Embedding service unavailable; indexing/search was not completed. Please retry.") from exc
 
 
+def embed_batch(chunks):
+    response=_get_client().embeddings.create(model=EMBEDDING_MODEL,input=chunks)
+    data=sorted(response.data,key=lambda item:item.index)
+    if [item.index for item in data]!=list(range(len(chunks))) or any(not item.embedding for item in data):
+        raise RuntimeError('The embedding batch was incomplete.')
+    dimensions={len(item.embedding) for item in data}
+    if len(dimensions)!=1:raise RuntimeError('The embedding batch has inconsistent dimensions.')
+    return [item.embedding for item in data]
+
+
 def cosine_sim(a, b) -> float:
     denominator = np.linalg.norm(a) * np.linalg.norm(b)
     if denominator == 0:
@@ -85,7 +95,7 @@ def cosine_sim(a, b) -> float:
 
 
 def _document_id(user_id: str, text: str, metadata: dict, index: int) -> str:
-    source = metadata.get("source", "")
+    source = metadata.get("source", "") + str(metadata.get('managed_version_id',''))
     doc_type = metadata.get("type", "")
     digest = hashlib.sha256(f"{user_id}|{source}|{doc_type}|{index}|{text}".encode("utf-8")).hexdigest()
     return f"id_{digest[:24]}"
@@ -127,7 +137,7 @@ def add_documents(user_id, chunks, metadatas):
         return 0
 
     collection = get_collection(str(user_id))
-    embeddings = [embed_text(chunk).tolist() for chunk in chunks]
+    embeddings = embed_batch(chunks) if all(m.get('managed_version_id') for m in metadatas) else [embed_text(chunk).tolist() for chunk in chunks]
     ids = [
         _document_id(str(user_id), chunk, metadatas[index], index)
         for index, chunk in enumerate(chunks)
@@ -150,7 +160,7 @@ def add_ncc_documents(user_id, chunks, metadatas, housing: bool = False):
         return 0
 
     collection = get_ncc_collection(str(user_id), housing=housing)
-    embeddings = [embed_text(chunk).tolist() for chunk in chunks]
+    embeddings = embed_batch(chunks) if all(m.get('managed_version_id') for m in metadatas) else [embed_text(chunk).tolist() for chunk in chunks]
     ids = [
         _document_id(f"{user_id}_{'housing' if housing else 'ncc'}", chunk, metadatas[index], index)
         for index, chunk in enumerate(chunks)
@@ -196,7 +206,8 @@ def search(user_id, query, top_k=5, filter_type=None):
     collection = get_collection(str(user_id))
     if collection.count() == 0:
         return []
-    where = {"type": filter_type} if filter_type else None
+    from core.document_store import retrieval_filter
+    where = retrieval_filter(user_id, {"type": filter_type} if filter_type else None)
     query_embedding = embed_text(query).tolist()
 
     results = collection.query(
@@ -214,7 +225,8 @@ def search_chunks(user_id, query, top_k=5, filter_type=None):
     collection = get_collection(str(user_id))
     if collection.count() == 0:
         return []
-    where = {"type": filter_type} if filter_type else None
+    from core.document_store import retrieval_filter
+    where = retrieval_filter(user_id, {"type": filter_type} if filter_type else None)
     query_embedding = embed_text(query).tolist()
 
     results = collection.query(
@@ -232,7 +244,8 @@ def search_ncc_chunks(user_id, query, top_k=5, filter_type=None, housing: bool =
     collection = get_ncc_collection(str(user_id), housing=housing)
     if collection.count() == 0:
         return []
-    where = {"type": filter_type} if filter_type else None
+    from core.document_store import retrieval_filter
+    where = retrieval_filter(user_id, {"type": filter_type} if filter_type else None)
     query_embedding = embed_text(query).tolist()
 
     results = collection.query(
