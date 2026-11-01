@@ -1,1 +1,2 @@
 pytest==8.4.2
+markdown-it-py>=3,<4

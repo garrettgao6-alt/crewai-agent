@@ -1,64 +1,36 @@
 name: Deploy
-
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
-
 concurrency:
   group: deploy-production
-  cancel-in-progress: true
-
+  cancel-in-progress: false
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 30
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure SSH
+      - uses: actions/checkout@v4
+      - name: Configure existing server connection
         shell: bash
+        env:
+          SERVER_KEY: ${{ secrets.SERVER_SSH_KEY }}
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/server_key
+          printf '%s\n' "$SERVER_KEY" > ~/.ssh/server_key
           chmod 600 ~/.ssh/server_key
-          ssh-keyscan -H 170.64.131.149 >> ~/.ssh/known_hosts
-
-      - name: Debug SSH Fingerprint
-        run: |
-          ssh-keygen -lf ~/.ssh/server_key || true
-
-      - name: Test SSH
+          ssh-keyscan -T 10 -H 209.38.93.248 >> ~/.ssh/known_hosts
+      - name: Back up or release exact commit
         shell: bash
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+          EVENT: ${{ github.event_name }}
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/server_key -o IdentitiesOnly=yes root@170.64.131.149 'echo "SSH SUCCESS"'
-
-      - name: Deploy
-        shell: bash
-        run: |
-          set -euo pipefail
-          ssh -i ~/.ssh/server_key -o IdentitiesOnly=yes root@170.64.131.149 'bash -se' << 'EOF'
-            set -euo pipefail
-
-            cd /root/crewai-agent
-            git fetch origin
-            git reset --hard origin/main
-
-            chmod +x /root/crewai-agent/deploy.sh
-            cp /root/crewai-agent/webhook.json /root/webhook.json
-            install -m 0644 /root/crewai-agent/deploy/garrett-api.service /etc/systemd/system/garrett-api.service
-            install -m 0644 /root/crewai-agent/deploy/crewai.service /etc/systemd/system/crewai.service
-
-            systemctl daemon-reload
-            systemctl enable garrett-api
-            systemctl enable crewai
-            systemctl disable --now garrett-streamlit || true
-            systemctl enable webhook
-            systemctl restart webhook
-
-            /root/crewai-agent/deploy.sh
-          EOF
+          remote_script="/root/gao-release-${RELEASE_SHA}.sh"
+          scp -o ConnectTimeout=15 -i ~/.ssh/server_key deploy/production_release.sh "root@209.38.93.248:${remote_script}"
+          mode=backup
+          if [ "$EVENT" = push ]; then mode=deploy; fi
+          ssh -o ConnectTimeout=15 -i ~/.ssh/server_key root@209.38.93.248 bash "$remote_script" "$mode" "$RELEASE_SHA"

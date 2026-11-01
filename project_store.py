@@ -124,7 +124,8 @@ def get_project(project_id: int, user_id: int) -> dict | None:
     return dict(row) if row is not None else None
 
 
-def add_project_history(project_id: int, action_type: str, content: str) -> dict:
+def add_project_history(project_id: int, action_type: str, content: str, *, user_id: int) -> dict:
+    require_project_access(user_id, project_id)
     clean_action_type = action_type.strip()
     clean_content = content.strip()
     if not clean_action_type:
@@ -159,7 +160,8 @@ def add_project_history(project_id: int, action_type: str, content: str) -> dict
     }
 
 
-def list_project_history(project_id: int, limit: int = 50) -> list[dict]:
+def list_project_history(project_id: int, limit: int = 50, *, user_id: int) -> list[dict]:
+    require_project_access(user_id, project_id)
     try:
         with get_connection() as connection:
             rows = connection.execute(
@@ -175,3 +177,17 @@ def list_project_history(project_id: int, limit: int = 50) -> list[dict]:
     except sqlite3.Error as exc:
         raise ProjectStoreError("Could not load project history.") from exc
     return [dict(row) for row in rows]
+
+
+def require_project_access(user_id, project_id) -> dict:
+    if project_id is None or user_id is None:
+        raise PermissionError("An authenticated user and project are required.")
+    project = get_project(int(project_id), int(user_id))
+    if project is None:
+        raise PermissionError("Project not found or access denied.")
+    return project
+
+
+def document_scope(user_id, project_id) -> str:
+    project = require_project_access(user_id, project_id)
+    return f"u{int(user_id)}_p{project['id']}"

@@ -399,3 +399,104 @@ These legacy scripts do not receive the same routing, logging, fallback, and tes
 ## License
 
 This project is licensed under the MIT License. See `LICENSE` for details.
+
+## Server-local NCC references
+
+Set `NCC_DOCUMENT_ROOT` to an existing server directory, for example
+`/srv/gaointelligence/ncc`, and grant the Streamlit and API service users read
+access to its PDF/TXT documents. Both services must use the same root and
+application directory. Place only reference documents intended for application
+users inside this directory; all signed-in users can select paths within it.
+Do not put credentials or private customer documents in this shared root.
+
+After signing in, open **Settings → Server NCC references**. Save either a
+relative path within the root (for example `2022/volume-one`) or an absolute
+path inside it, together with the correct edition and volume. Settings are
+persisted per account in `ncc_library.db`; preserve that file across deployments.
+A directory includes its immediate PDF/TXT files, without recursive traversal.
+The limits are 100 files, 50 MB per file, and 100 MB total. PDFs need an
+extractable text layer; scanned documents need OCR first.
+
+NCC/compliance queries combine locally matched code references with the current
+project's uploaded NCC references and project evidence. File size and
+modification time invalidate the in-process text cache. Citations include the
+configured edition, filename, page, and detected clause identifier. Relevant
+excerpts are sent to the configured AI provider during analysis; saving a path
+alone sends no document contents. Retrieval is a reference aid and does not
+establish which NCC edition applies to a project. If no keyword matches are
+found, the local library contributes no evidence.
+
+The website cannot read paths on a visitor's computer. Paths must exist on the
+server. Symlinks and paths that resolve outside `NCC_DOCUMENT_ROOT` are rejected.
+Use **Disable local NCC references** to stop using a saved path without deleting
+any server documents.
+
+## Project isolation and durable reports (v2)
+
+The Streamlit application and `/analyze` API now validate project ownership
+before analysis. Uploaded documents and conversation memory use a canonical
+user-and-project namespace. Project history and report reads/writes also require
+the owner identity; there is no implicit administrator bypass or team sharing.
+Switching projects clears the previous project's UI history and upload widgets.
+Legacy user-only indexes and memory are not automatically assigned to projects:
+re-import documents into the correct project after verifying their ownership.
+No legacy data is deleted by this upgrade.
+
+Authentication cookies now hold opaque server-side session tokens, stored as
+hashes with seven-day expiry in `users.db`. Sign-out revokes the current token.
+Old user-ID cookies are no longer accepted, so existing users must sign in again.
+Set a strong `COOKIE_SECRET_KEY`; when no non-placeholder key is configured,
+the app atomically generates a private `.cookie_secret` file. Preserve that file
+and `users.db` across deployments. Sessions are revalidated on each Streamlit
+script pass; inactive accounts and revoked/expired sessions are rejected.
+
+The analysis API requires `Authorization: Bearer <session token>` and a JSON
+body with `query` and `project_id`. It does not accept a caller-supplied user ID.
+Missing/invalid sessions return 401; inaccessible projects/reports return 404.
+The Streamlit login issues these tokens; this release does not add an external
+API-token management console. `/analyze` returns the saved report ID, project,
+full result, source snapshots, status, and version. This is an intentional API
+contract change from the previous unprotected gateway.
+
+Automatic and explicit NCC ingestion now use the same project-scoped code
+collection. Clause identifiers such as C2D2, D2D3, H1D2 and C1.1 are recognized;
+PDF page numbers and original-document SHA-256 hashes are preserved. Enter the
+actual edition/volume when importing code documents. Unrecognized clause layout
+falls back to searchable page text without inventing clause numbers. Re-uploading
+a filename replaces the previous version within that project after successful
+indexing. A provider failure does not erase the preceding index. Ingestion
+replacement is serialized within a single application process; multiple ingestion
+workers need a shared job lock before horizontal scaling.
+
+Model embedding failures now return an explicit error rather than silently
+switching vector dimensions. Fresh v2 project namespaces require successful
+embedding calls before indexing. Standard NCC queries merge relevant regulations
+and project evidence; requests without a regulatory reference return an explicit
+`insufficient_evidence` result. Local reference keyword search includes a small
+Chinese construction-term glossary; it is not a full multilingual semantic engine.
+Neither an edition label nor a matching passage proves regulatory applicability.
+
+Each analysis returns its own evidence directly, without reading a process-global
+citation list. A context-local compatibility accessor remains for older internal
+callers. Full report text, owner/project, timestamp, status, source metadata,
+verbatim excerpts and snapshot hashes are stored in `reports.db`. Reports remain
+available in a new session after selecting the project, and the Reports page
+exports PDF for Copilot reports too. Later document replacement does not mutate
+saved report evidence. Reports remain drafts for human review; placeholder AUTO
+risk/recommendations and the old fixed report-section messages have been removed.
+
+Back up `users.db`, `projects.db`, `reports.db`, `ncc_library.db`, `memory.db`,
+`chroma_db/`, the NCC reference directory and the encryption secret before release.
+Keep these on persistent storage. Install the updated requirements and restart
+both services; the existing deploy.sh does not install dependency updates.
+Schema additions are automatic and additive. Validate with:
+
+```bash
+python -m pytest -q
+```
+
+`test_project_integrity.py` exercises real temporary SQLite/Chroma storage,
+parallel analyses, project authorization, document replacement, report restore,
+and Streamlit Copilot-to-report/PDF flow. Model responses and embeddings are
+controlled test substitutes; production model quality and capacity need separate
+acceptance testing with approved reference documents.

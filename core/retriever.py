@@ -3,10 +3,11 @@ import json
 
 from openai import OpenAI
 
+from core.ncc_library import search_local_references
+
 from core.vector_store import (
     build_context,
     format_sources,
-    get_last_retrieval,
     retrieve,
     search_ncc_chunks,
     set_last_retrieval,
@@ -19,7 +20,7 @@ def _get_client() -> OpenAI:
 
 def is_regulatory_query(query: str) -> bool:
     query_lower = query.lower()
-    return any(term in query_lower for term in ["ncc", "compliance", "code"])
+    return any(term in query_lower for term in ["ncc", "compliance", "code", "合规", "规范", "防火", "住宅"])
 
 
 def infer_regulatory_filter(query: str) -> str | None:
@@ -69,6 +70,9 @@ def _dedupe_chunks(chunks: list[dict]) -> list[dict]:
         key = (
             metadata.get("source", ""),
             metadata.get("type", ""),
+            metadata.get("page", ""),
+            metadata.get("code", ""),
+            metadata.get("document_sha256", ""),
             chunk.get("text", ""),
         )
         if key in seen:
@@ -79,20 +83,23 @@ def _dedupe_chunks(chunks: list[dict]) -> list[dict]:
     return unique_chunks
 
 
-def retrieve_multi(user_id, query=None, top_k=5, filter_type=None):
+def retrieve_multi(user_id, query=None, top_k=5, filter_type=None, reference_user_id=None):
     if query is None:
         query = user_id
         user_id = "default"
 
     if is_regulatory_query(query):
-        retrieved = search_ncc_chunks(
-            user_id,
-            query,
-            top_k=max(top_k * 3, top_k),
-            filter_type=infer_regulatory_filter(query),
-            housing=is_housing_query(query),
+        local_chunks = search_local_references(reference_user_id or user_id, query, top_k=top_k)
+        regulatory = search_ncc_chunks(
+            user_id, query, top_k=top_k, housing=is_housing_query(query),
         )
-        ranked = rerank(query, retrieved)[:top_k]
+        project_chunks = retrieve(query, top_k=top_k, user_id=user_id)
+        references = rerank(query, _dedupe_chunks(local_chunks + regulatory))
+        # Reserve room for project evidence as well as the code provisions.
+        if references and project_chunks and top_k > 1:
+            ranked = _dedupe_chunks(references[:top_k - 1] + project_chunks[:1])
+        else:
+            ranked = _dedupe_chunks(references + project_chunks)[:top_k]
         set_last_retrieval(ranked)
         return ranked
 
@@ -189,17 +196,7 @@ def retrieve_context(query: str, top_k=5, filter_type=None, user_id="default"):
 
 
 def retrieve_ncc_context(query: str, top_k=5, user_id="default"):
-    filter_type = infer_regulatory_filter(query)
-    housing = is_housing_query(query)
-    retrieved = search_ncc_chunks(
-        user_id,
-        query,
-        top_k=max(top_k * 3, top_k),
-        filter_type=filter_type,
-        housing=housing,
-    )
-    ranked = rerank(query, retrieved)[:top_k]
-    set_last_retrieval(ranked)
+    ranked = retrieve_multi(user_id, query, top_k=top_k)
     return {
         "chunks": ranked,
         "context": build_context(ranked),

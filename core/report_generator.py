@@ -17,7 +17,7 @@ Assessment
 {data.get("analysis", "")}
 
 Risk Level
-{data.get("risk", "AUTO")}
+{data.get("risk", "Not assessed")}
 
 Recommendations
-{data.get("recommendations", "AUTO")}"""
+{data.get("recommendations", "No recommendations available")}"""

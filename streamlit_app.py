@@ -8,14 +8,24 @@ from uuid import uuid4
 
 import requests
 import streamlit as st
+
+st.set_page_config(
+    page_title="Gao Intelligence Hub",
+    layout="wide",
+    initial_sidebar_state="auto",
+)
+
 from streamlit_cookies_manager import EncryptedCookieManager
 
 from core.document_pipeline import process_document
 from core.engine import run_engine
 from core.ncc_parser import clauses_to_documents, parse_ncc_clauses
 from core.router import init_vectors
-from core.vector_store import add_documents, add_ncc_documents, build_context, format_sources, get_last_retrieval
+from core.vector_store import build_context, format_sources
 import project_store
+import report_store
+from core.ingestion import ingest_document
+from core import ncc_library
 import prompt_store
 import subscription_store
 import template_store
@@ -28,7 +38,8 @@ VERSION = "1.0"
 HISTORY_LIMIT = 10
 DEFAULT_SECTION = "Dashboard"
 COOKIE_PREFIX = "gao_app"
-COOKIE_USER_ID_KEY = "user_id"
+COOKIE_USER_ID_KEY = "user_id"  # Legacy cookie is cleared; never accepted for authentication.
+COOKIE_SESSION_KEY = "session_token"
 COPILOT_SESSION_CALL_LIMIT = 50
 GUEST_COPILOT_SESSION_LIMIT = 3
 DOCUMENT_TEXT_LIMIT = 12000
@@ -1977,7 +1988,8 @@ def run_fast_mode(query: str) -> dict:
 def run_advanced_mode(query: str) -> dict:
     response = requests.post(
         API_URL,
-        json={"query": query},
+        json={"query": query, "project_id": get_active_project()["id"]},
+        headers={"Authorization": f"Bearer {st.session_state.get('auth_session_token', '')}"},
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
     response.raise_for_status()
@@ -1997,7 +2009,10 @@ def run_copilot_request(user_input: str, user_id: str = "default") -> str:
         raise RuntimeError("OPENAI_API_KEY is not configured.")
 
     try:
-        return run_engine(user_id, user_input)
+        project = get_active_project()
+        if project is None:
+            raise PermissionError("Select an authorized project first.")
+        return run_engine(user_id, user_input, project_id=project["id"])
     except Exception as exc:
         raise RuntimeError("AI Copilot request failed.") from exc
 
@@ -2022,6 +2037,13 @@ def save_history_entry(
         entry.update(metadata)
     if payload.get("agent_mode"):
         entry["agent_mode"] = payload["agent_mode"]
+    for key in ("sources", "status"):
+        if key in payload:
+            entry[key] = payload[key]
+    project = get_active_project()
+    if project is None:
+        raise PermissionError("Select an authorized project before saving a report.")
+    entry = report_store.save_report(get_current_user_id(), project["id"], entry)
     st.session_state.history.insert(0, entry)
     st.session_state.history = st.session_state.history[:HISTORY_LIMIT]
     st.session_state.selected_history = entry
@@ -2128,8 +2150,8 @@ def render_pdf_download(entry: dict) -> None:
     analysis_type = get_document_analysis_type(entry.get("query", ""))
     review_type = get_project_review_type(entry.get("query", ""))
     report_content = str(entry.get("result", ""))
-    report_type = analysis_type or review_type
-    if not report_type or not report_content:
+    report_type = analysis_type or review_type or str(entry.get("mode") or "Analysis Report")
+    if not report_content:
         return
 
     pdf_bytes = build_pdf_report(
@@ -2139,7 +2161,7 @@ def render_pdf_download(entry: dict) -> None:
     )
     file_name = DOCUMENT_PDF_FILENAMES.get(
         report_type,
-        PROJECT_REVIEW_PDF_FILENAMES.get(report_type, "executive_review.pdf"),
+        PROJECT_REVIEW_PDF_FILENAMES.get(report_type, "analysis_report.pdf"),
     )
     st.download_button(
         "Download Report PDF",
@@ -2367,7 +2389,7 @@ def inject_custom_css() -> None:
         [data-testid="stFileUploader"] *,
         [data-testid="stMultiSelect"] *,
         [data-testid="stRadio"] * {
-            color: #0F172A !important;
+            color: var(--enterprise-title) !important;
         }
 
         [data-testid="stTextInput"],
@@ -2396,13 +2418,13 @@ def inject_custom_css() -> None:
         [role="option"],
         [data-baseweb="menu"],
         [data-baseweb="menu"] div {
-            background: #FFFFFF !important;
-            color: #0F172A !important;
-            border-color: #CBD5E1 !important;
+            background: var(--enterprise-soft) !important;
+            color: var(--enterprise-title) !important;
+            border-color: var(--enterprise-border-strong) !important;
         }
 
         [data-baseweb="select"] {
-            border: 1px solid #CBD5E1 !important;
+            border: 1px solid var(--enterprise-border-strong) !important;
             border-radius: 12px !important;
             min-height: 44px !important;
         }
@@ -2413,31 +2435,31 @@ def inject_custom_css() -> None:
         [data-baseweb="popover"] span,
         [role="listbox"] span,
         [role="option"] span {
-            color: #0F172A !important;
-            fill: #0F172A !important;
+            color: var(--enterprise-title) !important;
+            fill: var(--enterprise-title) !important;
         }
 
         [data-baseweb="tag"] {
             background: #EFF6FF !important;
             border: 1px solid #BFDBFE !important;
-            color: #0F172A !important;
+            color: var(--enterprise-title) !important;
         }
 
         [data-baseweb="tag"] span,
         [data-baseweb="tag"] svg {
-            color: #0F172A !important;
-            fill: #0F172A !important;
+            color: var(--enterprise-title) !important;
+            fill: var(--enterprise-title) !important;
         }
 
         .stTextInput > div > div,
         [data-testid="stTextInput"] > div > div,
         [data-baseweb="input"] {
             align-items: center !important;
-            background: #FFFFFF !important;
-            border: 1px solid #CBD5E1 !important;
+            background: var(--enterprise-soft) !important;
+            border: 1px solid var(--enterprise-border-strong) !important;
             border-radius: 12px !important;
             box-shadow: none !important;
-            color: #0F172A !important;
+            color: var(--enterprise-title) !important;
             min-height: 44px !important;
             outline: none !important;
             overflow: hidden !important;
@@ -2456,19 +2478,19 @@ def inject_custom_css() -> None:
         [data-baseweb="input"] [role="button"] {
             align-items: center !important;
             align-self: stretch !important;
-            background: #FFFFFF !important;
+            background: var(--enterprise-soft) !important;
             border: 0 !important;
             border-radius: 12px !important;
             box-shadow: none !important;
-            color: #0F172A !important;
+            color: var(--enterprise-title) !important;
             display: flex !important;
             min-height: 44px !important;
             outline: none !important;
         }
 
         [data-baseweb="input"] svg {
-            color: #0F172A !important;
-            fill: #0F172A !important;
+            color: var(--enterprise-title) !important;
+            fill: var(--enterprise-title) !important;
         }
 
         .stTextInput input,
@@ -2479,11 +2501,11 @@ def inject_custom_css() -> None:
         [data-baseweb="input"] input,
         [data-testid="stTextArea"] textarea,
         [data-testid="stNumberInput"] input {
-            background: #FFFFFF !important;
+            background: var(--enterprise-soft) !important;
             border: 0 !important;
             border-radius: 12px !important;
             box-shadow: none !important;
-            color: #0F172A !important;
+            color: var(--enterprise-title) !important;
             min-height: 44px;
             outline: none !important;
             padding: 10px 12px !important;
@@ -2524,10 +2546,10 @@ def inject_custom_css() -> None:
         }
 
         [data-testid="stFileUploader"] {
-            background: #F8FAFC !important;
-            border: 1px solid #CBD5E1 !important;
+            background: var(--enterprise-soft) !important;
+            border: 1px solid var(--enterprise-border-strong) !important;
             border-radius: 12px !important;
-            color: #0F172A !important;
+            color: var(--enterprise-title) !important;
             padding: 12px !important;
         }
 
@@ -2535,16 +2557,16 @@ def inject_custom_css() -> None:
         [data-testid="stFileUploader"] section *,
         [data-testid="stFileUploaderDropzone"],
         [data-testid="stFileUploaderDropzone"] * {
-            background: #F8FAFC !important;
-            color: #0F172A !important;
-            border-color: #CBD5E1 !important;
+            background: var(--enterprise-soft) !important;
+            color: var(--enterprise-title) !important;
+            border-color: var(--enterprise-border-strong) !important;
         }
 
         [data-testid="stFileUploader"] button,
         [data-testid="stFileUploaderDropzone"] button {
-            background: #FFFFFF !important;
-            border: 1px solid #CBD5E1 !important;
-            color: #0F172A !important;
+            background: var(--enterprise-soft) !important;
+            border: 1px solid var(--enterprise-border-strong) !important;
+            color: var(--enterprise-title) !important;
         }
 
         div[data-testid="stButton"] > button,
@@ -3661,8 +3683,8 @@ def inject_custom_css() -> None:
             background: var(--enterprise-bg);
             display: flex;
             justify-content: center;
-            min-height: 76vh;
-            padding: 24px;
+            min-height: 0;
+            padding: 0 0 16px;
             width: 100%;
         }
 
@@ -3672,14 +3694,14 @@ def inject_custom_css() -> None:
             border-radius: 22px !important;
             box-shadow: var(--enterprise-shadow) !important;
             max-width: 520px !important;
-            padding: 34px !important;
+            padding: 16px !important;
             text-align: center;
             width: 100%;
         }
 
         .auth-box h2 {
             color: var(--enterprise-title) !important;
-            font-size: clamp(32px, 5vw, 48px) !important;
+            font-size: clamp(24px, 4vw, 32px) !important;
             line-height: 1.04 !important;
         }
 
@@ -3745,14 +3767,8 @@ def inject_custom_css() -> None:
         }
 
         [data-testid="stChatInput"] {
-            background: var(--enterprise-bg) !important;
-            border-top: 1px solid var(--enterprise-border) !important;
-            bottom: 0 !important;
-            left: 288px !important;
-            padding: 14px 32px 18px !important;
-            position: fixed !important;
-            right: 0 !important;
-            z-index: 999 !important;
+            background: var(--enterprise-soft) !important;
+            color: var(--enterprise-title) !important;
         }
 
         [data-testid="stChatInput"] > div {
@@ -3854,7 +3870,6 @@ def inject_custom_css() -> None:
             background-size: 32px 32px, 32px 32px, auto, auto !important;
         }
 
-        header[data-testid="stHeader"],
         [data-testid="stToolbar"],
         [data-testid="stDecoration"],
         [data-testid="stStatusWidget"] {
@@ -4211,6 +4226,32 @@ def inject_custom_css() -> None:
             padding: 12px 14px;
         }
 
+        [role="dialog"] {
+            background: var(--enterprise-surface) !important;
+            color: var(--enterprise-title) !important;
+        }
+
+        [data-testid="stSelectbox"] [data-baseweb="select"] > div {
+            background: var(--enterprise-soft) !important;
+            color: var(--enterprise-title) !important;
+        }
+
+        [data-testid="stSelectbox"] [data-baseweb="select"] svg {
+            fill: var(--enterprise-title) !important;
+        }
+
+        section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p,
+        section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] *,
+        [data-testid="stCaptionContainer"] p,
+        [data-testid="stCaptionContainer"] {
+            color: var(--enterprise-muted) !important;
+        }
+
+        [data-testid="stButton"] button p,
+        [data-testid="stFormSubmitButton"] button p {
+            color: inherit !important;
+        }
+
         div[data-testid="stDialog"] div[role="dialog"] {
             animation: enterpriseFadeUp 0.22s ease both;
             background: #0f172a !important;
@@ -4227,13 +4268,6 @@ def inject_custom_css() -> None:
         }
 
         @media (max-width: 768px) {
-            section[data-testid="stSidebar"],
-            [data-testid="stSidebar"] {
-                display: none !important;
-                min-width: 0 !important;
-                width: 0 !important;
-            }
-
             .main .block-container,
             .block-container {
                 padding: 20px 16px 48px !important;
@@ -4421,6 +4455,7 @@ def set_authenticated_user(user: dict, reset_navigation: bool = True) -> None:
     st.session_state.role = user["role"]
     if reset_navigation:
         st.session_state["active_section"] = DEFAULT_SECTION
+        st.session_state.active_project_id = None
 
 
 def clear_authenticated_user() -> None:
@@ -4443,41 +4478,54 @@ def initialize_cookie_manager() -> EncryptedCookieManager:
 
 
 def get_cookie_secret() -> str:
-    return (
-        os.getenv("COOKIE_SECRET_KEY")
-        or os.getenv("COOKIE_PASSWORD")
-        or "a-very-secret-key"
-    )
+    import secrets
+    from pathlib import Path
+    configured = os.getenv("COOKIE_SECRET_KEY") or os.getenv("COOKIE_PASSWORD")
+    if configured and configured not in {"a-very-secret-key", "change-me-cookie-secret"}:
+        return configured
+    secret_file = Path(__file__).with_name(".cookie_secret")
+    import tempfile
+    if secret_file.exists():
+        return secret_file.read_text().strip()
+    with tempfile.NamedTemporaryFile(mode="w", dir=secret_file.parent, delete=False) as handle:
+        temporary = Path(handle.name)
+        handle.write(secrets.token_urlsafe(48))
+        handle.flush()
+        os.fsync(handle.fileno())
+    try:
+        try:
+            os.link(temporary, secret_file)
+        except FileExistsError:
+            pass
+        return secret_file.read_text().strip()
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def restore_authenticated_user_from_cookie(cookies: EncryptedCookieManager) -> None:
-    if st.session_state.get("authenticated"):
-        return
-
-    cookie_user_id = cookies.get(COOKIE_USER_ID_KEY)
-    if not cookie_user_id:
-        return
-
-    try:
-        user = user_store.get_user_by_id(int(cookie_user_id))
-    except (TypeError, ValueError, user_store.UserStoreError):
-        user = None
-
+    token = cookies.get(COOKIE_SESSION_KEY)
+    user = user_store.resolve_session(token) if token else None
     if user is None:
-        cookies[COOKIE_USER_ID_KEY] = ""
-        cookies.save()
+        if st.session_state.get("is_logged_in"):
+            clear_authenticated_user()
         return
-
+    st.session_state["auth_session_token"] = token
     set_authenticated_user(user, reset_navigation=False)
 
 
 def persist_authenticated_user(cookies: EncryptedCookieManager, user: dict) -> None:
-    cookies[COOKIE_USER_ID_KEY] = str(user["id"])
+    token = user_store.create_session(user["id"])
+    cookies[COOKIE_SESSION_KEY] = token
+    cookies[COOKIE_USER_ID_KEY] = ""
+    st.session_state["auth_session_token"] = token
     cookies.save()
 
 
 def clear_authentication_cookie(cookies: EncryptedCookieManager) -> None:
+    user_store.revoke_session(cookies.get(COOKIE_SESSION_KEY))
+    cookies[COOKIE_SESSION_KEY] = ""
     cookies[COOKIE_USER_ID_KEY] = ""
+    st.session_state.pop("auth_session_token", None)
     cookies.save()
 
 
@@ -4955,23 +5003,20 @@ def format_citations(sources: list[str] | None) -> str:
 
 
 def source_labels_from_retrieval(retrieved_chunks: list[dict]) -> list[str]:
-    labels = []
-    for chunk in retrieved_chunks[:4]:
-        metadata = chunk.get("metadata") or {}
-        source = metadata.get("source") or metadata.get("file_name") or metadata.get("document") or "retrieved context"
-        labels.append(str(source))
-    return labels
+    return [format_sources([chunk]).removeprefix("[1] ") for chunk in retrieved_chunks[:4]]
 
 
 def format_chat_bubble(role: str, content: str) -> str:
     row_class = "chat-user" if role == "user" else "chat-assistant"
     bubble_class = "user-msg" if role == "user" else "ai-msg"
     rendered_content = escape(content) if role == "user" else format_message_markdown(content)
-    return f"""
-        <div class="chat-row {row_class}">
-            <div class="chat-bubble {bubble_class}">{rendered_content}</div>
-        </div>
-    """
+    # Keep generated HTML on one line: indented blocks inside the history
+    # wrapper are otherwise interpreted as Markdown code blocks.
+    return (
+        f'<div class="chat-row {row_class}">'
+        f'<div class="chat-bubble {bubble_class}">{rendered_content}</div>'
+        '</div>'
+    )
 
 
 def render_chat_bubble(role: str, content: str) -> None:
@@ -5042,6 +5087,12 @@ def set_active_section(section: str, documents_view: str | None = None) -> str:
     return normalized_section
 
 
+def sync_navigation_selection() -> None:
+    # Widget callbacks run before the next script pass, so manual selection
+    # reaches active_section before the widget is synchronized below.
+    set_active_section(st.session_state["nav_selected"])
+
+
 def get_active_project() -> dict | None:
     if is_guest_user():
         return None
@@ -5072,9 +5123,24 @@ def add_active_project_history(action_type: str, content: str) -> None:
     if active_project is None:
         return
     try:
-        project_store.add_project_history(active_project["id"], action_type, content)
+        project_store.add_project_history(active_project["id"], action_type, content, user_id=get_current_user_id())
     except (ValueError, project_store.ProjectStoreError):
         st.warning("Project history could not be saved.")
+
+
+def sync_project_session() -> None:
+    project = get_active_project()
+    scope = (str(st.session_state.get("user_id")), project["id"] if project else None)
+    if st.session_state.get("loaded_project_scope") != scope:
+        st.session_state.history = []
+        st.session_state.selected_history = None
+        st.session_state.copilot_history = []
+        st.session_state.query = ""
+        for key in ("copilot_pending_prompt", "reports_selected", "upload_page_documents", "document_analysis_upload", "project_review_upload"):
+            st.session_state.pop(key, None)
+        st.session_state.loaded_project_scope = scope
+    if project:
+        st.session_state.history = report_store.list_reports(get_current_user_id(), project["id"])
 
 
 def render_new_project_form() -> None:
@@ -5143,7 +5209,7 @@ def render_projects_list(title: str = "Recent Projects") -> None:
 def render_project_history(project_id: int) -> None:
     st.markdown('<div class="workspace-section-title">History Timeline</div>', unsafe_allow_html=True)
     try:
-        history_items = project_store.list_project_history(project_id)
+        history_items = project_store.list_project_history(project_id, user_id=get_current_user_id())
     except project_store.ProjectStoreError:
         st.error("Could not load project history.")
         return
@@ -5563,6 +5629,8 @@ def render_upload_page() -> None:
             unsafe_allow_html=True,
         )
 
+    reference_edition = st.text_input("Reference edition / volume", placeholder="Enter the actual NCC edition and volume", key="upload_ncc_edition")
+
     file_rows = [
         {
             "File": uploaded_file.name,
@@ -5590,7 +5658,6 @@ def render_upload_page() -> None:
             st.warning("Please upload at least one document first.")
             return
 
-        rag_user_id = str(st.session_state.get("user_id") or "default")
         selected_document_type = None if document_type == "Auto-detect" else document_type.lower()
         indexed_chunks = 0
         failed_files = []
@@ -5610,23 +5677,10 @@ def render_upload_page() -> None:
         for uploaded_file in uploaded_files:
             try:
                 file_bytes = uploaded_file.getvalue()
-                if document_type in {"NCC", "Housing"}:
-                    file_text = extract_uploaded_document_text(uploaded_file.name, file_bytes)
-                    clauses = parse_ncc_clauses(file_text)
-                    documents, metadatas = clauses_to_documents(clauses, uploaded_file.name)
-                    indexed_chunks += add_ncc_documents(
-                        rag_user_id,
-                        documents,
-                        metadatas,
-                        housing=document_type == "Housing",
-                    )
-                else:
-                    chunks = process_document(uploaded_file.name, file_bytes, selected_document_type)
-                    indexed_chunks += add_documents(
-                        rag_user_id,
-                        [chunk["text"] for chunk in chunks],
-                        [chunk["metadata"] for chunk in chunks],
-                    )
+                indexed_chunks += ingest_document(
+                    get_current_user_id(), active_project["id"], uploaded_file.name,
+                    file_bytes, selected_document_type, edition=reference_edition,
+                )
             except Exception as exc:
                 failed_files.append(uploaded_file.name)
                 st.error(f"Could not index {uploaded_file.name}: {exc}")
@@ -5728,6 +5782,37 @@ def render_settings() -> None:
         unsafe_allow_html=True,
     )
     render_subscription_summary()
+    render_ncc_reference_settings()
+
+
+def render_ncc_reference_settings() -> None:
+    st.subheader("Server NCC references")
+    st.caption("Save a server-side PDF/TXT file or directory. Analysis reads matching passages automatically. Your computer's paths cannot be read by this website.")
+    if is_guest_user():
+        st.info("Sign in to save NCC reference settings.")
+        return
+    try:
+        ncc_library.library_root()
+    except ncc_library.NCCReferenceError as exc:
+        st.info(str(exc))
+        return
+    user_id = get_current_user_id()
+    saved = ncc_library.load_reference(user_id) or {}
+    with st.form("ncc_reference_settings"):
+        path = st.text_input("NCC server path", value=saved.get("path", ""), help="Relative to the approved NCC root, or an absolute path inside it. Directories include PDF/TXT files immediately inside them.")
+        edition = st.text_input("NCC edition and volume", value=saved.get("edition", ""), placeholder="For example: NCC 2022 Volume One")
+        st.caption("Relevant excerpts are sent to the configured AI service during analysis. Saving a path alone does not send document contents.")
+        submitted = st.form_submit_button("Save and validate NCC path")
+    if submitted:
+        try:
+            count = ncc_library.save_reference(user_id, path, edition)
+            st.success(f"Saved. {count} reference file(s) available for analysis.")
+        except (ncc_library.NCCReferenceError, OSError) as exc:
+            st.error(str(exc))
+    if saved and st.button("Disable local NCC references", key="clear_ncc_reference"):
+        ncc_library.clear_reference(user_id)
+        st.rerun()
+    st.caption("PDFs must contain selectable text. File changes are detected at the next analysis. No matching passage means this source cannot support the answer.")
 
 
 def render_billing_page() -> None:
@@ -5834,6 +5919,9 @@ def render_reports_page() -> None:
         show_login_modal("Sign in to generate, save, and export reports.")
         st.stop()
 
+    if get_active_project() is None:
+        st.info("Select a project to view its saved reports.")
+        return
     if not st.session_state.history:
         st.markdown(
             """
@@ -5846,7 +5934,7 @@ def render_reports_page() -> None:
         return
 
     report_options = {}
-    for index, entry in enumerate(st.session_state.history[:HISTORY_LIMIT]):
+    for index, entry in enumerate(st.session_state.history):
         label = entry.get("query", "").replace("\n", " ").strip() or "Untitled report"
         if len(label) > 72:
             label = f"{label[:69]}..."
@@ -5856,19 +5944,18 @@ def render_reports_page() -> None:
     selected_entry = st.session_state.history[report_options[selected_label]]
     st.session_state.selected_history = selected_entry
 
-    result_text = str(selected_entry.get("result", ""))
-    summary = result_text[:700] if result_text else "No summary available."
-    clauses = "Review the source output for clause-specific findings." if result_text else "No clauses available."
-    risk = "Risk level depends on the selected report findings." if result_text else "No risk data available."
-    recommendations = "Use the report findings to assign owners, deadlines, and next actions." if result_text else "No recommendations available."
-
-    render_report_section("Summary", summary)
-    render_report_section("Clauses", clauses)
-    render_report_section("Risk", risk)
-    render_report_section("Recommendations", recommendations)
-
-    with st.expander("Full structured output", expanded=False):
-        display_result(selected_entry)
+    st.caption(f"Saved: {selected_entry.get('created_at', '')} · Status: {selected_entry.get('status', 'draft')}")
+    render_report_section("Full analysis", str(selected_entry.get("result", "")))
+    sources = selected_entry.get("sources", [])
+    if sources:
+        st.markdown("### Source snapshots")
+        st.write(format_sources(sources))
+        with st.expander("Evidence saved with this report"):
+            for source in sources:
+                st.write(source.get("metadata", {}))
+                st.text(source.get("text", ""))
+                st.caption(f"Snapshot SHA-256: {source.get('sha256', '')}")
+    render_pdf_download(selected_entry)
 
 
 def render_ai_copilot_panel() -> None:
@@ -5970,7 +6057,8 @@ def render_ai_copilot_panel() -> None:
 
             started_at = time.perf_counter()
             try:
-                response_text = run_engine(user_id, cleaned_input)
+                analysis_payload = run_engine(user_id, cleaned_input, project_id=active_project["id"], return_details=True)
+                response_text = analysis_payload["result"]
             except Exception as exc:
                 response_text = f"Error: {str(exc)}"
             finally:
@@ -5981,16 +6069,17 @@ def render_ai_copilot_panel() -> None:
             if response_text.startswith("Error:"):
                 st.error(response_text)
             else:
-                retrieved_chunks = get_last_retrieval()
+                retrieved_chunks = analysis_payload["sources"]
                 source_labels = source_labels_from_retrieval(retrieved_chunks)
-                payload = {
-                    "category": "copilot",
-                    "confidence": 1.0,
-                    "result": response_text,
-                    "version": VERSION,
-                }
+                payload = analysis_payload
                 display_query = cleaned_input
-                saved_entry = save_history_entry(display_query, "Copilot", payload, elapsed_seconds)
+                try:
+                    saved_entry = save_history_entry(display_query, "Copilot", payload, elapsed_seconds)
+                except Exception:
+                    st.error("Analysis completed, but report storage failed. This draft has not been saved.")
+                    st.text(response_text)
+                    st.download_button("Download unsaved draft", data=response_text, file_name="unsaved-analysis.txt")
+                    return
                 st.session_state.copilot_history.append(
                     {
                         "prompt": display_query,
@@ -6548,11 +6637,6 @@ def render_automation_intelligence() -> None:
             add_active_project_history("automation", f"Automation created: {selected_automation_name}")
 
 
-st.set_page_config(
-    page_title="Gao Intelligence Hub",
-    layout="wide",
-    initial_sidebar_state="auto",
-)
 inject_custom_css()
 initialize_auth_state()
 try:
@@ -6601,10 +6685,11 @@ for key, value in DEFAULTS.items():
         st.session_state[key] = value
 
 prompt_store.initialize_prompt_store()
+sync_project_session()
 
 st.session_state["active_section"] = normalize_section(st.session_state.get("active_section"))
 if st.session_state.get("nav_selected") != st.session_state["active_section"]:
-    st.session_state.pop("nav_selected", None)
+    st.session_state["nav_selected"] = st.session_state["active_section"]
 
 render_auth_header(auth_cookies)
 
@@ -6617,9 +6702,9 @@ with st.sidebar:
         options=navigation_options,
         index=navigation_options.index(st.session_state["active_section"]),
         key="nav_selected",
+        on_change=sync_navigation_selection,
         format_func=lambda option: f"{NAVIGATION_ICONS[option]} {option}",
     )
-    st.session_state["active_section"] = st.session_state["nav_selected"]
 
     if is_guest_user():
         st.caption("Exploring as: Guest")

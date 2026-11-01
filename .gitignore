@@ -15,3 +15,6 @@ templates.db
 memory.db
 chroma_db/
 tmp_chroma_probe/
+ncc_library.db
+reports.db
+.cookie_secret

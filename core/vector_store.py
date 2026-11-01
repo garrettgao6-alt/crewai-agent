@@ -1,3 +1,5 @@
+from contextvars import ContextVar
+from copy import deepcopy
 import hashlib
 import os
 import re
@@ -12,7 +14,7 @@ CHROMA_DB_PATH = os.getenv("CHROMA_DB_PATH", "./chroma_db")
 DEFAULT_USER_ID = "default"
 
 client = None
-last_retrieval: list[dict] = []
+_last_retrieval = ContextVar("last_retrieval", default=None)
 
 
 def _get_client() -> OpenAI:
@@ -60,16 +62,6 @@ def persist() -> None:
         chroma_client.persist()
 
 
-def _fallback_embedding(text: str, dimensions: int = 256) -> np.ndarray:
-    vector = np.zeros(dimensions)
-    words = [word.lower() for word in text.split()]
-    for word in words:
-        digest = hashlib.sha256(word.encode("utf-8")).digest()
-        index = int.from_bytes(digest[:4], "big") % dimensions
-        vector[index] += 1.0
-    return vector
-
-
 def embed_text(text: str) -> np.ndarray:
     try:
         openai_client = _get_client()
@@ -78,8 +70,8 @@ def embed_text(text: str) -> np.ndarray:
             input=text,
         )
         return np.array(response.data[0].embedding)
-    except Exception:
-        return _fallback_embedding(text)
+    except Exception as exc:
+        raise RuntimeError("Embedding service unavailable; indexing/search was not completed. Please retry.") from exc
 
 
 def cosine_sim(a, b) -> float:
@@ -97,7 +89,6 @@ def _document_id(user_id: str, text: str, metadata: dict, index: int) -> str:
 
 
 def clear_store(user_id: str | None = None) -> None:
-    global last_retrieval
     if user_id is not None:
         collection_names = [
             _collection_name(user_id),
@@ -117,13 +108,12 @@ def clear_store(user_id: str | None = None) -> None:
                     get_chroma_client().delete_collection(str(collection_name))
                 except Exception:
                     pass
-    last_retrieval = []
+    _last_retrieval.set([])
     persist()
 
 
 def set_last_retrieval(chunks: list[dict]) -> None:
-    global last_retrieval
-    last_retrieval = chunks
+    _last_retrieval.set(deepcopy(chunks))
 
 
 def add_documents(user_id, chunks, metadatas):
@@ -245,9 +235,9 @@ def search_ncc_chunks(user_id, query, top_k=5, filter_type=None, housing: bool =
 
 
 def retrieve(query, top_k=5, filter_type=None, user_id: str = DEFAULT_USER_ID):
-    global last_retrieval
-    last_retrieval = search_chunks(user_id, query, top_k=top_k, filter_type=filter_type)
-    return last_retrieval
+    chunks = search_chunks(user_id, query, top_k=top_k, filter_type=filter_type)
+    set_last_retrieval(chunks)
+    return chunks
 
 
 def build_context(chunks: list[dict]) -> str:
@@ -271,6 +261,11 @@ def format_sources(chunks: list[dict]) -> str:
         metadata = chunk["metadata"]
         clause = metadata.get("clause")
         source = clause or metadata.get("source", "Unknown source")
+        if metadata.get("reference_kind") in {"server_local_ncc", "project_ncc"}:
+            location = metadata.get("source", "Unknown source")
+            if metadata.get("reference_kind") == "project_ncc" and metadata.get("page"):
+                location += f", p. {metadata['page']}"
+            source = " · ".join(str(value) for value in (metadata.get("code"), location, clause) if value)
         if source in seen:
             continue
         seen.add(source)
@@ -279,4 +274,4 @@ def format_sources(chunks: list[dict]) -> str:
 
 
 def get_last_retrieval() -> list[dict]:
-    return last_retrieval
+    return deepcopy(_last_retrieval.get() or [])
