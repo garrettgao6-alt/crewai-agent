@@ -12,6 +12,8 @@ def app(tmp_path, monkeypatch):
     import template_store
     import user_store
     import subscription_store
+    from core import guest_ai
+    monkeypatch.setattr(guest_ai, "DB_PATH", tmp_path / "guest_ai.db")
 
     for store in (project_store, prompt_store, template_store, user_store, subscription_store):
         monkeypatch.setattr(store, "DB_PATH", tmp_path / f"{store.__name__}.db")
@@ -130,3 +132,18 @@ def test_unavailable_cookie_component_does_not_block_public_demo(app, monkeypatc
     assert not any(field.label == "Password" for field in app.text_input)
     click_label(app, "Close sign-in")
     assert app.session_state["active_section"] == "Dashboard"
+
+
+def test_guest_real_ai_uses_isolated_path_and_saves_actual_output(app, monkeypatch):
+    from core import guest_ai, public_demo
+    def isolated(session, case, workflow, question, delay_days):
+        report = public_demo.analyze(case, workflow, delay_days)
+        report.update(method="public-ai-v1", result="Real isolated AI test output [contract]", ai_tokens=100)
+        return report
+    monkeypatch.setattr(guest_ai, "analyze", isolated)
+    click_label(app, "Open Copilot")
+    click_label(app, "Run real AI analysis")
+    assert app.session_state["public_demo_result"]["method"] == "public-ai-v1"
+    click_label(app, "Save sample report to this session")
+    app.selectbox(key="nav_selected").select("Reports").run()
+    assert any("Real isolated AI test output" in item.value for item in app.text)

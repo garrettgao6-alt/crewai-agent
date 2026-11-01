@@ -5329,7 +5329,7 @@ def render_workspace() -> None:
 
     render_construction_hero(str(username))
     if is_guest_user():
-        st.info("Explore synthetic sample documents, 13 rule-based reviews, scenario calculations and downloadable reports without registration or AI token usage. Private uploads and live AI require sign-in.")
+        st.info("Explore sample documents, free rule-based reviews, or real AI analysis with strict daily request and token budgets. Guest AI uses public synthetic evidence only. Private projects and uploads require sign-in.")
 
     cta_columns = responsive_columns(2)
     with cta_columns[0]:
@@ -5348,7 +5348,7 @@ def render_workspace() -> None:
         ("Compliance Workflows", "7", "NCC, codes, contracts, tender risk"),
         ("Documents Indexed", documents_processed, "This billing period"),
         ("AI Requests", api_requests, "This billing period"),
-        ("Review mode", "Sample" if is_guest_user() else "Live AI", "Synthetic rules, zero tokens" if is_guest_user() else "Uses project evidence and account quota"),
+        ("Review mode", "Sample" if is_guest_user() else "Live AI", "Free rules; capped public AI" if is_guest_user() else "Uses project evidence and account quota"),
     ]
     for column, (label, value, note) in zip(metric_columns, metrics):
         with column:
