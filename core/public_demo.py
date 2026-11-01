@@ -8,7 +8,7 @@ from hashlib import sha256
 import json
 
 NOTICE = (
-    "SYNTHETIC DEMO ONLY. Rule-based sample analysis; no AI model was called. "
+    "SYNTHETIC DEMO ONLY. "
     "These documents are invented, not NCC text or legal/compliance advice. "
     "No customer data, server references or credentials are accessed."
 )
@@ -77,7 +77,7 @@ def analyze(case: str, workflow: str, delay_days: int = 7) -> dict:
         "Sales Intelligence": ("market",), "Financial Analysis": ("financial",),
         "Business Planning": ("financial", "programme", "market"),
     }
-    result = "\n\n".join([NOTICE, f"{case} | {workflow}"] + [findings[key] for key in selections[workflow]])
+    result = "\n\n".join([NOTICE, "Rule-based sample analysis; no AI model was called.", f"{case} | {workflow}"] + [findings[key] for key in selections[workflow]])
     return deepcopy({"case": case, "workflow": workflow, "delay_days": delay_days,
                      "result": result, "sources": documents(case), "ai_tokens": 0,
                      "calculation": {"lead_gap_weeks": gap, "gross_margin": margin, "delay_exposure": exposure},
@@ -87,4 +87,9 @@ def analyze(case: str, workflow: str, delay_days: int = 7) -> dict:
 def export_report(report: dict) -> str:
     """Recompute from allowlisted inputs; ignore injected result/source fields."""
     clean = analyze(report["case"], report["workflow"], report["delay_days"])
+    if report.get("method") == "public-ai-v1":
+        # Output is the session-held provider response; evidence is always rebuilt.
+        clean.update(result=str(report.get("result", ""))[:16500], method="public-ai-v1",
+                     model="gpt-4o-mini", ai_tokens=report.get("ai_tokens"),
+                     reserved_tokens=report.get("reserved_tokens"), question=str(report.get("question", ""))[:800])
     return json.dumps(clean, indent=2)
