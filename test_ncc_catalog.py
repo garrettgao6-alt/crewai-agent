@@ -127,7 +127,7 @@ def test_missing_project_context_asks_before_model_execution(root, tmp_path, mon
     assert result['sources'] == []
 
 
-def test_full_clause_continuation_and_housing_cross_reference(root):
+def test_full_clause_continuation_and_housing_cross_reference(root, monkeypatch):
     def make(kind, pages):
         buf=BytesIO(); canvas=Canvas(buf)
         for lines in [['2025 '+kind]] + pages:
@@ -140,6 +140,11 @@ def test_full_clause_continuation_and_housing_cross_reference(root):
     hits=library.search_local_references('alice','NCC fire separation external walls',context={'building_class':'1a','jurisdiction':'VIC'})
     assert any('CONTINUATION_START' in hit['text'] and 'CONTINUATION_END' in hit['text'] for hit in hits)
     assert any(hit['metadata']['selection_reason']=='cross-reference' for hit in hits)
+    from core import retriever
+    monkeypatch.setattr(retriever, 'retrieve', lambda *a, **kw: [])
+    preserved= retriever.retrieve_multi('owned_scope','NCC fire separation external walls',top_k=1,reference_user_id='alice',reference_context={'building_class':'1a','jurisdiction':'VIC'})
+    assert len(preserved) > 1
+    assert any('CONTINUATION_END' in hit['text'] for hit in preserved)
     with __import__('sqlite3').connect(Path(result['path'])/'.ncc-index.sqlite3') as connection:
         assert connection.execute('SELECT count(*) FROM pages').fetchone()[0] == 7
 
