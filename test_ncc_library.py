@@ -93,7 +93,7 @@ def test_reference_settings_form_saves_a_path(references):
 
     tree = ast.parse(Path("streamlit_app.py").read_text())
     function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "render_ncc_reference_settings")
-    source = "import streamlit as st\nfrom core import ncc_library\ndef is_guest_user(): return False\ndef get_current_user_id(): return 'alice'\n"
+    source = "import streamlit as st\nfrom core import ncc_library\ndef is_guest_user(): return False\ndef get_current_user_id(): return 'alice'\ndef get_active_project(): return None\n"
     source += ast.unparse(function) + "\nrender_ncc_reference_settings()\n"
     app = AppTest.from_string(source).run()
     assert not app.exception

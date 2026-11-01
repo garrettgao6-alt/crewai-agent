@@ -5862,6 +5862,8 @@ def render_ncc_reference_settings() -> None:
         ncc_library.clear_reference(user_id)
         st.rerun()
     st.caption("PDFs must contain selectable text. File changes are detected at the next analysis. No matching passage means this source cannot support the answer.")
+    from ncc_library_ui import render_private_library_controls
+    render_private_library_controls(user_id, get_active_project())
 
 
 def render_billing_page() -> None:

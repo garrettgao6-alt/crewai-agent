@@ -3,7 +3,7 @@ import json
 
 from openai import OpenAI
 
-from core.ncc_library import search_local_references
+from core.ncc_library import search_local_references, has_catalog
 
 from core.vector_store import (
     build_context,
@@ -20,7 +20,7 @@ def _get_client() -> OpenAI:
 
 def is_regulatory_query(query: str) -> bool:
     query_lower = query.lower()
-    return any(term in query_lower for term in ["ncc", "compliance", "code", "合规", "规范", "防火", "住宅"])
+    return any(term in query_lower for term in ["ncc", "compliance", "code", "合规", "规范", "防火", "住宅", "fire resistance", "egress", "stair", "waterproof", "ventilation", "building class", "energy efficiency", "balustrade", "楼梯", "疏散", "防水", "通风"])
 
 
 def infer_regulatory_filter(query: str) -> str | None:
@@ -83,20 +83,27 @@ def _dedupe_chunks(chunks: list[dict]) -> list[dict]:
     return unique_chunks
 
 
-def retrieve_multi(user_id, query=None, top_k=5, filter_type=None, reference_user_id=None):
+def retrieve_multi(user_id, query=None, top_k=5, filter_type=None, reference_user_id=None, reference_context=None):
     if query is None:
         query = user_id
         user_id = "default"
 
     if is_regulatory_query(query):
-        local_chunks = search_local_references(reference_user_id or user_id, query, top_k=top_k)
-        regulatory = search_ncc_chunks(
+        local_chunks = search_local_references(reference_user_id or user_id, query, top_k=top_k, context=reference_context)
+        catalog_active = has_catalog(reference_user_id or user_id)
+        regulatory = [] if catalog_active else search_ncc_chunks(
             user_id, query, top_k=top_k, housing=is_housing_query(query),
         )
         project_chunks = retrieve(query, top_k=top_k, user_id=user_id)
-        references = rerank(query, _dedupe_chunks(local_chunks + regulatory))
+        if catalog_active:
+            project_chunks = [chunk for chunk in project_chunks if (chunk.get("metadata") or {}).get("reference_kind") != "project_ncc" and (chunk.get("metadata") or {}).get("type") not in {"ncc", "housing"}]
+        references = _dedupe_chunks(local_chunks) if catalog_active else rerank(query, _dedupe_chunks(local_chunks + regulatory))
         # Reserve room for project evidence as well as the code provisions.
-        if references and project_chunks and top_k > 1:
+        if catalog_active:
+            # The catalog already bounds complete sections and their linked provisions.
+            # Do not truncate those expansions back to the initial search hit count.
+            ranked = _dedupe_chunks(references + project_chunks[:1])
+        elif references and project_chunks and top_k > 1:
             ranked = _dedupe_chunks(references[:top_k - 1] + project_chunks[:1])
         else:
             ranked = _dedupe_chunks(references + project_chunks)[:top_k]

@@ -16,7 +16,7 @@ load_dotenv(ROOT/'.env')
 import requests
 import user_store, project_store, report_store
 from core.ingestion import ingest_document
-from core import vector_store
+from core import vector_store, ncc_library
 
 run_id=uuid4().hex[:10]
 users=[]
@@ -33,6 +33,7 @@ try:
         username=f'releasecheck_{run_id}_{label}'
         user=user_store.create_user(username,f'{username}@example.test',password)
         users.append((user,password))
+        ncc_library.clear_reference(user["id"])  # Canary uses its own synthetic project references.
         assert user_store.authenticate_user(username,password)['id']==user['id']
         assert user_store.authenticate_user(username,'incorrect-password') is None
     checks['real_password_login']=True

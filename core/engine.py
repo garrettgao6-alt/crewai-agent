@@ -14,6 +14,8 @@ from core.skills import format_skill_context
 from core.retriever import is_regulatory_query
 from core.vector_store import format_sources
 import project_store
+from core import ncc_library
+from core.ncc_catalog import NCCContextRequired
 import hashlib
 import json
 
@@ -35,14 +37,25 @@ def run_engine(user_id, prompt, document_text=None, *, project_id=None, return_d
     scope = project_store.document_scope(user_id, project_id) if project_id is not None else str(user_id)
     history = memory.get(scope)
     tasks = plan_tasks(prompt)
-    retrieved_chunks = (
-        retrieve_multi(scope, prompt, reference_user_id=user_id)
+    reference_context = ncc_library.load_project_context(user_id, project_id) if project_id is not None else {}
+    try:
+        retrieved_chunks = (
+        retrieve_multi(scope, prompt, reference_user_id=user_id, reference_context=reference_context)
         if project_id is not None else retrieve_multi(scope, prompt)
-    )
+        )
+    except NCCContextRequired as exc:
+        result = "NCC project context required: " + str(exc)
+        payload = {"result": result, "sources": [], "category": "copilot", "version": "2.0", "status": "context_required"}
+        return payload if return_details else result
+    coverage_warnings = sorted({warning for chunk in retrieved_chunks for warning in (chunk.get("metadata") or {}).get("coverage_warnings", [])})
     skill_chain = plan_skills(prompt, is_rag_response=bool(retrieved_chunks))
     clauses = chunks_to_clauses(retrieved_chunks)
     reasoning_prompt = build_reasoning_prompt(prompt, clauses)
     reasoning_prompt = f"{reasoning_prompt}{format_skill_context(skill_chain)}"
+    reasoning_prompt += "\nProject NCC context: " + json.dumps(reference_context) + "\nKeep NCC editions and volumes distinct. When catalog references are present, use them as code authorities; other project documents describe project facts and must not override code requirements. Cite filename, PDF page and clause. Do not infer state adoption or approval-date applicability from the current year. If evidence or project context is missing, ask for it."
+
+    if coverage_warnings:
+        reasoning_prompt += "\nEvidence coverage warnings: " + json.dumps(coverage_warnings) + "\nDo not claim a complete compliance assessment when references or full external standards remain unresolved."
 
     if document_text:
         reasoning_prompt = f"{reasoning_prompt}\n\nAdditional document text:\n{document_text}"
@@ -86,6 +99,9 @@ def run_engine(user_id, prompt, document_text=None, *, project_id=None, return_d
             "recommendations": "Human review required before any compliance or commercial decision.",
         }
     )
+
+    if coverage_warnings:
+        final_output += "\n\nEvidence coverage limitations\n" + "\n".join(coverage_warnings)
 
     sources = []
     for chunk in retrieved_chunks:
