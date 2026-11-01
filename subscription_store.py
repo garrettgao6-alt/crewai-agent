@@ -1,4 +1,5 @@
 from __future__ import annotations
+from core.storage_lock import Connection as SnapshotConnection
 
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -53,7 +54,7 @@ PLAN_CATALOG = {
 
 
 def get_connection() -> sqlite3.Connection:
-    connection = sqlite3.connect(DB_PATH)
+    connection = sqlite3.connect(DB_PATH, factory=SnapshotConnection)
     connection.row_factory = sqlite3.Row
     return connection
 

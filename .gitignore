@@ -21,3 +21,6 @@ reports.db
 
 guest_ai_budget.db
 guest_ai_budget.db-*
+
+.snapshot.lock
+private_ai.db*

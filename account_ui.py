@@ -11,7 +11,7 @@ def render_recovery():
         send = st.form_submit_button('Send verification code')
     if send:
         try:
-            st.success(account_recovery.request_code(email))
+            st.success(account_recovery.request_code(email,source=source_id()))
         except (ValueError, user_store.UserStoreError) as exc:
             st.error(str(exc))
     with st.form('reset_password_with_code', clear_on_submit=True):
@@ -48,3 +48,32 @@ def render_username_settings(user):
         except (ValueError, user_store.UserStoreError) as exc:
             st.error(str(exc))
     return None
+
+
+def source_id():
+    import secrets
+    try:
+        address=st.context.headers.get('X-Real-Ip')
+        if address:return address
+    except (AttributeError,RuntimeError):pass
+    if 'auth_source_id' not in st.session_state:st.session_state['auth_source_id']=secrets.token_hex(24)
+    return st.session_state['auth_source_id']
+
+
+def render_activation():
+    st.caption('Verify your email before signing in. Existing accounts keep their current access.')
+    with st.form('verify_account_email',clear_on_submit=True):
+        email=st.text_input('Registration email',max_chars=254)
+        code=st.text_input('Account activation code',max_chars=8)
+        verify=st.form_submit_button('Verify account email')
+    if verify:
+        try:
+            account_recovery.activate_account(email,code)
+            st.success('Email verified. You can now sign in.')
+        except ValueError as exc:st.error(str(exc))
+    with st.form('resend_activation'):
+        email=st.text_input('Registration email for resend',max_chars=254)
+        resend=st.form_submit_button('Resend activation code')
+    if resend:
+        try:st.success(account_recovery.request_code(email,source=source_id(),purpose='activate'))
+        except (ValueError,user_store.UserStoreError) as exc:st.error(str(exc))

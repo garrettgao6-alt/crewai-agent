@@ -1,3 +1,4 @@
+from core.storage_lock import Connection as SnapshotConnection
 """Project-authorized, append-only report snapshots."""
 import json
 import sqlite3
@@ -10,24 +11,24 @@ DB_PATH = Path(__file__).with_name("reports.db")
 
 
 def _connect():
-    connection = sqlite3.connect(DB_PATH, timeout=30)
+    connection = sqlite3.connect(DB_PATH, timeout=30, factory=SnapshotConnection)
     connection.row_factory = sqlite3.Row
     connection.execute("CREATE TABLE IF NOT EXISTS reports (id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, project_id INTEGER NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL)")
     connection.execute("CREATE INDEX IF NOT EXISTS reports_scope ON reports(user_id,project_id,created_at)")
     return connection
 
 
-def save_report(user_id, project_id, entry):
+def save_report(user_id, project_id, entry, *, report_id=None):
     project_store.require_project_access(user_id, project_id)
     payload = dict(entry)
-    payload.update(id=uuid4().hex, user_id=int(user_id), project_id=int(project_id), created_at=datetime.now(timezone.utc).isoformat())
+    payload.update(id=report_id or uuid4().hex, user_id=int(user_id), project_id=int(project_id), created_at=datetime.now(timezone.utc).isoformat())
     connection = _connect()
     try:
         with connection:
-            connection.execute("INSERT INTO reports VALUES (?,?,?,?,?)", (payload['id'], int(user_id), int(project_id), payload['created_at'], json.dumps(payload, ensure_ascii=False)))
+            connection.execute("INSERT OR IGNORE INTO reports VALUES (?,?,?,?,?)", (payload['id'], int(user_id), int(project_id), payload['created_at'], json.dumps(payload, ensure_ascii=False)))
     finally:
         connection.close()
-    return payload
+    return get_report(user_id, project_id, payload["id"])
 
 
 def list_reports(user_id, project_id, limit=100):

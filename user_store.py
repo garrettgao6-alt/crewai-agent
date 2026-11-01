@@ -1,4 +1,5 @@
 from __future__ import annotations
+from core.storage_lock import Connection as SnapshotConnection
 
 import sqlite3
 import hashlib
@@ -29,7 +30,7 @@ class UserStoreError(RuntimeError):
 
 
 def get_connection() -> sqlite3.Connection:
-    connection = sqlite3.connect(DB_PATH)
+    connection = sqlite3.connect(DB_PATH, timeout=10, factory=SnapshotConnection)
     connection.row_factory = sqlite3.Row
     return connection
 
@@ -94,6 +95,7 @@ def initialize_user_store() -> None:
                 WHERE provider_user_id IS NOT NULL
                 """
             )
+            _ensure_column(connection, "users", "email_verified", "INTEGER NOT NULL DEFAULT 1")
             bootstrap_admin_user(connection)
     except sqlite3.Error as exc:
         raise UserStoreError("Could not initialize user database.") from exc
@@ -113,7 +115,7 @@ def _ensure_column(connection: sqlite3.Connection, table_name: str, column_name:
         connection.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}")
 
 
-def get_max_users(default: int = 3) -> int:
+def get_max_users(default: int = 0) -> int:
     raw_value = os.getenv("MAX_USERS", str(default)).strip()
     try:
         max_users = int(raw_value)
@@ -216,7 +218,7 @@ def bootstrap_admin_user(connection: sqlite3.Connection) -> None:
     _insert_user(connection, admin_username, admin_email, admin_password, "Admin")
 
 
-def create_user(username: str, email: str, password: str, role: str = "User") -> dict:
+def create_user(username: str, email: str, password: str, role: str = "User", *, require_verification=False) -> dict:
     clean_username = username.strip()
     clean_email = email.strip().lower()
     clean_role = "Admin" if role == "Admin" else "User"
@@ -225,8 +227,8 @@ def create_user(username: str, email: str, password: str, role: str = "User") ->
         raise ValueError("Username is required.")
     if not clean_email or "@" not in clean_email:
         raise ValueError("A valid email is required.")
-    if len(password) < 8:
-        raise ValueError("Password must be at least 8 characters.")
+    if not 8 <= len(password) <= 256:
+        raise ValueError("Password must contain 8–256 characters.")
 
     max_users = get_max_users()
     if not can_create_user(max_users):
@@ -247,7 +249,11 @@ def create_user(username: str, email: str, password: str, role: str = "User") ->
             if existing_user is not None:
                 raise ValueError("Username or email already exists.")
 
-            return _insert_user(connection, clean_username, clean_email, password, clean_role)
+            user = _insert_user(connection, clean_username, clean_email, password, clean_role)
+            if require_verification:
+                connection.execute('UPDATE users SET is_active=0,email_verified=0 WHERE id=?',(user['id'],))
+                user.update(is_active=0,email_verified=0)
+            return user
     except sqlite3.IntegrityError as exc:
         raise ValueError("Username or email already exists.") from exc
     except sqlite3.Error as exc:
@@ -324,13 +330,18 @@ def _insert_user(
     }
 
 
-def authenticate_user(identifier: str, password: str) -> dict | None:
+def authenticate_user(identifier: str, password: str, *, source="local") -> dict | None:
     clean_identifier = identifier.strip().lower()
-    if not clean_identifier or not password:
+    if not clean_identifier or not password or len(clean_identifier)>254 or len(password)>256:
         return None
 
     try:
         with get_connection() as connection:
+            import account_security
+            account_security.schema(connection)
+            connection.execute('BEGIN IMMEDIATE')
+            if not account_security.allowed(connection,'login',clean_identifier,source):
+                return None
             user_row = connection.execute(
                 """
                 SELECT *
@@ -351,6 +362,7 @@ def authenticate_user(identifier: str, password: str) -> dict | None:
                 return None
 
             last_login_at = utc_now()
+            connection.execute("DELETE FROM auth_attempts WHERE kind='login' AND subject=?",(account_security.fingerprint(clean_identifier),))
             connection.execute(
                 "UPDATE users SET last_login_at = ? WHERE id = ?",
                 (last_login_at, user["id"]),
