@@ -16,6 +16,7 @@ bearer = HTTPBearer(auto_error=False)
 class AnalyzeRequest(BaseModel):
     query: str = Field(min_length=1, max_length=30000)
     project_id: int = Field(gt=0)
+    request_id: str = Field(default_factory=lambda: __import__("uuid").uuid4().hex, min_length=8, max_length=128)
 
     @field_validator("query")
     @classmethod
@@ -57,18 +58,22 @@ def health():
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(request: AnalyzeRequest, user=Depends(authenticated_user)):
     authorize_project(user, request.project_id)
+    from analysis_service import analyze as execute, AnalysisBusy, AnalysisFailed
+    from core.private_ai import BudgetError
     try:
-        subscription_store.increment_ai_request(user['id'])
+        return execute(user['id'],request.project_id,request.query,request.request_id)
+    except BudgetError as exc:
+        raise HTTPException(429,str(exc))
     except PermissionError as exc:
-        raise HTTPException(429, str(exc))
-    from core.engine import run_engine
-    try:
-        payload = run_engine(str(user['id']), request.query.strip(), project_id=request.project_id, return_details=True)
-        return report_store.save_report(user['id'], request.project_id, {**payload, "query": request.query, "mode": "Copilot"})
-    except PermissionError:
-        raise HTTPException(404, "Project not found.")
+        raise HTTPException(429,str(exc))
+    except ValueError as exc:
+        raise HTTPException(409,str(exc))
+    except AnalysisBusy as exc:
+        raise HTTPException(409,str(exc))
+    except AnalysisFailed as exc:
+        raise HTTPException(502,str(exc))
     except Exception:
-        raise HTTPException(502, "Analysis failed. No report was saved; please retry.")
+        raise HTTPException(502,"Analysis failed. Retry the same request ID to check its result before starting new work.")
 
 
 @app.get("/projects/{project_id}/reports")

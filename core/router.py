@@ -20,7 +20,8 @@ FALLBACK_MAPPING = {
 
 
 def _get_client() -> OpenAI:
-    return OpenAI()
+    from core.private_ai import client
+    return client(OpenAI)
 
 
 def init_vectors() -> bool:
@@ -52,6 +53,8 @@ def _fallback_route_task(task: str) -> str:
 
 
 def route_task(task: str) -> str:
+    if task.strip().lower() in FALLBACK_MAPPING:
+        return _fallback_route_task(task)
     if not init_vectors():
         return _fallback_route_task(task)
 

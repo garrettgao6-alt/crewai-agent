@@ -35,6 +35,15 @@ switched=false
 success=false
 restart_previous() {
     if [ "$switched" = true ]; then
+        if [ -f "$backup_dir/environment-changes.json" ]; then
+            "$app/venv/bin/python" - "$app/.env" "$backup_dir/environment-changes.json" <<'PYENV'
+import json,sys
+from dotenv import set_key,unset_key
+for key,value in json.load(open(sys.argv[2])).items():
+    if value is None:unset_key(sys.argv[1],key)
+    else:set_key(sys.argv[1],key,value)
+PYENV
+        fi
         systemctl stop crewai garrett-api 2>/dev/null || true
         python3 - "$app" "$backup_dir" <<'PY'
 import json,shutil,sys
@@ -72,62 +81,26 @@ finish() {
     exit "$code"
 }
 trap finish EXIT
-if [ "${#active_services[@]}" -gt 0 ]; then systemctl stop "${active_services[@]}"; fi
-stopped=true
-"$app/venv/bin/python" - "$app" "$backup_dir" <<'PY'
-import hashlib,json,os,sqlite3,sys,tarfile
-from pathlib import Path
-from dotenv import dotenv_values
-app,backup=map(Path,sys.argv[1:])
-env={**dotenv_values(app/'.env'),**os.environ}
-external=[]
-for key in ('NCC_DOCUMENT_ROOT','CHROMA_DB_PATH','COPILOT_MEMORY_DB'):
-    value=env.get(key)
-    if value:
-        path=Path(value).expanduser()
-        path=(app/path).resolve() if not path.is_absolute() else path.resolve()
-        if not path.is_relative_to(app) and path.exists(): external.append(path)
-for database in app.glob('*.db'):
-    connection=sqlite3.connect(f'file:{database}?mode=ro',uri=True)
-    try:
-        if connection.execute('PRAGMA quick_check').fetchone()[0]!='ok': raise RuntimeError('Database integrity check failed')
-    finally: connection.close()
-excluded={'.git','venv','.venv','__pycache__','.pytest_cache','node_modules'}
-def keep(info):
-    return None if any(part in excluded for part in Path(info.name).parts) else info
-archive=backup/'application-and-data.tar.gz'
-with tarfile.open(archive,'w:gz') as tar:
-    tar.add(app,arcname='crewai-agent',filter=keep)
-    for index,path in enumerate(dict.fromkeys(external)):
-        tar.add(path,arcname=f'external/{index}/{path.name}',filter=keep)
-with tarfile.open(archive,'r:gz') as tar:
-    members=tar.getmembers()
-    if not any(member.name.endswith('streamlit_app.py') for member in members): raise RuntimeError('Backup code missing')
-    for member in members:
-        if member.isfile():
-            handle=tar.extractfile(member)
-            while handle.read(1024*1024): pass
-digest=hashlib.sha256()
-with archive.open('rb') as handle:
-    for block in iter(lambda:handle.read(1024*1024),b''): digest.update(block)
-manifest={'archive':archive.name,'sha256':digest.hexdigest(),'external_paths':[str(p) for p in external],'members':len(members)}
-(backup/'manifest.json').write_text(json.dumps(manifest,indent=2))
-print('BACKUP_VERIFIED',str(backup),'sha256='+manifest['sha256'])
-PY
+backup_helper="$app/deploy/online_backup.py"
+if [ "$mode" = deploy ]; then
+    [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+    release="/root/gao-releases/$target"
+    mkdir -p "$release/source"
+    curl --fail --location --retry 2 "https://codeload.github.com/garrettgao6-alt/crewai-agent/tar.gz/$target" -o "$release/source.tar.gz"
+    tar -xzf "$release/source.tar.gz" --strip-components=1 -C "$release/source"
+    backup_helper="$release/source/deploy/online_backup.py"
+fi
+"$app/venv/bin/python" "$backup_helper" "$app" "$backup_dir"
 restart_previous
 stopped=false
 printf '%s\n' "$backup_dir" > /root/gao-latest-verified-backup
 if [ "$mode" = backup ]; then
     success=true
-    echo 'BACKUP_ONLY_COMPLETE; existing application restarted; webhook paused until release.'
+    echo 'BACKUP_ONLY_COMPLETE; application stayed online; webhook paused until release.'
     exit 0
 fi
 [ "$mode" = deploy ]
 [[ "$target" =~ ^[0-9a-f]{40}$ ]]
-release="/root/gao-releases/$target"
-mkdir -p "$release/source"
-curl --fail --location --retry 2 "https://codeload.github.com/garrettgao6-alt/crewai-agent/tar.gz/$target" -o "$release/source.tar.gz"
-tar -xzf "$release/source.tar.gz" --strip-components=1 -C "$release/source"
 new_runtime="$release/venv"
 python3 -m venv "$new_runtime"
 # Stage runtime while the old application stays up, without mutating its venv.
@@ -145,7 +118,7 @@ try:
     result = client.embeddings.create(model='text-embedding-3-large', input='Deployment readiness check')
     if not result.data or not result.data[0].embedding:
         raise RuntimeError('Empty embedding response')
-    result = client.responses.create(model=os.getenv('OPENAI_REASONING_MODEL', 'gpt-4o-mini'), input='Reply OK.', max_output_tokens=16)
+    result = client.responses.create(model=os.getenv('OPENAI_REASONING_MODEL', 'gpt-4o-mini'), input='Reply OK.', max_output_tokens=16, store=False)
     if not result.output_text:
         raise RuntimeError('Empty model response')
 except Exception as exc:
@@ -206,12 +179,19 @@ cat > /etc/systemd/system/garrett-api.service.d/90-gao-release.conf <<EOF
 ExecStart=
 ExecStart=$new_runtime/bin/uvicorn api:app --host 127.0.0.1 --port 8000
 EOF
-"$new_runtime/bin/python" - "$app" <<'PYCONF'
+"$new_runtime/bin/python" - "$app" "$backup_dir" <<'PYCONF'
 import sys
 from pathlib import Path
 from dotenv import dotenv_values,set_key
 app=Path(sys.argv[1])
 envfile=app/'.env'
+import json
+previous=dotenv_values(envfile)
+changes={}
+if previous.get('MAX_USERS') in (None,'3'):
+    changes['MAX_USERS']=previous.get('MAX_USERS')
+    (Path(sys.argv[2])/'environment-changes.json').write_text(json.dumps(changes))
+    set_key(str(envfile),'MAX_USERS','0')
 if not dotenv_values(envfile).get('NCC_DOCUMENT_ROOT'):
     root=Path('/srv/gaointelligence/ncc')
     root.mkdir(parents=True,exist_ok=True,mode=0o700)

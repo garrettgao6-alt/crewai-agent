@@ -1,4 +1,5 @@
 from __future__ import annotations
+from core.storage_lock import Connection as SnapshotConnection
 
 import sqlite3
 from pathlib import Path
@@ -626,7 +627,7 @@ Provide:
 
 
 def get_connection(db_path: Path = DB_PATH) -> sqlite3.Connection:
-    connection = sqlite3.connect(db_path)
+    connection = sqlite3.connect(db_path, factory=SnapshotConnection)
     connection.row_factory = sqlite3.Row
     return connection
 

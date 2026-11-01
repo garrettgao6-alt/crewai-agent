@@ -147,3 +147,25 @@ def test_guest_real_ai_uses_isolated_path_and_saves_actual_output(app, monkeypat
     click_label(app, "Save sample report to this session")
     app.selectbox(key="nav_selected").select("Reports").run()
     assert any("Real isolated AI test output" in item.value for item in app.text)
+
+
+def test_public_registration_requires_email_activation_before_login(app,monkeypatch):
+    import account_recovery,user_store
+    sent=[]
+    monkeypatch.setattr(account_recovery,'delivery_ready',lambda:True)
+    monkeypatch.setattr(account_recovery,'_send',lambda email,code,**kwargs:sent.append(code))
+    click_label(app,'Login / Sign Up')
+    app.text_input(key='auth_create_username').set_value('verified_signup')
+    app.text_input(key='auth_create_email').set_value('signup@example.test')
+    app.text_input(key='auth_create_password').set_value('Signup-test-password')
+    app.text_input(key='auth_create_confirm_password').set_value('Signup-test-password')
+    click_label(app,'Register')
+    assert not app.session_state['is_logged_in'] and len(sent)==1
+    assert user_store.authenticate_user('verified_signup','Signup-test-password') is None
+    next(field for field in app.text_input if field.label=='Registration email').set_value('signup@example.test')
+    next(field for field in app.text_input if field.label=='Account activation code').set_value(sent[0])
+    click_label(app,'Verify account email')
+    app.text_input(key='auth_sign_in_identifier').set_value('verified_signup')
+    app.text_input(key='auth_sign_in_password').set_value('Signup-test-password')
+    click_label(app,'Sign In')
+    assert app.session_state['is_logged_in']

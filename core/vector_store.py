@@ -1,3 +1,5 @@
+from core.storage_lock import snapshot_writer
+from core.private_ai import project_scope
 from contextvars import ContextVar
 from copy import deepcopy
 import hashlib
@@ -18,7 +20,8 @@ _last_retrieval = ContextVar("last_retrieval", default=None)
 
 
 def _get_client() -> OpenAI:
-    return OpenAI()
+    from core.private_ai import client
+    return client(OpenAI)
 
 
 def get_chroma_client():
@@ -88,6 +91,7 @@ def _document_id(user_id: str, text: str, metadata: dict, index: int) -> str:
     return f"id_{digest[:24]}"
 
 
+@snapshot_writer
 def clear_store(user_id: str | None = None) -> None:
     if user_id is not None:
         collection_names = [
@@ -116,6 +120,8 @@ def set_last_retrieval(chunks: list[dict]) -> None:
     _last_retrieval.set(deepcopy(chunks))
 
 
+@project_scope
+@snapshot_writer
 def add_documents(user_id, chunks, metadatas):
     if not chunks:
         return 0
@@ -137,6 +143,8 @@ def add_documents(user_id, chunks, metadatas):
     return len(chunks)
 
 
+@project_scope
+@snapshot_writer
 def add_ncc_documents(user_id, chunks, metadatas, housing: bool = False):
     if not chunks:
         return 0
@@ -183,6 +191,7 @@ def _results_to_chunks(results: dict) -> list[dict]:
     return chunks
 
 
+@project_scope
 def search(user_id, query, top_k=5, filter_type=None):
     collection = get_collection(str(user_id))
     if collection.count() == 0:
@@ -200,6 +209,7 @@ def search(user_id, query, top_k=5, filter_type=None):
     return results["documents"][0] if results.get("documents") else []
 
 
+@project_scope
 def search_chunks(user_id, query, top_k=5, filter_type=None):
     collection = get_collection(str(user_id))
     if collection.count() == 0:
@@ -217,6 +227,7 @@ def search_chunks(user_id, query, top_k=5, filter_type=None):
     return _results_to_chunks(results)
 
 
+@project_scope
 def search_ncc_chunks(user_id, query, top_k=5, filter_type=None, housing: bool = False):
     collection = get_ncc_collection(str(user_id), housing=housing)
     if collection.count() == 0:

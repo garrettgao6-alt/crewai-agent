@@ -1947,53 +1947,28 @@ Compliance reminders:
 
 
 def run_fast_mode(query: str) -> dict:
-    from crewai import Crew, Task
-
-    import intelligent_gateway
-
-    task = Task(
-        description=query,
-        expected_output="A professional detailed response.",
-        agent=intelligent_gateway.writer_agent,
-    )
-    crew = Crew(
-        agents=[intelligent_gateway.writer_agent],
-        tasks=[task],
-        verbose=True,
-    )
-
-    try:
-        result = crew.kickoff()
-    except Exception:
-        return {
-            "category": "writing",
-            "confidence": 1.0,
-            "result": "Gateway execution failed: unable to reach the LLM provider. Please try again later.",
-            "version": VERSION,
-        }
-
-    try:
-        output = result.raw
-    except AttributeError:
-        output = str(result)
-
-    return {
-        "category": "writing",
-        "confidence": 1.0,
-        "result": output,
-        "version": VERSION,
-    }
+    # Both modes use the same authorization, evidence, budgets and saved report.
+    return run_advanced_mode(query)
 
 
 def run_advanced_mode(query: str) -> dict:
-    response = requests.post(
-        API_URL,
-        json={"query": query, "project_id": get_active_project()["id"]},
-        headers={"Authorization": f"Bearer {st.session_state.get('auth_session_token', '')}"},
-        timeout=REQUEST_TIMEOUT_SECONDS,
-    )
-    response.raise_for_status()
-    return response.json()
+    import uuid
+    project=get_active_project()
+    signature=(get_current_user_id(),project["id"],query.strip())
+    pending=st.session_state.get("pending_analysis_request")
+    if not pending or pending["signature"]!=signature:
+        pending={"signature":signature,"id":uuid.uuid4().hex}
+        st.session_state["pending_analysis_request"]=pending
+    from analysis_service import analyze, AnalysisBusy
+    try:
+        result=analyze(get_current_user_id(),project["id"],query,pending["id"])
+    except AnalysisBusy as exc:
+        raise requests.exceptions.RequestException(str(exc)) from None
+    except Exception:
+        st.session_state.pop('pending_analysis_request',None)
+        raise requests.exceptions.RequestException('Analysis could not complete. Check project context, account budget, and service availability before retrying.') from None
+    st.session_state.pop('pending_analysis_request',None)
+    return result
 
 
 def run_copilot_request(user_input: str, user_id: str = "default") -> str:
@@ -2024,6 +1999,15 @@ def save_history_entry(
     elapsed_seconds: float,
     metadata: dict | None = None,
 ) -> dict:
+    if payload.get("status") == "context_required":
+        st.warning(payload["result"])
+        return payload
+    if payload.get("id"):
+        project=get_active_project()
+        saved=report_store.get_report(get_current_user_id(),project["id"],payload["id"])
+        if saved is None:raise PermissionError("Saved report is not available in this project.")
+        st.session_state.selected_history=saved
+        return saved
     entry = {
         "query": query,
         "mode": mode_name,
@@ -4607,7 +4591,8 @@ def render_auth_page(cookies: EncryptedCookieManager) -> None:
 
         if submitted:
             try:
-                user = user_store.authenticate_user(email, password)
+                from account_ui import source_id
+                user = user_store.authenticate_user(email, password,source=source_id())
             except user_store.UserStoreError:
                 st.error("Could not sign in right now. Please try again later.")
             else:
@@ -4635,15 +4620,24 @@ def render_auth_page(cookies: EncryptedCookieManager) -> None:
                 st.error("Passwords do not match.")
             else:
                 try:
-                    user = user_store.create_user(username, email, password)
+                    from account_ui import source_id
+                    import account_security,account_recovery
+                    with user_store.get_connection() as auth_connection:
+                        auth_connection.execute('BEGIN IMMEDIATE')
+                        if not account_security.allowed(auth_connection,'signup',source_id(),source_id(),account_limit=5,source_limit=5):
+                            raise ValueError('Too many registration attempts. Try again in 15 minutes.')
+                    if not account_recovery.delivery_ready():raise ValueError('Account activation email is temporarily unavailable. Please try later.')
+                    user = user_store.create_user(username, email, password,require_verification=True)
+                    account_recovery.request_code(email,source=source_id(),purpose='activate')
                 except ValueError as exc:
                     st.error(str(exc))
                 except user_store.UserStoreError:
                     st.error("Could not create account right now. Please try again later.")
                 else:
-                    set_authenticated_user(user)
-                    persist_authenticated_user(cookies, user)
-                    st.rerun()
+                    st.success('Account created. Enter the email activation code below, then sign in.')
+
+        from account_ui import render_activation
+        render_activation()
 
     with recovery_tab:
         from account_ui import render_recovery
@@ -5585,8 +5579,6 @@ def render_ai_request_panel() -> None:
             st.warning("Please enter a request.")
         elif not require_active_project():
             pass
-        elif not consume_ai_request_or_warn():
-            pass
         else:
             status_placeholder = st.empty()
             try:
@@ -6095,8 +6087,6 @@ def render_ai_copilot_panel() -> None:
             return
         else:
             enforce_copilot_rate_limit()
-            if not consume_ai_request_or_warn():
-                return
 
             typing_placeholder = st.empty()
             with typing_placeholder.container():
@@ -6104,7 +6094,7 @@ def render_ai_copilot_panel() -> None:
 
             started_at = time.perf_counter()
             try:
-                analysis_payload = run_engine(user_id, cleaned_input, project_id=active_project["id"], return_details=True)
+                analysis_payload = run_advanced_mode(cleaned_input)
                 response_text = analysis_payload["result"]
             except Exception as exc:
                 response_text = f"Error: {str(exc)}"

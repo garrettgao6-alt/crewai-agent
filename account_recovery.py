@@ -20,6 +20,8 @@ def _schema(c):
     c.execute('CREATE TABLE IF NOT EXISTS password_recovery (email TEXT PRIMARY KEY, salt TEXT NOT NULL, digest TEXT NOT NULL, expires INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0)')
     c.execute('CREATE TABLE IF NOT EXISTS recovery_sends (email TEXT NOT NULL, sent INTEGER NOT NULL)')
     c.execute('CREATE INDEX IF NOT EXISTS recovery_sends_time ON recovery_sends(sent)')
+    columns={row[1] for row in c.execute('PRAGMA table_info(password_recovery)')}
+    if 'purpose' not in columns:c.execute("ALTER TABLE password_recovery ADD COLUMN purpose TEXT NOT NULL DEFAULT 'reset'")
 
 
 def _email(value):
@@ -35,14 +37,15 @@ def delivery_ready():
     return bool(os.getenv('SMTP_HOST') and os.getenv('SMTP_FROM'))
 
 
-def _send(email, code):
+def _send(email, code, purpose="reset"):
     if not delivery_ready():
         raise user_store.UserStoreError('Email recovery is temporarily unavailable. Please contact support.')
     message = EmailMessage()
     message['From'] = os.environ['SMTP_FROM']
     message['To'] = email
-    message['Subject'] = 'Gao Intelligence password reset code'
-    message.set_content(f'Your verification code is: {code}\n\nIt expires in 10 minutes and can be used once. If you did not request this, ignore this email. Never share this code.')
+    message['Subject'] = 'Gao Intelligence account verification code' if purpose=='activate' else 'Gao Intelligence password reset code'
+    action='activate your new account' if purpose=='activate' else 'reset your password'
+    message.set_content(f'Your verification code is: {code}\n\nUse it to {action}. It expires in 10 minutes and can be used once. If you did not request this, ignore this email. Never share this code.')
     if os.getenv('MAIL_PROVIDER') == 'gmail_api':
         response = requests.post('https://oauth2.googleapis.com/token', data={
             'client_id': os.environ['GMAIL_CLIENT_ID'],
@@ -70,7 +73,7 @@ def _send(email, code):
         client.send_message(message)
 
 
-def request_code(email):
+def request_code(email, *, source="local", purpose="reset"):
     email = _email(email)
     if not delivery_ready():
         raise user_store.UserStoreError('Email recovery is temporarily unavailable. Please contact support.')
@@ -81,6 +84,12 @@ def request_code(email):
     with user_store.get_connection() as c:
         c.execute('BEGIN IMMEDIATE')
         _schema(c)
+        import account_security
+        if not account_security.allowed(c,'recovery_source',source,source,account_limit=20,source_limit=20):
+            return GENERIC_RESPONSE
+        if purpose not in ('reset','activate'):raise ValueError('Invalid code purpose.')
+        user=c.execute("SELECT id FROM users WHERE lower(email)=? AND auth_provider='local' AND ((?='reset' AND is_active=1) OR (?='activate' AND email_verified=0))",(email,purpose,purpose)).fetchone()
+        if not user:return GENERIC_RESPONSE
         c.execute('DELETE FROM recovery_sends WHERE sent<?', (now - 86400,))
         recent = c.execute('SELECT count(*),max(sent) FROM recovery_sends WHERE email=?', (email,)).fetchone()
         global_count = c.execute('SELECT count(*) FROM recovery_sends').fetchone()[0]
@@ -88,16 +97,15 @@ def request_code(email):
         if recent[0] >= 5 or (recent[1] is not None and recent[1] > now - 60) or global_count >= 100:
             return GENERIC_RESPONSE
         c.execute('INSERT INTO recovery_sends VALUES (?,?)', (email, now))
-        user = c.execute("SELECT id FROM users WHERE lower(email)=? AND is_active=1 AND auth_provider='local'", (email,)).fetchone()
-        if user:
-            c.execute('INSERT OR REPLACE INTO password_recovery VALUES (?,?,?,?,0)', (email, salt, digest, now + 600))
+        c.execute('INSERT OR REPLACE INTO password_recovery(email,salt,digest,expires,attempts,purpose) VALUES (?,?,?,?,0,?)', (email, salt, digest, now + 600,purpose))
     if user:
         try:
-            _send(email, code)
+            _send(email, code, purpose=purpose) if purpose=="activate" else _send(email, code)
         except Exception:
             # Same response for delivery failure and unknown accounts; fail closed.
             with user_store.get_connection() as c:
                 c.execute('DELETE FROM password_recovery WHERE email=? AND digest=?', (email, digest))
+                account_security.event(c,'mail_delivery_failed',email)
     return GENERIC_RESPONSE
 
 
@@ -111,7 +119,7 @@ def reset_password(email, code, password):
         c.execute('BEGIN IMMEDIATE')
         _schema(c)
         row = c.execute('SELECT * FROM password_recovery WHERE email=?', (email,)).fetchone()
-        valid = row is not None and row['expires'] > int(time.time()) and row['attempts'] < 5
+        valid = row is not None and row['expires'] > int(time.time()) and row['attempts'] < 5 and row['purpose']=='reset'
         if valid:
             c.execute('UPDATE password_recovery SET attempts=attempts+1 WHERE email=?', (email,))
             valid = bool(re.fullmatch(r'\d{8}', code)) and hmac.compare_digest(row['digest'], hashlib.sha256((row['salt'] + code).encode()).hexdigest())
@@ -152,3 +160,17 @@ def change_username(user_id, current_password, username):
             raise ValueError('This username is unavailable.')
         c.execute('UPDATE users SET username=? WHERE id=?', (username, int(user_id)))
     return user_store.get_user_by_id(user_id)
+
+
+def activate_account(email,code):
+    email=_email(email);code=code.strip();valid=False
+    with user_store.get_connection() as c:
+        c.execute('BEGIN IMMEDIATE');_schema(c)
+        row=c.execute('SELECT * FROM password_recovery WHERE email=?',(email,)).fetchone()
+        if row and row['purpose']=='activate' and row['expires']>int(time.time()) and row['attempts']<5:
+            c.execute('UPDATE password_recovery SET attempts=attempts+1 WHERE email=?',(email,))
+            valid=bool(re.fullmatch(r'\d{8}',code)) and hmac.compare_digest(row['digest'],hashlib.sha256((row['salt']+code).encode()).hexdigest())
+            if valid:
+                c.execute("UPDATE users SET is_active=1,email_verified=1 WHERE lower(email)=? AND email_verified=0",(email,))
+                c.execute('DELETE FROM password_recovery WHERE email=?',(email,))
+    if not valid:raise ValueError('Invalid or expired verification code.')

@@ -1,3 +1,4 @@
+from core.storage_lock import snapshot_writer
 """Private, edition-aware PDF catalog. Indexing/retrieval makes no AI calls."""
 from contextlib import closing
 import hashlib
@@ -92,6 +93,7 @@ def create_catalog(directory, records, user_id):
     return count
 
 
+@snapshot_writer
 def import_pdfs(user_id, uploads):
     from core import ncc_library as library
     if not uploads or len(uploads) > 10:

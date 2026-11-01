@@ -92,7 +92,8 @@ def _run_openai_agent(system_prompt: str, prompt: str) -> str:
     if not cleaned_prompt:
         raise ValueError("Agent prompt is required.")
 
-    client = OpenAI()
+    from core.private_ai import client as budgeted_client
+    client = budgeted_client(OpenAI)
     response = client.responses.create(
         model=DEFAULT_AGENT_MODEL,
         input=[

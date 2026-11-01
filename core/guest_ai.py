@@ -1,3 +1,4 @@
+from core.storage_lock import Connection as SnapshotConnection
 """Isolated public AI review with durable, atomic admission budgets.
 
 No project/user/report/vector stores, retrieval, file tools or conversation memory.
@@ -57,7 +58,7 @@ def _identity(session):
 
 
 def _connect():
-    connection = sqlite3.connect(DB_PATH, timeout=5, isolation_level=None)
+    connection = sqlite3.connect(DB_PATH, timeout=5, isolation_level=None, factory=SnapshotConnection)
     connection.execute('PRAGMA busy_timeout=5000')
     connection.executescript('''
         CREATE TABLE IF NOT EXISTS guest_budget (
