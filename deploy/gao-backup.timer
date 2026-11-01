@@ -1,0 +1,8 @@
+[Unit]
+Description=Daily Gao Intelligence verified off-server backup
+[Timer]
+OnCalendar=*-*-* 03:00:00 Australia/Melbourne
+Persistent=true
+RandomizedDelaySec=300
+[Install]
+WantedBy=timers.target

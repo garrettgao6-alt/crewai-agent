@@ -39,7 +39,7 @@ def backup(app,backup_dir):
         if value:
             path=Path(value).expanduser();path=(app/path).resolve() if not path.is_absolute() else path.resolve()
             if path.exists() and not path.is_relative_to(app):extras.append(path)
-    for path in (Path('/etc/nginx/sites-available/gaointelligence'),Path('/var/www/gao-public')):
+    for path in (Path('/etc/nginx/sites-available/gaointelligence'),Path('/var/www/gao-public'),Path('/etc/gaointelligence/operations.env')):
         if path.exists():extras.append(path)
     with tempfile.TemporaryDirectory(prefix='snapshot-',dir=backup_dir) as temporary:
         staging=Path(temporary)
@@ -80,6 +80,11 @@ def backup(app,backup_dir):
         (backup_dir/'manifest.json').write_text(json.dumps(manifest,indent=2))
         print('BACKUP_VERIFIED',backup_dir,'sha256='+digest,flush=True)
     # Optional operator-authorized off-site destination. No credentials in args/logs.
+    try:from .operations import CONFIG, configuration, offsite_copy
+    except ImportError:from operations import CONFIG, configuration, offsite_copy
+    if CONFIG.exists() and configuration().get('RESTIC_REPOSITORY'):
+        offsite_copy(backup_dir)
+        return
     remote=os.getenv('GAO_BACKUP_REMOTE') or env.get('GAO_BACKUP_REMOTE')
     if remote:
         import subprocess
