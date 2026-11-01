@@ -4184,6 +4184,40 @@ def inject_custom_css() -> None:
             color: #64748B !important;
         }
 
+        .st-key-brand_home button {
+            background: transparent !important;
+            border: 1px solid transparent !important;
+            box-shadow: none !important;
+            justify-content: flex-start;
+            padding: 0.45rem 0.25rem;
+            min-height: 48px;
+        }
+        .st-key-brand_home button::before {
+            content: "G";
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            flex-shrink: 0;
+            border-radius: 10px;
+            background: #2563eb;
+            color: #fff;
+            font-size: 22px;
+            font-weight: 800;
+            margin-right: 8px;
+        }
+        .st-key-brand_home button p {
+            color: #f8fafc !important;
+            font-size: 15px !important;
+            font-weight: 700 !important;
+            white-space: nowrap;
+        }
+        .st-key-brand_home button:hover,
+        .st-key-brand_home button:focus-visible {
+            border-color: #60a5fa !important;
+            background: #172554 !important;
+        }
         .auth-action-shell {
             align-items: center;
             display: flex;
@@ -4531,6 +4565,7 @@ def clear_authentication_cookie(cookies: EncryptedCookieManager) -> None:
 
 
 def render_auth_page(cookies: EncryptedCookieManager) -> None:
+    render_home_logo()
     if st.button("Close sign-in", key="close_auth_modal"):
         st.session_state.pop("auth_modal_open", None)
         st.session_state["active_section"] = DEFAULT_SECTION
@@ -4625,8 +4660,17 @@ def require_premium_access() -> bool:
     return True
 
 
+def render_home_logo() -> None:
+    if st.button("Gao Intelligence", key="brand_home", help="返回首页 / Back to Home", use_container_width=True):
+        st.session_state.pop("auth_modal_open", None)
+        set_active_section(DEFAULT_SECTION)
+        st.rerun()
+
+
 def render_auth_header(cookies: EncryptedCookieManager) -> None:
-    spacer, login_column, signup_column = st.columns([1, 0.14, 0.16])
+    brand_column, spacer, login_column, signup_column = st.columns([2.8, 1.3, 1, 1.1])
+    with brand_column:
+        render_home_logo()
     with spacer:
         if is_guest_user():
             st.markdown(

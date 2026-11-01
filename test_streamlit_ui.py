@@ -44,6 +44,10 @@ def test_navigation_supports_manual_selection_and_dashboard_shortcuts(app):
     app.selectbox(key="nav_selected").select("Dashboard").run()
     click_label(app, "Open Copilot")
     assert app.selectbox(key="nav_selected").value == "Copilot"
+    click_label(app, "Gao Intelligence")
+    assert app.session_state["active_section"] == "Dashboard"
+    assert app.selectbox(key="nav_selected").value == "Dashboard"
+    click_label(app, "Open Copilot")
     app.selectbox(key="nav_selected").select("Dashboard").run()
     assert app.session_state["active_section"] == "Dashboard"
 
