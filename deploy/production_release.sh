@@ -186,6 +186,17 @@ cat > /etc/systemd/system/garrett-api.service.d/90-gao-release.conf <<EOF
 ExecStart=
 ExecStart=$new_runtime/bin/uvicorn api:app --host 127.0.0.1 --port 8000
 EOF
+"$new_runtime/bin/python" - "$app" <<'PYCONF'
+import sys
+from pathlib import Path
+from dotenv import dotenv_values,set_key
+app=Path(sys.argv[1])
+envfile=app/'.env'
+if not dotenv_values(envfile).get('NCC_DOCUMENT_ROOT'):
+    root=Path('/srv/gaointelligence/ncc')
+    root.mkdir(parents=True,exist_ok=True,mode=0o700)
+    set_key(str(envfile),'NCC_DOCUMENT_ROOT',str(root))
+PYCONF
 systemctl daemon-reload
 systemctl enable garrett-api
 systemctl start garrett-api crewai
