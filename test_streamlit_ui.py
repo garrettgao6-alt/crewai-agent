@@ -17,6 +17,12 @@ def app(tmp_path, monkeypatch):
         monkeypatch.setattr(store, "DB_PATH", tmp_path / f"{store.__name__}.db")
     monkeypatch.setattr(subscription_store, "DB_PATH", user_store.DB_PATH)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    import core.router
+    provider_attempts = []
+    def forbid_guest_provider(*args, **kwargs):
+        provider_attempts.append(True)
+        raise AssertionError("Guest startup attempted an AI request")
+    monkeypatch.setattr(core.router, "_get_client", forbid_guest_provider)
     source = Path(__file__).with_name("streamlit_app.py").read_text()
     # The cookie component needs a real browser handshake; guest UI does not.
     import sys
@@ -28,7 +34,8 @@ def app(tmp_path, monkeypatch):
     module.cookies = CookieJar()
     monkeypatch.setitem(sys.modules, module.__name__, module)
     source = source.replace("auth_cookies = initialize_cookie_manager()", "from ui_test_cookies import cookies as auth_cookies")
-    return AppTest.from_string(source, default_timeout=30).run()
+    yield AppTest.from_string(source, default_timeout=30).run()
+    assert not provider_attempts, "Guest page attempted an AI provider call"
 
 
 def click_label(app, label):
@@ -40,7 +47,7 @@ def test_navigation_supports_manual_selection_and_dashboard_shortcuts(app):
     assert not app.exception
     app.selectbox(key="nav_selected").select("Copilot").run()
     assert app.session_state["active_section"] == "Copilot"
-    assert app.chat_input[0].placeholder == "Ask Gao Intelligence Hub"
+    assert app.selectbox(key="public_demo_workflow").value == "NCC Compliance"
     app.selectbox(key="nav_selected").select("Dashboard").run()
     click_label(app, "Open Copilot")
     assert app.selectbox(key="nav_selected").value == "Copilot"
@@ -52,26 +59,33 @@ def test_navigation_supports_manual_selection_and_dashboard_shortcuts(app):
     assert app.session_state["active_section"] == "Dashboard"
 
 
-def test_guest_reply_renders_as_html_without_markdown_code_blocks(app):
-    from markdown_it import MarkdownIt
-
+def test_guest_review_save_and_project_isolation(app, monkeypatch):
+    import core.engine
+    def forbid(*args, **kwargs):
+        raise AssertionError("Guest demo called private AI engine")
+    monkeypatch.setattr(core.engine, "run_engine", forbid)
     click_label(app, "Open Copilot")
-    click_label(app, "NCC check")
-    history = next(item.value for item in app.markdown if 'class="chat-container"' in item.value)
-    tokens = MarkdownIt("commonmark", {"html": True}).parse(history)
-    assert not any(token.type in {"code_block", "fence"} for token in tokens)
-    assert "Guest preview response:" in history
-    assert 'class="chat-bubble ai-msg"' in history
-    assert len(app.session_state["copilot_history"]) == 1
-
-
-def test_guest_prompt_is_escaped_and_login_form_is_available(app):
-    click_label(app, "Open Copilot")
-    app.chat_input[0].set_value('<script>alert("x")</script>').run()
+    click_label(app, "Run sample review")
+    assert app.session_state["public_demo_result"]["ai_tokens"] == 0
+    assert "NOT DETERMINED" in app.session_state["public_demo_result"]["result"]
+    click_label(app, "Save sample report to this session")
+    app.selectbox(key="nav_selected").select("Reports").run()
+    assert any("SYNTHETIC DEMO" in item.value for item in app.text)
+    assert any(button.label == "Download Report PDF" for button in app.get("download_button"))
+    app.selectbox(key="public_demo_case").select("Hillview sample").run()
     assert not app.exception
-    history = next(item.value for item in app.markdown if 'class="chat-container"' in item.value)
-    assert "<script>" not in history
-    assert "&lt;script&gt;" in history
+    assert any("No sample reports" in item.value for item in app.info)
+    app.selectbox(key="public_demo_case").select("Riverside sample").run()
+    assert any("SYNTHETIC DEMO" in item.value for item in app.text)
+
+
+def test_guest_document_search_and_login(app):
+    app.selectbox(key="nav_selected").select("Documents").run()
+    assert not app.exception
+    app.text_input[0].set_value("no-such-evidence").run()
+    assert any("0 sample documents" in item.value for item in app.caption)
+    app.text_input[0].set_value("payment").run()
+    assert any("Payment due" in item.value for item in app.text)
     click_label(app, "Login / Sign Up")
     assert any(field.label == "Username or Email" for field in app.text_input)
     assert any(field.label == "Password" for field in app.text_input)
@@ -93,7 +107,7 @@ def test_login_form_submission_survives_full_script_rerun(app):
 
 
 def test_close_protected_page_sign_in_returns_to_dashboard(app):
-    app.selectbox(key="nav_selected").select("Reports").run()
+    click_label(app, "Login / Sign Up")
     click_label(app, "Close sign-in")
     assert app.session_state["active_section"] == "Dashboard"
     assert not any(field.key == "auth_sign_in_identifier" for field in app.text_input)
