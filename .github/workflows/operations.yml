@@ -1,0 +1,25 @@
+name: Production watchdog
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: production-watchdog
+  cancel-in-progress: false
+jobs:
+  health:
+    name: External health and backup freshness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Verify public HTTPS health with bounded retries
+        run: curl --fail --silent --show-error --retry 2 --retry-delay 15 --retry-all-errors --max-time 20 https://www.gaointelligence.com/_stcore/health
+      - name: Verify internal health, monitor heartbeat and off-server backup freshness
+        env:
+          SERVER_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        run: bash deploy/github_release.sh monitor "$GITHUB_SHA"
