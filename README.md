@@ -400,6 +400,14 @@ These legacy scripts do not receive the same routing, logging, fallback, and tes
 
 This project is licensed under the MIT License. See `LICENSE` for details.
 
+## Deployment reliability
+
+The `Deploy` workflow runs Python 3.12 regression tests and dependency checks on Ubuntu 24.04 before a production job can start. Pull requests run tests only. Pushes to `main` deploy the exact tested commit; manual runs default to a read-only `verify` operation, with explicit `backup` and `deploy` choices. An older rerun cannot replace a newer `main` release. Deployment failures remain failures; no error is hidden or marked successful.
+
+`SERVER_SSH_KEY` must contain the complete, unencrypted deployment private key. The corresponding public key must already be authorized for the intended deployment account on the current server. The workflow prints only its public fingerprint and public key in the job summary, so administrators can compare identities without exposing the private key. Empty, malformed, encrypted or rejected keys stop before application/data changes. Password prompts and unrelated agent identities are disabled. A server migration requires checking the address, authorized deployment identity and host identity together.
+
+The SSH host-key digest in `deploy/github_release.sh` was read from the authenticated DigitalOcean console. A scanned host key is accepted only when its digest matches that pin; host verification is never disabled. If the host key changes, verify the replacement independently through the console before updating the pin. Do not replace the pin with an unverified network scan. Keep production backups and rollback behavior in `deploy/production_release.sh`; service health and real server acceptance must succeed before a release is recorded.
+
 ## Server-local NCC references
 
 Set `NCC_DOCUMENT_ROOT` to an existing server directory, for example

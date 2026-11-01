@@ -2,35 +2,67 @@ name: Deploy
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      operation:
+        description: Production operation (verify does not change the server)
+        type: choice
+        options: [verify, backup, deploy]
+        default: verify
+permissions:
+  contents: read
 concurrency:
-  group: deploy-production
+  group: production-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
   cancel-in-progress: false
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+  tests:
+    name: Python tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      OTEL_SDK_DISABLED: 'true'
+      PYTHONUTF8: '1'
     steps:
-      - uses: actions/checkout@v4
-      - name: Configure existing server connection
-        shell: bash
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - name: Install application and test dependencies
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - name: Check dependency consistency
+        run: python -m pip check
+      - name: Compile application and release scripts
+        run: |
+          python -m compileall -q api.py streamlit_app.py core deploy
+          bash -n deploy/production_release.sh
+          bash -n deploy/github_release.sh
+      - name: Run regression tests
+        run: python -m pytest -q
+  deploy:
+    name: Production connection and release
+    needs: tests
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Validate SSH identity, authenticate, then back up or release
         env:
           SERVER_KEY: ${{ secrets.SERVER_SSH_KEY }}
-        run: |
-          set -euo pipefail
-          mkdir -p ~/.ssh
-          printf '%s\n' "$SERVER_KEY" > ~/.ssh/server_key
-          chmod 600 ~/.ssh/server_key
-          ssh-keyscan -T 10 -H 209.38.93.248 >> ~/.ssh/known_hosts
-      - name: Back up or release exact commit
-        shell: bash
-        env:
           RELEASE_SHA: ${{ github.sha }}
-          EVENT: ${{ github.event_name }}
+          REQUESTED_OPERATION: ${{ inputs.operation }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          set -euo pipefail
-          remote_script="/root/gao-release-${RELEASE_SHA}.sh"
-          scp -o ConnectTimeout=15 -i ~/.ssh/server_key deploy/production_release.sh "root@209.38.93.248:${remote_script}"
-          mode=backup
-          if [ "$EVENT" = push ]; then mode=deploy; fi
-          ssh -o ConnectTimeout=15 -i ~/.ssh/server_key root@209.38.93.248 bash "$remote_script" "$mode" "$RELEASE_SHA"
+          mode="${REQUESTED_OPERATION:-verify}"
+          if [ "$EVENT_NAME" = push ]; then mode=deploy; fi
+          bash deploy/github_release.sh "$mode" "$RELEASE_SHA"
