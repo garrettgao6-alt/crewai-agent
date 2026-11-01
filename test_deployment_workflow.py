@@ -37,6 +37,7 @@ def release(tmp_path):
         executable.write_text("#!/bin/sh\n" + body + "\n")
         executable.chmod(0o700)
     env = dict(os.environ, PATH=str(bindir) + os.pathsep + os.environ["PATH"], SERVER_KEY=key.read_text(), TEST_SCAN=str(scan), TEST_CALLS=str(calls), TEST_MAIN="a" * 40)
+    env["GITHUB_STEP_SUMMARY"] = str(tmp_path / "test-summary.md")
     # The script needs Python 3, not the host's optional shell alias.
     (bindir / "python3").symlink_to(sys.executable)
     return path, env, calls, scan
