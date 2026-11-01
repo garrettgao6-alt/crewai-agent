@@ -4446,6 +4446,7 @@ def is_guest_user() -> bool:
 
 
 def set_authenticated_user(user: dict, reset_navigation: bool = True) -> None:
+    st.session_state.pop("auth_modal_open", None)
     st.session_state.authenticated = True
     st.session_state.is_logged_in = True
     st.session_state["user"] = user
@@ -4530,6 +4531,9 @@ def clear_authentication_cookie(cookies: EncryptedCookieManager) -> None:
 
 
 def render_auth_page(cookies: EncryptedCookieManager) -> None:
+    if st.button("Close sign-in", key="close_auth_modal"):
+        st.session_state.pop("auth_modal_open", None)
+        st.rerun()
     gate_message = st.session_state.pop("auth_gate_message", "")
     st.markdown(
         """
@@ -4594,23 +4598,14 @@ def render_auth_page(cookies: EncryptedCookieManager) -> None:
                     st.rerun()
 
 
-if hasattr(st, "dialog"):
-    @st.dialog("Access Gao Intelligence Hub")
-    def render_auth_modal(cookies: EncryptedCookieManager) -> None:
-        render_auth_page(cookies)
-else:
-    def render_auth_modal(cookies: EncryptedCookieManager) -> None:
-        render_auth_page(cookies)
-
-
 def show_login_modal(message: str = "Sign in to continue.") -> None:
+    st.session_state["auth_modal_open"] = True
     st.session_state["auth_gate_message"] = message
-    render_auth_modal(auth_cookies)
+    st.rerun()
 
 
 def show_upgrade_modal() -> None:
-    st.session_state["auth_gate_message"] = "Upgrade to unlock full Construction AI capabilities."
-    render_auth_modal(auth_cookies)
+    show_login_modal("Upgrade to unlock full Construction AI capabilities.")
 
 
 def require_authenticated_user(message: str = "Sign in to unlock this workspace.") -> bool:
@@ -6691,6 +6686,10 @@ st.session_state["active_section"] = normalize_section(st.session_state.get("act
 if st.session_state.get("nav_selected") != st.session_state["active_section"]:
     st.session_state["nav_selected"] = st.session_state["active_section"]
 
+if is_guest_user() and st.session_state.get("auth_modal_open"):
+    render_auth_page(auth_cookies)
+    st.stop()
+
 render_auth_header(auth_cookies)
 
 with st.sidebar:
@@ -6736,3 +6735,4 @@ elif active_section == "Settings":
 else:
     st.session_state["active_section"] = DEFAULT_SECTION
     render_workspace()
+

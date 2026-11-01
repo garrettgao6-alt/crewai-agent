@@ -15,10 +15,19 @@ def app(tmp_path, monkeypatch):
 
     for store in (project_store, prompt_store, template_store, user_store, subscription_store):
         monkeypatch.setattr(store, "DB_PATH", tmp_path / f"{store.__name__}.db")
+    monkeypatch.setattr(subscription_store, "DB_PATH", user_store.DB_PATH)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     source = Path(__file__).with_name("streamlit_app.py").read_text()
     # The cookie component needs a real browser handshake; guest UI does not.
-    source = source.replace("auth_cookies = initialize_cookie_manager()", "auth_cookies = {}")
+    import sys
+    import types
+    class CookieJar(dict):
+        def save(self):
+            pass
+    module = types.ModuleType("ui_test_cookies")
+    module.cookies = CookieJar()
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    source = source.replace("auth_cookies = initialize_cookie_manager()", "from ui_test_cookies import cookies as auth_cookies")
     return AppTest.from_string(source, default_timeout=30).run()
 
 
@@ -62,3 +71,18 @@ def test_guest_prompt_is_escaped_and_login_form_is_available(app):
     click_label(app, "Login / Sign Up")
     assert any(field.label == "Username or Email" for field in app.text_input)
     assert any(field.label == "Password" for field in app.text_input)
+
+
+def test_login_form_submission_survives_full_script_rerun(app):
+    import user_store
+    user_store.create_user("ui_login_check", "ui-login@example.test", "UiLoginTest-12345")
+    click_label(app, "Login / Sign Up")
+    app.text_input(key="auth_sign_in_identifier").set_value("ui_login_check")
+    app.text_input(key="auth_sign_in_password").set_value("UiLoginTest-12345")
+    click_label(app, "Sign In")
+    assert app.session_state["is_logged_in"]
+    token = app.session_state["auth_session_token"]
+    assert user_store.resolve_session(token)["username"] == "ui_login_check"
+    click_label(app, "Sign Out")
+    assert not app.session_state["is_logged_in"]
+    assert user_store.resolve_session(token) is None
