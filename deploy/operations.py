@@ -58,6 +58,32 @@ def verify_archive(archive):
                 with sqlite3.connect(app/'reports.db') as c:
                     if c.execute("SELECT 1 FROM sqlite_master WHERE name='reports'").fetchone():
                         if any(projects.get(project)!=owner for owner,project in c.execute('SELECT user_id,project_id FROM reports')):raise RuntimeError('Report ownership mismatch')
+        verify_document_store(app)
+
+def verify_document_store(app):
+    """Validate retained originals and their ownership inside a restored application."""
+    app=Path(app);db=app/'documents.db'
+    if not db.exists():return
+    with sqlite3.connect(db) as c:
+        c.row_factory=sqlite3.Row
+        if not c.execute("SELECT 1 FROM sqlite_master WHERE name='document_files'").fetchone():return
+        files={r['id']:dict(r) for r in c.execute('SELECT * FROM document_files')}
+        versions={r['id']:dict(r) for r in c.execute('SELECT * FROM document_versions')}
+    with sqlite3.connect(app/'projects.db') as c:projects=dict(c.execute('SELECT id,user_id FROM projects'))
+    for file in files.values():
+        if projects.get(file['project_id'])!=file['user_id']:raise RuntimeError('Document project ownership mismatch')
+        if file['active_version']:
+            version=versions.get(file['active_version'])
+            if not version or version['file_id']!=file['id'] or version['status']!='ready':raise RuntimeError('Invalid active document version')
+    for version in versions.values():
+        file=files.get(version['file_id'])
+        if not file or (version['user_id'],version['project_id'])!=(file['user_id'],file['project_id']):raise RuntimeError('Document version ownership mismatch')
+        if not re.fullmatch('[a-f0-9]{32}',version['id']):raise RuntimeError('Invalid original file identifier')
+        path=app/'project_documents'/f"u{version['user_id']}"/f"p{version['project_id']}"/(version['id']+'.bin')
+        if path.exists():
+            if path.is_symlink() or digest(path)!=version['sha']:raise RuntimeError('Original file integrity failed')
+        elif version['status']=='ready':raise RuntimeError('A ready document original is missing')
+
 
 def restic_env(config):
     repository=config.get('RESTIC_REPOSITORY','')
