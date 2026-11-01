@@ -4661,7 +4661,7 @@ def require_premium_access() -> bool:
 
 
 def render_home_logo() -> None:
-    if st.button("Gao Intelligence", key="brand_home", help="返回首页 / Back to Home", use_container_width=True):
+    if st.button("Gao Intelligence", key="brand_home", help="Back to Home", use_container_width=True):
         st.session_state.pop("auth_modal_open", None)
         set_active_section(DEFAULT_SECTION)
         st.rerun()
