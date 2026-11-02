@@ -28,6 +28,8 @@ MAP_TEXT='''map $uri $gao_search_robots {
     /index.html "";  # try_files resolves the public root to this file URI.
     ~^/discover(?:/|$) "";
     ~^/seo-assets/ "";
+    /favicon.png "";
+    /favicon.ico "";
     /robots.txt "";
     /sitemap.xml "";
     /mail-privacy "";
@@ -64,6 +66,14 @@ location ^~ /seo-assets/ {
     root /var/www/gao-seo/current;
     try_files $uri =404;
     expires 1h;
+}
+location = /favicon.png {
+    root /var/www/gao-seo/current;
+    try_files $uri =404;
+}
+location = /favicon.ico {
+    root /var/www/gao-seo/current;
+    try_files $uri =404;
 }
 location = /robots.txt {
     if ($host != "www.gaointelligence.com") { return 301 https://www.gaointelligence.com$request_uri; }
@@ -105,7 +115,7 @@ def home_social_config():
     if any(char in metadata for char in ("'",'$',chr(92))):raise ValueError('Unsafe Nginx metadata literal')
     replacements = [
         ('<title>Streamlit</title>', '<title>Gao Intelligence | Construction AI workspace</title>'),
-        ('<link rel="shortcut icon" href="./favicon.png" />', '<link rel="icon" href="/seo-assets/logo.svg" type="image/svg+xml">'),
+        ('<link rel="shortcut icon" href="./favicon.png" />', '<link rel="icon" href="/favicon.png" type="image/png" sizes="96x96"><link rel="shortcut icon" href="/favicon.ico">'),
         ('<noscript>You need to enable JavaScript to run this app.</noscript>',
          '<noscript><h1>Gao Intelligence</h1><p>'+escape(PAGES[''][1])+'</p><p><a href="/discover/">Explore construction AI workflows</a> or enable JavaScript to open your workspace.</p></noscript>'),
         ('</head>', metadata+'</head>'),
