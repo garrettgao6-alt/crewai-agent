@@ -6,7 +6,7 @@ import sys
 from urllib.parse import urlencode, quote
 
 ORIGIN='https://www.gaointelligence.com'
-REVIEWED='2026-11-02'
+REVIEWED='2026-11-03'
 PAGES={
 '':('Construction AI, NCC references and IFC checks','Gao Intelligence helps Australian construction teams review project evidence, retrieve NCC references, check IFC models and save reports.',[
 ('What is Gao Intelligence?','Gao Intelligence is a construction analysis workspace for NCC reference retrieval, document management, IFC model quality checks and saved reports. It helps teams organise evidence and draft reviews for professional assessment.'),
@@ -46,6 +46,37 @@ FAQ=[
 ('Can the cloud workspace read my local file path?','No. Upload the file to your private project or use an authorised server-side library directory. A desktop path alone is not accessible to the server.')]
 PAGES['faq']=('Gao Intelligence FAQ: NCC, BIM, documents and privacy','Answers about guest AI, NCC reference retrieval, IFC checks, document versions, saved reports and private project boundaries.',FAQ)
 
+# Public, product-specific answers. No customer examples or application imports.
+PAGES[''][2].append(('Who is Gao Intelligence for?','Gao Intelligence is for Australian construction teams reviewing documents, NCC references and IFC model information. It is an independent construction software workspace; it is not the Australian Building Codes Board or the U.S. Government Accountability Office.'))
+PAGES['ncc-review'][2].append(('What should I provide for an NCC review?','Start with the building class, state or territory, project approval date, applicable NCC edition and a specific review question. Add relevant drawings or specifications in your private project. Review the retrieved source pages and any missing evidence before using the draft report.'))
+PAGES['ifc-model-checks'][2].append(('How do I review an IFC model?','Export an IFC STEP file from your modelling software, sign in, select the intended project and upload the model in BIM. Run the data checks, inspect findings by element and severity, then save the inspection report. The retained findings summary is not a measure of overall compliance.'))
+PAGES['reports'][2].append(('What makes a result traceable?','Check the project, document revision, cited passage and source page together. A saved evidence snapshot records the material used for that analysis; it does not prove that all relevant provisions or documents were retrieved.'))
+SEO_TITLES={
+    '':'Construction AI & NCC 2025 Review | Gao Intelligence',
+    'ncc-review':'NCC 2025 Reference Search & Review | Gao Intelligence',
+    'ifc-model-checks':'IFC Model Data Quality Checks | Gao Intelligence',
+    'document-management':'Construction Document Management | Gao Intelligence',
+    'reports':'Construction Reports & Evidence | Gao Intelligence',
+    'data-boundaries':'Guest AI & Project Privacy | Gao Intelligence',
+    'faq':'Construction AI, NCC & BIM FAQ | Gao Intelligence',
+}
+REFERENCES={
+    'ncc-review':[('Australian Building Codes Board — National Construction Code','https://www.abcb.gov.au/'),('NCC online publications and resources','https://ncc.abcb.gov.au/')],
+    'ifc-model-checks':[('buildingSMART — Industry Foundation Classes (IFC)','https://technical.buildingsmart.org/standards/IFC/')],
+}
+
+def section_id(index):return 'answer-'+str(index+1)
+
+def answer_content(slug,sections):
+    links=''.join(f'<li><a href="#{section_id(i)}">{e(q)}</a></li>' for i,(q,_) in enumerate(sections))
+    contents='<nav class="guide-contents" aria-label="On this page"><strong>On this page</strong><ul>'+links+'</ul></nav>'
+    answers=''.join((f'<details id="{section_id(i)}"><summary>{e(q)}</summary><p>{e(a)}</p></details>' if slug=='faq' else f'<section id="{section_id(i)}"><h2>{e(q)}</h2><p>{e(a)}</p></section>') for i,(q,a) in enumerate(sections))
+    references=''
+    if slug in REFERENCES:
+        references='<section class="official-references"><h2>Official reference sources</h2><p>Use the publisher’s original material to verify terminology and requirements. These links do not imply endorsement of Gao Intelligence.</p><ul>'+''.join(f'<li><a href="{href}" rel="noopener noreferrer" target="_blank">{e(label)}</a></li>' for label,href in REFERENCES[slug])+'</ul></section>'
+    return contents+answers+references
+
+
 def url(slug): return ORIGIN+('/discover/'+slug+'/' if slug else '/')
 SOCIAL_CARDS={
     '':('Construction evidence,','connected.'),
@@ -63,11 +94,11 @@ def social_image(slug):
 def social_metadata(slug):
     title,description,_=PAGES[slug]
     values={'og:type':'website','og:site_name':'Gao Intelligence','og:locale':'en_AU',
-            'og:title':title+' | Gao Intelligence','og:description':description,'og:url':url(slug),
+            'og:title':SEO_TITLES[slug],'og:description':description,'og:url':url(slug),
             'og:image':ORIGIN+social_image(slug),'og:image:secure_url':ORIGIN+social_image(slug),
             'og:image:type':'image/png','og:image:width':'1200','og:image:height':'630',
             'og:image:alt':'Gao Intelligence: '+' '.join(SOCIAL_CARDS[slug]),
-            'twitter:card':'summary_large_image','twitter:title':title+' | Gao Intelligence',
+            'twitter:card':'summary_large_image','twitter:title':SEO_TITLES[slug],
             'twitter:description':description,'twitter:image':ORIGIN+social_image(slug),
             'twitter:image:alt':'Gao Intelligence: '+' '.join(SOCIAL_CARDS[slug])}
     return ''.join(f'<meta {"name" if key.startswith("twitter:") else "property"}="{key}" content="{e(value)}">' for key,value in values.items())
@@ -139,7 +170,7 @@ def workflow_explorer():
     return '<div class="workflow-explorer"><div class="flow-heading"><span class="eyebrow">EVIDENCE → REVIEW</span><h2>See how it connects.</h2><p>Workflow illustration · no project data</p></div><fieldset class="flow-selector"><legend>Explore a workflow</legend><div class="flow-choices">'+choices+'</div>'+''.join(panels)+'</fieldset></div>'
 
 FLOW_CSS='''
-.hero-layout{display:grid;grid-template-columns:minmax(0,1.22fr) minmax(340px,1fr);gap:48px;align-items:center;position:relative;isolation:isolate;padding:60px 0 48px}
+.guide-contents{display:block;padding:20px 24px;margin:0 0 24px;border:1px solid #293e50;border-radius:14px;background:#101e2e}.guide-contents ul{margin:8px 0 0;padding-left:20px}.guide-contents li{margin:5px 0;font-size:15px}article [id]{scroll-margin-top:24px}.official-references li{margin:8px 0}.hero-layout{display:grid;grid-template-columns:minmax(0,1.22fr) minmax(340px,1fr);gap:48px;align-items:center;position:relative;isolation:isolate;padding:60px 0 48px}
 .hero-layout::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at 85% 35%,#70dfcb0d,transparent 55%)}
 .hero-layout .hero{max-width:none;padding:18px 0 24px;animation:public-enter .55s ease both}
 .hero-layout h1{font-size:clamp(36px,4.1vw,54px)}.hero-layout .lead{font-size:19px}.hero-layout .note{max-width:390px}
@@ -163,18 +194,18 @@ FLOW_CSS='''
 
 def render(slug):
     title,description,sections=PAGES[slug]
-    graph=[{'@type':'Organization','@id':ORIGIN+'/#organization','name':'Gao Intelligence','url':url(''),'logo':ORIGIN+'/seo-assets/logo.svg'},
-           {'@type':'WebSite','@id':ORIGIN+'/#website','name':'Gao Intelligence','url':url(''),'publisher':{'@id':ORIGIN+'/#organization'}},
-           {'@type':'WebPage','@id':url(slug)+'#page','url':url(slug),'name':title,'description':description,'inLanguage':'en-AU','dateModified':REVIEWED,'isPartOf':{'@id':ORIGIN+'/#website'}},
+    graph=[{'@type':'Organization','@id':ORIGIN+'/#organization','name':'Gao Intelligence','url':url(''),'logo':{'@type':'ImageObject','url':ORIGIN+'/seo-assets/brand-logo.png','width':512,'height':512}},
+           {'@type':'WebSite','@id':ORIGIN+'/#website','name':'Gao Intelligence','alternateName':'Gao Intelligence Construction AI','inLanguage':'en-AU','url':url(''),'publisher':{'@id':ORIGIN+'/#organization'}},
+           {'@type':'WebPage','@id':url(slug)+'#page','url':url(slug),'name':title,'description':description,'inLanguage':'en-AU','dateModified':REVIEWED,'publisher':{'@id':ORIGIN+'/#organization'},'isPartOf':{'@id':ORIGIN+'/#website'}},
            {'@type':'BreadcrumbList','itemListElement':[{'@type':'ListItem','position':1,'name':'Gao Intelligence','item':url('')}]+([{'@type':'ListItem','position':2,'name':title,'item':url(slug)}] if slug else [])}]
     if not slug: graph.append({'@type':'SoftwareApplication','name':'Gao Intelligence','url':ORIGIN+'/','applicationCategory':'BusinessApplication','operatingSystem':'Web browser','description':description})
     if slug=='faq': graph.append({'@type':'FAQPage','mainEntity':[{'@type':'Question','name':q,'acceptedAnswer':{'@type':'Answer','text':a}} for q,a in FAQ]})
-    body=''.join((f'<details><summary>{e(q)}</summary><p>{e(a)}</p></details>' if slug=='faq' else f'<section><h2>{e(q)}</h2><p>{e(a)}</p></section>') for q,a in sections)
+    body=answer_content(slug,sections)
     cards=''.join(f'<a class="card" href="/discover/{s}/"><span>{e(t)}</span><small>{e(d)}</small><b aria-hidden="true">↗</b></a>' for s,(t,d,_) in PAGES.items() if s and s!=slug)
     schema=json.dumps({'@context':'https://schema.org','@graph':graph},ensure_ascii=False).replace('<','\\u003c')
     hero=f'''<div class="hero"><p class="eyebrow">CONSTRUCTION INTELLIGENCE · AUSTRALIA</p><h1>{e(title)}</h1><p class="lead">{e(description)}</p><a class="button primary" href="/workspace/">Try the workspace ↗</a><p class="note">Guest examples available · Private projects require sign-in</p></div>'''
     if not slug:hero='<div class="hero-layout">'+hero+workflow_explorer()+'</div>'
-    return f'''<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{e(title)} | Gao Intelligence</title><meta name="description" content="{e(description)}"><link rel="canonical" href="{url(slug)}"><meta name="robots" content="index,follow">{social_metadata(slug)}<link rel="icon" href="/seo-assets/logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/seo-assets/site-v3.css"><script type="application/ld+json">{schema}</script><script src="/seo-assets/share-v2.js" defer></script></head><body><a class="skip" href="#main">Skip to content</a><header><a class="brand" href="/"><img src="/seo-assets/logo.svg" width="36" height="36" alt="">Gao Intelligence</a><nav aria-label="Main navigation"><a class="share-nav" href="#share">Share</a><a href="/discover/faq/">FAQ</a><a class="button" href="/workspace/">Open workspace ↗</a></nav></header><main id="main">{hero}<article>{body}<p class="review">Product guide reviewed <time datetime="{REVIEWED}">2 November 2026</time> · Gao Intelligence</p></article>{share_panel(slug)}<aside aria-label="Explore product guides"><h2>Explore the workflow</h2><div class="cards">{cards}</div></aside></main><footer><a class="brand" href="/">Gao Intelligence</a><p>Construction evidence, connected.</p><a href="/discover/data-boundaries/">Data boundaries</a> · <a href="/mail-privacy">Account and Email Privacy</a> · <a href="/workspace/">Workspace</a><p class="note">Analysis supports professional review. It does not certify compliance.</p></footer></body></html>'''
+    return f'''<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{e(SEO_TITLES[slug])}</title><meta name="description" content="{e(description)}"><link rel="canonical" href="{url(slug)}"><meta name="robots" content="index,follow">{social_metadata(slug)}<link rel="icon" href="/favicon.png" type="image/png" sizes="96x96"><link rel="shortcut icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/seo-assets/apple-touch-icon.png" sizes="180x180"><link rel="stylesheet" href="/seo-assets/site-v4.css"><script type="application/ld+json">{schema}</script><script src="/seo-assets/share-v2.js" defer></script></head><body><a class="skip" href="#main">Skip to content</a><header><a class="brand" href="/"><img src="/seo-assets/logo.svg" width="36" height="36" alt="">Gao Intelligence</a><nav aria-label="Main navigation"><a class="share-nav" href="#share">Share</a><a href="/discover/faq/">FAQ</a><a class="button" href="/workspace/">Open workspace ↗</a></nav></header><main id="main">{hero}<article>{body}<p class="review">Product guide reviewed <time datetime="{REVIEWED}">3 November 2026</time> · Gao Intelligence</p></article>{share_panel(slug)}<aside aria-label="Explore product guides"><h2>Explore the workflow</h2><div class="cards">{cards}</div></aside></main><footer><a class="brand" href="/">Gao Intelligence</a><p>Construction evidence, connected.</p><a href="/discover/data-boundaries/">Data boundaries</a> · <a href="/mail-privacy">Account and Email Privacy</a> · <a href="/workspace/">Workspace</a><p class="note">Analysis supports professional review. It does not certify compliance.</p></footer></body></html>'''
 
 CSS='''*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#080f1c;color:#edf4fa;font:17px/1.7 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}a{color:#70dfcb;text-underline-offset:.22em}a:hover{color:#fff}a:focus-visible,summary:focus-visible{outline:3px solid #70dfcb;outline-offset:5px}header,main,footer{width:min(1120px,calc(100% - 48px));margin:auto}header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:28px 0;border-bottom:1px solid #29384a}.brand{display:inline-flex;align-items:center;gap:12px;font-size:20px;font-weight:750;color:#fff;text-decoration:none}nav{display:flex;gap:24px;align-items:center}.button{display:inline-block;padding:10px 20px;border:1px solid #435d6c;border-radius:9px;text-decoration:none;font-weight:650;color:#fff}.primary{background:#72e3cd;color:#081923;border-color:#72e3cd}.primary:hover{background:#b0f6e7;color:#081923}.hero{padding:88px 0 60px;max-width:900px}.eyebrow{font-size:12px;letter-spacing:.17em;font-weight:700;color:#70dfcb}h1{font-size:clamp(36px,5.3vw,64px);line-height:1.1;letter-spacing:-.035em;margin:22px 0}h2{font-size:26px;line-height:1.3;letter-spacing:-.02em}.lead{font-size:21px;color:#b5c6d7;max-width:760px}.note,.review{font-size:13px;color:#b5c6d7}.hero .button{margin-top:18px}article{max-width:790px}section{padding:20px 0;border-top:1px solid #29384a}section p,details p{color:#c1cfdd}details{border-top:1px solid #29384a;padding:24px 0}summary{cursor:pointer;font-size:21px;font-weight:650}details[open] summary{color:#70dfcb}.review{padding:25px 0}aside{margin:40px 0 80px}.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.card{display:block;position:relative;background:#101e2e;border:1px solid #293e50;border-radius:14px;padding:25px 48px 25px 25px;text-decoration:none;transition:transform .15s,border-color .15s}.card:hover{transform:translateY(-3px);border-color:#70dfcb}.card span{display:block;font-size:20px;font-weight:650}.card small{display:block;color:#b5c6d7;margin-top:10px;font-size:14px}.card b{position:absolute;top:24px;right:22px}footer{padding:35px 0 50px;border-top:1px solid #29384a;color:#b5c6d7;font-size:14px}.skip{position:absolute;top:-100px;left:15px;background:#fff;color:#081923;padding:12px;z-index:10}.skip:focus{top:10px}@media(max-width:600px){header,main,footer{width:calc(100% - 32px)}header{align-items:flex-start;flex-direction:column;padding:20px 0}nav{width:100%;justify-content:space-between}.hero{padding:45px 0 35px}.lead{font-size:18px}.cards{grid-template-columns:1fr}.button{padding:9px 16px}h2{font-size:23px}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.card{transition:none}}'''
 LOGO='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect width="48" height="48" rx="12" fill="#72e3cd"/><path d="M33 17a12 12 0 1 0 1 13v-7H23v5h6a7 7 0 1 1-1-8z" fill="#081923"/></svg>'
@@ -211,14 +242,30 @@ def build_social_images(assets):
             image.save(assets/filename,optimize=True)
             if not slug and not square:image.save(assets/'og-image.png',optimize=True)
 
+def build_brand_icons(root,assets):
+    # Rasterise the existing geometric G mark; no font or external service needed.
+    from PIL import Image,ImageDraw
+    image=Image.new('RGB',(512,512),'#72e3cd');draw=ImageDraw.Draw(image)
+    scale=512/48
+    box=tuple(round(v*scale) for v in (12,12,36,36))
+    draw.arc(box,start=42,end=318,fill='#081923',width=round(5*scale))
+    draw.rectangle(tuple(round(v*scale) for v in (24,22,36,27)),fill='#081923')
+    draw.rectangle(tuple(round(v*scale) for v in (31,22,36,31)),fill='#081923')
+    image.save(assets/'brand-logo.png',optimize=True)
+    image.resize((96,96),Image.Resampling.LANCZOS).save(root/'favicon.png',optimize=True)
+    image.save(root/'favicon.ico',sizes=[(16,16),(32,32),(48,48),(64,64)])
+    image.resize((180,180),Image.Resampling.LANCZOS).save(assets/'apple-touch-icon.png',optimize=True)
+
+
 def build(destination):
     root=Path(destination)
     for slug in PAGES:
         path=root/'discover'/slug/'index.html';path.parent.mkdir(parents=True,exist_ok=True);path.write_text(render(slug),encoding='utf-8')
     (root/'index.html').write_text(render(''),encoding='utf-8')
     assets=root/'seo-assets';assets.mkdir(parents=True,exist_ok=True)
-    (assets/'site.css').write_text(CSS+SHARE_CSS+FLOW_CSS,encoding='utf-8');(assets/'site-v2.css').write_text(CSS+SHARE_CSS+FLOW_CSS,encoding='utf-8');(assets/'site-v3.css').write_text(CSS+SHARE_CSS+FLOW_CSS,encoding='utf-8');(assets/'share-v2.js').write_text(SHARE_JS,encoding='utf-8');(assets/'logo.svg').write_text(LOGO,encoding='utf-8')
+    (assets/'site.css').write_text(CSS+SHARE_CSS+FLOW_CSS,encoding='utf-8');(assets/'site-v2.css').write_text(CSS+SHARE_CSS+FLOW_CSS,encoding='utf-8');(assets/'site-v3.css').write_text(CSS+SHARE_CSS+FLOW_CSS,encoding='utf-8');(assets/'site-v4.css').write_text(CSS+SHARE_CSS+FLOW_CSS,encoding='utf-8');(assets/'share-v2.js').write_text(SHARE_JS,encoding='utf-8');(assets/'logo.svg').write_text(LOGO,encoding='utf-8')
     build_social_images(assets)
+    build_brand_icons(root,assets)
     blocked=['/workspace/','/private-download/','/_stcore/','/component/','/static/','/media/','/api/','/projects/','/reports/']
     (root/'robots.txt').write_text('User-agent: *\n'+''.join('Disallow: '+p+'\n' for p in blocked)+'Sitemap: '+ORIGIN+'/sitemap.xml\n')
     (root/'sitemap.xml').write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+''.join(f'<url><loc>{url(s)}</loc><lastmod>{REVIEWED}</lastmod></url>' for s in PAGES)+'</urlset>')
