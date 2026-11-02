@@ -138,6 +138,10 @@ try:
     app.selectbox(key='workspace_project_'+str(alice['id'])).select(b['id']).run()
     assert not app.exception and app.session_state['history']==[] and not any(item.key=='copilot_draft' for item in app.text_area)
     checks['interactive_navigation_filters_and_project_draft_isolation']=True
+    app.button(key='top_sign_out').click().run()
+    assert not app.exception and not app.session_state['is_logged_in']
+    assert app.session_state['active_project_id'] is None and app.session_state['history']==[]
+    checks['deployed_signout_after_private_project_review']=True
     # A tiny synthetic code excerpt cannot expose repeated full-catalog calls
     # exhausting the request budget. Exercise the actual operator NCC library
     # with a fresh canary project as well, never a customer's private files.

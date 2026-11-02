@@ -66,3 +66,45 @@ def test_guest_settings_is_an_explicit_sign_in_gate(guest_app):
     assert not guest_app.exception and not guest_app.error
     assert any('Sign in to manage your account' in item.value for item in guest_app.info)
     assert not any(field.label=='NCC server path' for field in guest_app.text_input)
+
+
+import pytest
+
+@pytest.mark.parametrize('callback',['change_workspace_project','_library_project_changed'])
+@pytest.mark.parametrize('session_end',['sign_out','revoked'])
+def test_pending_project_events_after_session_end_do_not_read_private_reports(system,monkeypatch,callback,session_end):
+    import sys,types,report_store
+    owner,_,project,_,_=system
+    monkeypatch.setattr(template_store,'DB_PATH',Path(project_store.DB_PATH).with_name('templates.db'))
+    token=user_store.create_session(owner['id'])
+    class CookieJar(dict):
+        def save(self):pass
+    module=types.ModuleType('stale_project_cookie_fixture')
+    module.cookies=CookieJar(session_token=token)
+    monkeypatch.setitem(sys.modules,module.__name__,module)
+    source=Path('streamlit_app.py').read_text().replace('auth_cookies = initialize_cookie_manager()','from stale_project_cookie_fixture import cookies as auth_cookies')
+    # Streamlit executes pending widget callbacks before restoring cookies on
+    # the next script pass. Replay that ordering with only synthetic data.
+    source=source.replace('restore_authenticated_user_from_cookie(auth_cookies)',f'''if st.session_state.pop('replay_pending_project_event',False):
+    {callback}('stale_project_widget')
+restore_authenticated_user_from_cookie(auth_cookies)''')
+    report_store.save_report(owner['id'],project['id'],{'query':'Private callback evidence','result':'PRIVATE_CALLBACK_MARKER'})
+    app=AppTest.from_string(source,default_timeout=30)
+    app.session_state['active_project_id']=project['id']
+    app.session_state['active_section']='BIM'
+    app.run();assert not app.exception and app.session_state['is_logged_in']
+    if session_end=='sign_out':
+        app.button(key='top_sign_out').click().run()
+        assert not app.exception and not app.session_state['is_logged_in']
+    else:user_store.revoke_session(token)
+    reads=[]
+    def forbidden(*args,**kwargs):
+        reads.append(True);raise AssertionError('Expired callback read private reports')
+    monkeypatch.setattr(report_store,'list_reports',forbidden)
+    app.session_state['stale_project_widget']=project['id']
+    app.session_state['replay_pending_project_event']=True
+    app.run()
+    assert not app.exception and not reads
+    assert not app.session_state['is_logged_in'] and app.session_state['active_project_id'] is None
+    assert app.session_state['history']==[] and app.session_state['copilot_history']==[]
+    assert user_store.resolve_session(token) is None
