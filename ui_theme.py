@@ -68,6 +68,12 @@ input,textarea{color:var(--gao-text)!important}input::placeholder,textarea::plac
 [class*="st-key-dm_upload_"] [data-testid="stFileUploaderDropzoneInstructions"] small,[class*="st-key-bim_upload_"] [data-testid="stFileUploaderDropzoneInstructions"] small{display:none}
 .st-key-bim_metrics [data-testid="stHorizontalBlock"]{flex-wrap:nowrap;gap:.6rem}.st-key-bim_metrics [data-testid="stColumn"]{min-width:0!important;flex:1 1 0!important}
 @media(max-width:640px){.st-key-dashboard_metrics [data-testid="stHorizontalBlock"]{flex-wrap:wrap;gap:.6rem}.st-key-dashboard_metrics [data-testid="stColumn"]{min-width:0!important;flex:1 1 calc(50% - .6rem)!important}.st-key-bim_metrics [data-testid="stMetric"]{padding:.7rem}.st-key-bim_metrics [data-testid="stMetricValue"]{font-size:1.35rem}}
+.findings-viz{margin:.8rem 0 1.1rem;padding:1.1rem 1.2rem;border:1px solid var(--gao-line);border-radius:14px;background:var(--gao-surface)}
+.findings-viz-title{font-size:.84rem;font-weight:600;margin-bottom:.8rem;color:var(--gao-text)}.findings-track{display:flex;height:12px;gap:3px;overflow:hidden;border-radius:8px;background:#243144}
+.findings-segment{height:100%;animation:gao-bar .5s ease-out both;transform-origin:left}.finding-error{background:#ef9299}.finding-warning{background:#edc075}.finding-info{background:#78c9df}.finding-other{background:#acb6ce}
+.findings-legend{display:flex;flex-wrap:wrap;gap:.55rem 1.2rem;margin-top:.8rem;color:#c0d0df;font-size:.78rem}.findings-legend span{display:inline-flex;align-items:center;gap:.4rem}.finding-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.dashboard-metric-card{transition:transform .18s,border-color .18s}.dashboard-metric-card:hover{transform:translateY(-2px);border-color:var(--gao-accent)}
+@keyframes gao-bar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @keyframes gao-enter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 @keyframes gao-pulse{50%{opacity:.25}}
 @media(min-width:769px){[data-testid="stSidebar"]{min-width:245px!important;max-width:245px!important;width:245px!important}}
@@ -87,3 +93,17 @@ def saved_time(value):
     from datetime import datetime,timezone
     try:return datetime.fromisoformat(str(value).replace('Z','+00:00')).astimezone(timezone.utc).strftime('%d %b %Y, %H:%M UTC')
     except (ValueError,TypeError):return str(value or 'Unknown time')
+
+
+def findings_visual_html(issues):
+    """Summarise only the supplied retained findings; never fetch or alter project data."""
+    from collections import Counter
+    from html import escape
+    counts=Counter(row.get('severity') if row.get('severity') in ('error','warning','info') else 'other' for row in issues)
+    total=sum(counts.values())
+    if not total:return ''
+    labels=(('error','Error'),('warning','Warning'),('info','Information'),('other','Other'))
+    summary='; '.join(f'{label}: {counts[key]}' for key,label in labels if counts[key])
+    segments=''.join(f'<span class="findings-segment finding-{key}" style="flex:{counts[key]} 1 0%;min-width:0"></span>' for key,_ in labels if counts[key])
+    legend=''.join(f'<span><i class="finding-dot finding-{key}" aria-hidden="true"></i>{label} <b>{counts[key]:,}</b></span>' for key,label in labels if counts[key])
+    return '<div class="findings-viz"><div class="findings-viz-title">Retained findings by severity</div><div class="findings-track" role="img" aria-label="'+escape(summary,quote=True)+'">'+segments+'</div><div class="findings-legend">'+legend+'</div></div>'
