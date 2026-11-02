@@ -58,7 +58,7 @@ fi
 if [ "$mode" = monitor ]; then
     ssh "${ssh_options[@]}" "root@$host" 'bash /root/crewai-agent/deploy/run_operations.sh watchdog'
 elif [ "$mode" = verify ]; then
-    ssh "${ssh_options[@]}" "root@$host" 'systemctl is-active crewai garrett-api && curl --fail --silent http://127.0.0.1:8501/_stcore/health && curl --fail --silent http://127.0.0.1:8000/health && cat /root/crewai-agent/.release_sha'
+    ssh "${ssh_options[@]}" "root@$host" 'systemctl is-active crewai garrett-api && curl --fail --silent http://127.0.0.1:8501/workspace/_stcore/health && curl --fail --silent http://127.0.0.1:8000/health && cat /root/crewai-agent/.release_sha'
 else
     # An old run must never replace a newer main release.
     latest=$(git ls-remote https://github.com/garrettgao6-alt/crewai-agent.git refs/heads/main | cut -f1)

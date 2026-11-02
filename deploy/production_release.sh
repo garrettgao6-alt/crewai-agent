@@ -175,7 +175,7 @@ fi
 cat > /etc/systemd/system/crewai.service.d/90-gao-release.conf <<EOF
 [Service]
 ExecStart=
-ExecStart=$new_runtime/bin/streamlit run $app/streamlit_app.py --server.address 127.0.0.1 --server.port 8501 --server.headless true --client.showErrorDetails none
+ExecStart=$new_runtime/bin/streamlit run $app/streamlit_app.py --server.address 127.0.0.1 --server.port 8501 --server.baseUrlPath workspace --server.headless true --client.showErrorDetails none
 EOF
 cat > /etc/systemd/system/garrett-api.service.d/90-gao-release.conf <<EOF
 [Service]
@@ -204,11 +204,11 @@ systemctl daemon-reload
 systemctl enable garrett-api
 systemctl start garrett-api crewai
 for attempt in $(seq 1 30); do
-    if curl --fail --silent http://127.0.0.1:8000/health >/dev/null && curl --fail --silent http://127.0.0.1:8501/_stcore/health >/dev/null; then break; fi
+    if curl --fail --silent http://127.0.0.1:8000/health >/dev/null && curl --fail --silent http://127.0.0.1:8501/workspace/_stcore/health >/dev/null; then break; fi
     sleep 2
 done
 curl --fail --silent http://127.0.0.1:8000/health >/dev/null
-curl --fail --silent http://127.0.0.1:8501/_stcore/health >/dev/null
+curl --fail --silent http://127.0.0.1:8501/workspace/_stcore/health >/dev/null
 "$new_runtime/bin/python" deploy/install_private_download_proxy.py
 "$new_runtime/bin/python" deploy/install_public_seo.py "$backup_dir"
 "$new_runtime/bin/python" deploy/production_verify.py > "$backup_dir/acceptance.log" 2>&1 || { echo 'Production acceptance failed; rolling back. Private log retained.'; test ! -f /root/gao-latest-acceptance.json || cat /root/gao-latest-acceptance.json; exit 1; }
