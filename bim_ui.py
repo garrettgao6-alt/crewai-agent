@@ -29,7 +29,7 @@ def render(owner,project):
         analysis=report['bim_analysis']
         with st.container(key="bim_metrics"):
             metrics=st.columns(3)
-            for column,label,value in zip(metrics,('Elements inspected','Findings','AI tokens'),(analysis['element_count'],analysis['issue_count'],0)):
+            for column,label,value in zip(metrics,('Elements','Findings','AI tokens'),(analysis['element_count'],analysis['issue_count'],0)):
                 column.metric(label,value)
         st.caption('Schema: '+analysis['schema']+' · Length-unit scale to metres: '+str(analysis['length_unit_to_metres']))
         st.dataframe([{'IFC class':k,'Count':v} for k,v in analysis['ifc_class_counts'].items()],hide_index=True,use_container_width=True)
