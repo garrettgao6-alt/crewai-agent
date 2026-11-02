@@ -126,6 +126,15 @@ try:
     app.session_state['active_section']='BIM';app.run()
     assert not app.exception and any('Download issues CSV' in item.value for item in app.markdown)
     checks['deployed_document_and_bim_ui_private_download_links']=True
+    app.button(key='quick_nav_Documents').click().run()
+    app.button(key=f"dm_archive_{alice['id']}_{a['id']}_{first['file_id']}_False").click().run()
+    assert not app.exception and document_store.get_file(alice['id'],a['id'],first['file_id'])['archived']==1
+    app.checkbox(key=f"dm_archived_{alice['id']}_{a['id']}_False").check().run()
+    app.button(key=f"dm_unarchive_{alice['id']}_{a['id']}_{first['file_id']}_False").click().run()
+    assert not app.exception and document_store.get_file(alice['id'],a['id'],first['file_id'])['archived']==0
+    app.checkbox(key=f"dm_archived_{alice['id']}_{a['id']}_False").uncheck().run()
+    checks['deployed_session_bound_file_archive_and_restore']=True
+    app.button(key='quick_nav_BIM').click().run()
     next(item for item in app.text_input if item.label=='Find an element').set_value('no-such-acceptance-element').run()
     assert not app.exception and any('No findings match' in item.value for item in app.info)
     app.button(key='quick_nav_Documents').click().run()
