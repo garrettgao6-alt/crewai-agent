@@ -27,6 +27,28 @@ managed_scopes=set()
 old_limit=os.environ.get('MAX_USERS')
 os.environ['MAX_USERS']='0'  # Only this verification process, never .env/server settings.
 try:
+    from public_site import PAGES, ORIGIN, url as public_url
+    from xml.etree import ElementTree as ET
+    for slug in PAGES:
+        page=requests.get(public_url(slug),timeout=20)
+        assert page.status_code==200 and PAGES[slug][0] in page.text
+        assert '<link rel="canonical" href="'+public_url(slug)+'">' in page.text
+        assert 'application/ld+json' in page.text
+        assert 'noindex' not in page.headers.get('X-Robots-Tag','')
+    checks['public_guides_rendered_metadata_and_schema']=True
+    sitemap=requests.get(ORIGIN+'/sitemap.xml',timeout=20)
+    assert sitemap.status_code==200 and 'xml' in sitemap.headers.get('Content-Type','')
+    assert {n.text for n in ET.fromstring(sitemap.content).findall('{*}url/{*}loc')}=={public_url(s) for s in PAGES}
+    robots=requests.get(ORIGIN+'/robots.txt',timeout=20)
+    assert robots.status_code==200 and 'text/plain' in robots.headers.get('Content-Type','')
+    assert 'Disallow: /private-download/' in robots.text and 'Disallow: /\n' not in robots.text
+    checks['public_sitemap_and_robots']=True
+    assert requests.get(ORIGIN+'/discover/acceptance-nonexistent/',timeout=20).status_code==404
+    assert requests.get(ORIGIN+'/discover',timeout=20,allow_redirects=False).headers['Location']==ORIGIN+'/discover/'
+    assert requests.get('https://gaointelligence.com/discover/',timeout=20,allow_redirects=False).headers['Location']==ORIGIN+'/discover/'
+    assert 'noindex' in requests.get(ORIGIN+'/',timeout=20).headers.get('X-Robots-Tag','')
+    assert 'noindex' in requests.get(ORIGIN+'/private-download/acceptance-nonexistent',timeout=20).headers.get('X-Robots-Tag','')
+    checks['private_workspace_noindex_and_public_canonical_routes']=True
     user_store.initialize_user_store()
     project_store.initialize_project_store()
     for label in ('a','b'):
