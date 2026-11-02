@@ -65,6 +65,7 @@ class PublicSiteTests(unittest.TestCase):
         self.assertNotIn('    location / {',changed)
         self.assertIn('location = / {',installer.SNIPPET_TEXT)
         self.assertIn('try_files /index.html =404;',installer.SNIPPET_TEXT)
+        self.assertIn('/index.html "";',installer.MAP_TEXT)  # Resolved static root must stay indexable.
         self.assertIn('location / { return 404; }',installer.SNIPPET_TEXT)
         self.assertIn('http://127.0.0.1:8501/workspace/_stcore/health',installer.SNIPPET_TEXT)
         self.assertIn('location = /workspace { return 308 /workspace/$is_args$args; }',installer.SNIPPET_TEXT)
