@@ -267,3 +267,23 @@ def test_authenticated_copilot_to_persistent_report_and_pdf_ui(system, monkeypat
     # PyPDF2's legacy CJK cmap decoder leaves UTF-16 NULs in Latin text.
     text = '\n'.join(page.extract_text() for page in PdfReader(BytesIO(pdf)).pages).replace('\x00','')
     assert 'C2D2' in text and 'Sources' in text and 'ncc.txt' in text
+
+
+def test_large_ncc_bundle_is_reviewed_once_and_saved_without_dropping_evidence(system,monkeypatch):
+    owner,other,project,_,_=system
+    chunks=[{'text':('Linked NCC provision %s. '%i)*85,'metadata':{'source':f'NCC 2025 Housing Provisions.pdf, p. {i+1}','page':i+1,'clause':f'9.2.{i+1}','code':'NCC 2025','reference_kind':'server_local_ncc'}} for i in range(24)]
+    monkeypatch.setattr(engine,'retrieve_multi',lambda *args,**kwargs:chunks)
+    def redundant(*args):raise AssertionError('Regulatory evidence was sent through redundant planning/routing')
+    monkeypatch.setattr(engine,'plan_tasks',redundant);monkeypatch.setattr(engine,'route_task',redundant)
+    calls=[]
+    def review(prompt):
+        calls.append(prompt)
+        assert all(chunk['text'] in prompt for chunk in chunks)
+        return 'Synthetic review complete. Construction evidence remains missing; no compliance determination.'
+    monkeypatch.setattr(engine,'run_construction_agent',review)
+    import analysis_service
+    saved=analysis_service.analyze(owner['id'],project['id'],'NCC 2025 fire wall risks and strategy','large-ncc-one-pass')
+    assert len(calls)==1 and len(saved['sources'])==24
+    assert report_store.get_report(owner['id'],project['id'],saved['id'])['sources']==saved['sources']
+    with pytest.raises(PermissionError):
+        report_store.get_report(other['id'],project['id'],saved['id'])

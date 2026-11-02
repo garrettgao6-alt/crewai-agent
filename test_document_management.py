@@ -181,3 +181,25 @@ def test_managed_embedding_batch_is_one_bounded_provider_request(monkeypatch):
     monkeypatch.setattr(vector_store,'_get_client',lambda:SimpleNamespace(embeddings=SimpleNamespace(create=create)))
     assert vector_store.embed_batch(['one','two'])==[[1.,0.],[0.,1.]]
     assert len(calls)==1 and calls[0]['input']==['one','two']
+
+
+def test_auto_detected_project_notes_mentioning_ncc_are_not_regulatory(system):
+    owner,_,project,other,_=system
+    evidence=b'Class 1a dwelling. NCC 2025 external wall review. Missing fire resistance evidence. PROJECT_NOTES_MARKER'
+    version=store.upload(owner['id'],project['id'],'review-notes.txt',evidence)
+    assert version['status']=='ready'
+    scope=project_store.document_scope(owner['id'],project['id'])
+    hits=vector_store.retrieve('PROJECT_NOTES_MARKER',user_id=scope)
+    assert hits and all(item['metadata']['type']=='business' for item in hits)
+    assert vector_store.search_ncc_chunks(scope,'PROJECT_NOTES_MARKER')==[]
+    assert query(owner['id'],other['id'])==[]
+
+
+def test_publication_auto_detection_still_requires_edition(system):
+    from core.document_pipeline import infer_document_type
+    owner,_,project,_,_=system
+    assert infer_document_type('NCC 2025 Housing Provisions.pdf','')=='housing'
+    assert infer_document_type('NCC 2025 Volume Two (1).pdf','')=='ncc'
+    assert infer_document_type('NCC compliance report.txt','NCC 2025 Volume Two\nProject review')=='business'
+    with pytest.raises(ValueError,match='edition'):
+        store.upload(owner['id'],project['id'],'ncc.txt',b'C2D2 Code publication fixture')
