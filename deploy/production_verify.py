@@ -83,6 +83,9 @@ try:
     assert Image.open(BytesIO(icon.content)).size==(96,96)
     assert requests.get(ORIGIN+'/favicon.ico',timeout=20).status_code==200
     assert 'On this page' in requests.get(ORIGIN+'/discover/ncc-review/',timeout=20).text
+    guide=requests.get(ORIGIN+'/discover/construction-ai-tools/',timeout=20)
+    assert guide.status_code==200 and '<caption>Gao Intelligence workflows, inputs and processing</caption>' in guide.text
+    assert 'Parser checks use no AI tokens' in guide.text
     checks['public_search_icons_and_answer_navigation']=True
     checks['public_sitemap_and_robots']=True
     assert requests.get(ORIGIN+'/discover/acceptance-nonexistent/',timeout=20).status_code==404
