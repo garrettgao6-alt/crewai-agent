@@ -1,5 +1,5 @@
-import json
 import streamlit as st
+from ui_labels import severity_label, check_label, finding_rows, dimension_rows, friendly_error, ifc_label
 from core import bim_checks,document_store
 import report_store
 from ui_theme import saved_time
@@ -20,7 +20,7 @@ def render(owner,project):
                 version,report=bim_checks.import_model(owner,project,file.name,file.getvalue())
                 progress.update(label='Inspection saved',state='complete',expanded=False)
             st.success('Model checks saved to Reports. Original and version history are retained in this project.')
-        except (ValueError,PermissionError) as exc:st.error(str(exc))
+        except (ValueError,PermissionError) as exc:st.error(friendly_error(exc))
         except Exception:st.error('The model inspection could not complete. The preceding active version is preserved; retry to recover a saved inspection.')
     reports=report_store.list_report_summaries(owner,project,category='bim')
     if reports:
@@ -31,24 +31,25 @@ def render(owner,project):
             metrics=st.columns(3)
             for column,label,value in zip(metrics,('Elements','Findings','AI tokens'),(analysis['element_count'],analysis['issue_count'],0)):
                 column.metric(label,value)
-        st.caption('Schema: '+analysis['schema']+' · Length-unit scale to metres: '+str(analysis['length_unit_to_metres']))
-        st.dataframe([{'IFC class':k,'Count':v} for k,v in analysis['ifc_class_counts'].items()],hide_index=True,use_container_width=True)
+        scale=analysis['length_unit_to_metres']
+        st.caption('Model format: '+analysis['schema']+' · '+(f'One model length unit equals {scale:g} metres.' if scale is not None else 'Length units could not be confirmed.'))
+        st.dataframe([{'Element type':ifc_label(k),'Elements':v} for k,v in analysis['ifc_class_counts'].items()],hide_index=True,use_container_width=True)
         if analysis['issues_truncated']:st.warning('The issue table is truncated to 1,000 rows. Total findings: '+str(analysis['issue_count']))
         if analysis['issues']:
             st.subheader('Element findings')
-            severity=st.multiselect('Severity',sorted({row['severity'] for row in analysis['issues']}),default=sorted({row['severity'] for row in analysis['issues']}),key=f'bim_severity_{owner}_{project}_{report["id"]}')
-            rule=st.selectbox('Check', ['All checks']+sorted({row['rule'] for row in analysis['issues']}),key=f'bim_rule_{owner}_{project}_{report["id"]}')
-            query=st.text_input('Find an element',placeholder='Name, GlobalId or entity number',key=f'bim_find_{owner}_{project}_{report["id"]}')
+            severity=st.multiselect('Severity',sorted({row['severity'] for row in analysis['issues']}),default=sorted({row['severity'] for row in analysis['issues']}),format_func=severity_label,key=f'bim_severity_{owner}_{project}_{report["id"]}')
+            rule=st.selectbox('Check', ['All checks']+sorted({row['rule'] for row in analysis['issues']}),format_func=lambda value:'All checks' if value=='All checks' else check_label(value),key=f'bim_rule_{owner}_{project}_{report["id"]}')
+            query=st.text_input('Find an element',placeholder='Element name, IFC identifier or element number',key=f'bim_find_{owner}_{project}_{report["id"]}')
             visible=[row for row in analysis['issues'] if row['severity'] in severity and (rule=='All checks' or row['rule']==rule) and query.casefold() in (' '.join(str(row.get(key,'')) for key in ('name','global_id','entity_id','ifc_class'))).casefold()]
             st.caption(f'{len(visible)} of {len(analysis["issues"])} retained findings shown. Downloads contain the full saved inspection.')
-            if visible:st.dataframe(visible,hide_index=True,use_container_width=True)
+            if visible:st.dataframe(finding_rows(visible),hide_index=True,use_container_width=True)
             else:st.info('No findings match these filters. Clear the search or change the severity and check.')
         else:st.info('No findings from the implemented data checks. This is not a compliance or clash-free certificate.')
         if analysis['dimension_samples']:
             with st.expander('Recorded overall dimensions in metres'):
-                st.dataframe(analysis['dimension_samples'],hide_index=True,use_container_width=True)
+                st.dataframe(dimension_rows(analysis['dimension_samples']),hide_index=True,use_container_width=True)
                 st.caption('Overall dimensions are not verified clear openings.')
         private_download('Download issues CSV',owner,project,'bim_csv',report['id'])
-        private_download('Download inspection JSON',owner,project,'bim_json',report['id'])
+        private_download('Download full inspection data',owner,project,'bim_json',report['id'])
     st.subheader('Retained IFC originals and versions')
     library(owner,project,only_bim=True)

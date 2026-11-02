@@ -75,8 +75,12 @@ def test_bim_page_restores_private_inspection_and_exports(system,monkeypatch):
     app.session_state['active_project_id']=p['id'];app.session_state['active_section']='BIM';app.run()
     assert not app.exception
     html=' '.join(item.value for item in app.markdown)
-    assert 'Download issues CSV' in html and 'Download inspection JSON' in html and 'Download original' in html
+    assert 'Download issues CSV' in html and 'Download full inspection data' in html and 'Download original' in html
     assert '/media/' not in html
+    assert not app.get('json') and not app.get('code')
+    columns={column for table in app.dataframe for column in table.value.columns}
+    assert {'Check','Element number','IFC identifier','Overall width (m)'}.issubset(columns)
+    assert not {'rule','entity_id','global_id','OverallWidth_metres'} & columns
 
 
 def test_bim_report_listing_is_project_scoped_metadata_only(system):
