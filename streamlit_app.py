@@ -2947,8 +2947,21 @@ def open_workspace_workflow(key):
 
 
 def change_workspace_project(key):
+    # Browser widget events can arrive after sign-out or session revocation.
+    # Never use a cached private identity to process such an event.
+    session_user=user_store.resolve_session(st.session_state.get('auth_session_token'))
+    if is_guest_user() or not session_user or str(session_user['id'])!=str(st.session_state.get('user_id')):
+        clear_authenticated_user()
+        st.session_state.pop('auth_session_token',None)
+        sync_project_session()
+        return
     selected=st.session_state.get(key)
-    if selected is not None:project_store.require_project_access(get_current_user_id(),selected)
+    try:
+        if selected is not None:project_store.require_project_access(get_current_user_id(),selected)
+    except PermissionError:
+        st.session_state.active_project_id=None
+        sync_project_session()
+        return
     st.session_state.active_project_id=selected
     sync_project_session()
 
@@ -3461,10 +3474,7 @@ def render_documents_page() -> None:
 
 
 def _library_project_changed(key):
-    selected=st.session_state.get(key)
-    project_store.require_project_access(get_current_user_id(),selected)
-    st.session_state.active_project_id=selected
-    sync_project_session()
+    change_workspace_project(key)
 
 
 def select_library_project(page):
