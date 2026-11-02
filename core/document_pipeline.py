@@ -129,9 +129,20 @@ def chunk_text(text: str) -> list:
 
 
 def infer_document_type(filename: str, text: str) -> str:
-    signal = f"{filename}\n{text[:2000]}".lower()
-    if "ncc" in signal or "national construction code" in signal or "building code" in signal:
-        return "ncc"
+    # Project notes routinely mention the NCC. That does not make those notes
+    # a code publication or justify indexing their claims as regulatory text.
+    import re
+    from pathlib import Path
+    title = Path(filename).stem.lower().replace('_', ' ').replace('-', ' ')
+    project_document = re.search(r'\b(notes?|reports?|reviews?|assessments?|plans?|checklists?|summar(?:y|ies))\b', title)
+    publication = re.search(r'\bncc\s*(?:20\d{2})?\s*(?:(?:abcb\s*)?(?:volume\s*(?:one|two|1|2)|housing\s+provisions))?\s*(?:\(\d+\))?$', title)
+    if not project_document and (publication or 'national construction code' in title):
+        return 'housing' if 'housing provisions' in title else 'ncc'
+    # A strong publication heading is useful for generically named PDFs, but
+    # incidental mentions anywhere in the body must remain project evidence.
+    heading = text[:250].strip().lower()
+    if not project_document and re.match(r'(?:ncc\s*20\d{2}|national construction code\s*20\d{2})\s*[:\-\n ]*volume\s*(?:one|two|1|2)\b', heading):
+        return 'ncc'
     return "business"
 
 

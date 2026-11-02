@@ -70,13 +70,18 @@ def _run_engine(user_id, prompt, document_text=None, *, project_id=None, return_
         for chunk in retrieved_chunks
     )
     insufficient_evidence = is_regulatory_query(prompt) and not has_regulatory_reference
-    tasks = [] if insufficient_evidence else plan_tasks(prompt)
+    regulatory_review = is_regulatory_query(prompt)
+    # Every planned task used to receive the identical full evidence bundle.
+    # A real NCC catalog can fill most of the per-request reservation in two
+    # calls, failing before report storage. Review it once, without dropping
+    # linked provisions or increasing any budget.
+    tasks = [] if insufficient_evidence else (["analysis"] if regulatory_review else plan_tasks(prompt))
     if insufficient_evidence:
         tasks = []
         results.append({"result": "Insufficient NCC reference found. Upload reference documents for this project or configure a readable NCC reference path. No compliance conclusion has been made."})
 
     for task in tasks:
-        domain = route_task(task)
+        domain = "construction" if regulatory_review else route_task(task)
         result = agent_executor(domain, reasoning_prompt)
         result = review_output(result)
 

@@ -231,7 +231,7 @@ class RagSystemTests(unittest.TestCase):
     def test_process_txt_document_preserves_metadata(self):
         text = ("National Construction Code fire safety compliance " * 30).encode("utf-8")
 
-        chunks = process_document("ncc-guide.txt", text)
+        chunks = process_document("ncc-guide.txt", text, document_type="ncc")
 
         self.assertGreaterEqual(len(chunks), 1)
         self.assertEqual(chunks[0]["metadata"]["source"], "ncc-guide.txt")

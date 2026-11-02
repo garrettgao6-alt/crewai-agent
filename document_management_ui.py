@@ -59,6 +59,7 @@ def render(owner,project):
     oversized=file is not None and file.size>50*1024**2
     if oversized:st.error('This document exceeds 50 MB. Split it before indexing.')
     kind=st.selectbox('Document type',['Auto-detect','Business','NCC','Housing'],key=f'dm_kind_{scope}')
+    st.caption('Project notes and reports remain project evidence even when they mention NCC. Select NCC or Housing only for a code publication, with its actual edition and volume.')
     edition=st.text_input('Reference edition / volume',placeholder='For NCC references, enter the actual edition and volume',key=f'dm_edition_{scope}')
     if kind in ('NCC','Housing') and not edition.strip():st.caption('Enter an edition and volume to enable indexing.')
     if st.button('Upload and index',type='primary',disabled=file is None or oversized or (kind in ('NCC','Housing') and not edition.strip()),key=f'dm_submit_{scope}'):
