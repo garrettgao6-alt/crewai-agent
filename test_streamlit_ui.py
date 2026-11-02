@@ -53,7 +53,16 @@ def test_navigation_supports_manual_selection_and_dashboard_shortcuts(app):
     app.selectbox(key="nav_selected").select("Dashboard").run()
     click_label(app, "Open Copilot")
     assert app.selectbox(key="nav_selected").value == "Copilot"
-    click_label(app, "Gao Intelligence")
+    from html.parser import HTMLParser
+    class HomeLinks(HTMLParser):
+        def __init__(self):super().__init__();self.links=[]
+        def handle_starttag(self,tag,attrs):
+            if tag=='a':self.links.append(dict(attrs))
+    links=HomeLinks()
+    links.feed(' '.join(item.value for item in app.markdown))
+    home=next(a for a in links.links if a.get('aria-label')=='Gao Intelligence home')
+    assert home['href']=='/' and home['target']=='_self'
+    click_label(app, "Home")
     assert app.session_state["active_section"] == "Dashboard"
     assert app.selectbox(key="nav_selected").value == "Dashboard"
     click_label(app, "Open Copilot")
