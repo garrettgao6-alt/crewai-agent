@@ -6,6 +6,7 @@ html,body,.stApp{background:var(--gao-bg);color:var(--gao-text);font-family:Inte
 *,*::before,*::after{box-sizing:border-box}
 [data-testid="stMainBlockContainer"],.main .block-container{max-width:1360px;padding:4rem 2.2rem 4rem}
 [data-testid="stHeader"]{background:rgba(11,17,27,.92)}
+[data-testid="stToolbar"],[data-testid="stDecoration"]{display:none}
 [data-testid="stSidebar"]{background:#0e1723;border-right:1px solid var(--gao-line)}
 [data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{padding:1.5rem 1.1rem}
 h1,h2,h3,h4{color:var(--gao-text);letter-spacing:-.035em;font-weight:600!important;line-height:1.18!important}
