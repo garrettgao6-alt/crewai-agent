@@ -84,3 +84,13 @@ def test_verify_is_read_only_and_old_releases_are_skipped(release):
     assert result.returncode == 0
     assert "Superseded commit" in result.stdout
     assert calls.count("ssh ") == 1 and "scp " not in calls
+
+
+def test_workspace_health_and_runtime_paths_match():
+    root=Path(__file__).parent
+    release=(root/'deploy/production_release.sh').read_text()
+    assert '--server.baseUrlPath workspace' in release
+    for name in ('production_release.sh','github_release.sh','operations.py'):
+        text=(root/'deploy'/name).read_text()
+        assert 'http://127.0.0.1:8501/workspace/_stcore/health' in text
+        assert 'http://127.0.0.1:8501/_stcore/health' not in text

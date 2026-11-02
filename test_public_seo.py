@@ -35,7 +35,7 @@ class PublicSiteTests(unittest.TestCase):
                 self.assertTrue(any(v['@type']=='WebPage' and v['url']==canonical[0] for v in graph))
                 for tag,a in doc.tags:
                     target=a.get('href') or a.get('src')
-                    if target and target.startswith('/') and target not in ('/','/mail-privacy') and not target.startswith('#'):
+                    if target and target.startswith('/') and target not in ('/','/workspace/','/mail-privacy') and not target.startswith('#'):
                         file=root/target.lstrip('/')
                         self.assertTrue(file.exists(),target)
                 if slug=='faq':
@@ -44,16 +44,32 @@ class PublicSiteTests(unittest.TestCase):
                     for q in faq['mainEntity']:self.assertIn(q['name'],(root/'discover/faq/index.html').read_text())
             urls=ET.parse(root/'sitemap.xml').findall('{*}url/{*}loc')
             self.assertEqual({u.text for u in urls},{site.url(s) for s in site.PAGES})
+            home=(root/'index.html').read_text()
+            self.assertEqual(home,(root/'discover/index.html').read_text())
+            self.assertIn('<link rel="canonical" href="'+site.ORIGIN+'/">',home)
+            self.assertIn('href="/workspace/">Open workspace',home)
+            self.assertIn('href="/workspace/">Try the workspace',home)
+            self.assertNotIn('<div id="root"></div>',home)
             robots=(root/'robots.txt').read_text()
+            self.assertIn('Disallow: /workspace/',robots)
             self.assertIn('Disallow: /private-download/',robots)
             self.assertNotIn('Disallow: /\n',robots)
             self.assertNotIn(site.ORIGIN+'/<',robots)
-            self.assertEqual(set(p.name for p in root.iterdir()),{'discover','seo-assets','robots.txt','sitemap.xml'})
+            self.assertEqual(set(p.name for p in root.iterdir()),{'index.html','discover','seo-assets','robots.txt','sitemap.xml'})
     def test_nginx_change_preserves_existing_proxy_and_rejects_ambiguous_config(self):
         original='server {\n    location ^~ /private-download/ { proxy_pass http://127.0.0.1:8000; }\n    location / { proxy_pass http://127.0.0.1:8501; }\n}'
         changed=installer.site_config(original)
         self.assertIn('proxy_pass http://127.0.0.1:8000;',changed)
         self.assertEqual(installer.site_config(changed),changed)
+        self.assertIn('location ^~ /workspace/ {',changed)
+        self.assertNotIn('    location / {',changed)
+        self.assertIn('location = / {',installer.SNIPPET_TEXT)
+        self.assertIn('try_files /index.html =404;',installer.SNIPPET_TEXT)
+        self.assertIn('location / { return 404; }',installer.SNIPPET_TEXT)
+        self.assertIn('http://127.0.0.1:8501/workspace/_stcore/health',installer.SNIPPET_TEXT)
+        self.assertIn('location = /workspace { return 308 /workspace/$is_args$args; }',installer.SNIPPET_TEXT)
+        proof='    location = /googled326aae452cb5530.html { root /var/www/gao-ownership; }\n'
+        self.assertIn(proof,installer.site_config(original.replace('    location / {',proof+'    location / {')))
         self.assertIn('add_header X-Robots-Tag $gao_search_robots always;',changed)
         for unsafe in ('server {}',original+original):
             with self.assertRaises(ValueError):installer.site_config(unsafe)
@@ -64,11 +80,11 @@ class PublicSiteTests(unittest.TestCase):
         def response(body):
             obj=MagicMock();obj.__enter__.return_value=obj;obj.status=200;obj.headers={};obj.read.return_value=body
             return obj
-        with patch.object(installer.urllib.request,'urlopen',side_effect=[response(b'old Streamlit shell'),response(b'Construction AI'),response(b'User-agent: *'),response(b'<urlset'),response(b'property="og:title"')]),patch.object(installer.time,'sleep') as sleep:
+        with patch.object(installer.urllib.request,'urlopen',side_effect=[response(b'old Streamlit shell'),response(b'Construction AI'),response(b'User-agent: *'),response(b'<urlset'),response(b'<div id="root"></div>')]),patch.object(installer.time,'sleep') as sleep:
             installer.verify_public_ready()
             sleep.assert_called_once()
         with patch.object(installer.urllib.request,'urlopen',return_value=response(b'old Streamlit shell')):
-            with self.assertRaisesRegex(RuntimeError,'/discover/'):
+            with self.assertRaisesRegex(RuntimeError,'/'):
                 installer.verify_public_ready(timeout=0)
 
     def test_failed_reload_restores_previous_config_and_public_release(self):
@@ -147,8 +163,8 @@ class SocialSharingTests(unittest.TestCase):
         self.assertIn('proxy_set_header Accept-Encoding $gao_share_upstream_encoding;',config)
         self.assertNotIn('proxy_set_header Accept-Encoding "";',config)
         self.assertIn('default $http_accept_encoding;',installer.MAP_TEXT)
-        self.assertIn('/ "";',installer.MAP_TEXT)
-        self.assertIn(site.ORIGIN+'/discover/',config)
+        self.assertIn('/workspace/ "";',installer.MAP_TEXT)
+        self.assertIn(site.ORIGIN+'/',config)
         self.assertNotIn('$request_uri',config)
         self.assertNotIn('$cookie',config)
         self.assertNotIn('private-download',config)
