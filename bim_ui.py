@@ -2,7 +2,7 @@ import streamlit as st
 from ui_labels import severity_label, check_label, finding_rows, dimension_rows, friendly_error, ifc_label
 from core import bim_checks,document_store
 import report_store
-from ui_theme import saved_time
+from ui_theme import saved_time, findings_visual_html
 from private_download import render as private_download
 from document_management_ui import library
 
@@ -36,6 +36,7 @@ def render(owner,project):
         st.dataframe([{'Element type':ifc_label(k),'Elements':v} for k,v in analysis['ifc_class_counts'].items()],hide_index=True,use_container_width=True)
         if analysis['issues_truncated']:st.warning('The issue table is truncated to 1,000 rows. Total findings: '+str(analysis['issue_count']))
         if analysis['issues']:
+            st.markdown(findings_visual_html(analysis['issues']),unsafe_allow_html=True)
             st.subheader('Element findings')
             severity=st.multiselect('Severity',sorted({row['severity'] for row in analysis['issues']}),default=sorted({row['severity'] for row in analysis['issues']}),format_func=severity_label,key=f'bim_severity_{owner}_{project}_{report["id"]}')
             rule=st.selectbox('Check', ['All checks']+sorted({row['rule'] for row in analysis['issues']}),format_func=lambda value:'All checks' if value=='All checks' else check_label(value),key=f'bim_rule_{owner}_{project}_{report["id"]}')

@@ -56,6 +56,21 @@ class PublicSiteTests(unittest.TestCase):
             self.assertNotIn('Disallow: /\n',robots)
             self.assertNotIn(site.ORIGIN+'/<',robots)
             self.assertEqual(set(p.name for p in root.iterdir()),{'index.html','discover','seo-assets','robots.txt','sitemap.xml'})
+    def test_public_workflow_explorer_is_accessible_and_has_no_private_data_dependency(self):
+        doc=Document(site.render(''))
+        radios=[a for tag,a in doc.tags if tag=='input' and a.get('type')=='radio']
+        self.assertEqual({a['value'] for a in radios},{'ncc','ifc','documents'})
+        self.assertEqual(sum('checked' in a for a in radios),1)
+        groups=[a for tag,a in doc.tags if a.get('data-flow-panel')]
+        self.assertEqual(len(groups),3)
+        self.assertTrue(all(a.get('aria-label') and a.get('role')=='group' for a in groups))
+        self.assertIn('Workflow illustration · no project data',site.render(''))
+        self.assertIn('not geometric clash detection',site.render(''))
+        self.assertIn('prefers-reduced-motion:reduce',site.FLOW_CSS)
+        self.assertNotIn('infinite',site.FLOW_CSS)
+        self.assertNotIn('workflow-explorer',site.render('ncc-review'))
+        self.assertIn('/seo-assets/site-v3.css',site.render(''))
+
     def test_nginx_change_preserves_existing_proxy_and_rejects_ambiguous_config(self):
         original='server {\n    location ^~ /private-download/ { proxy_pass http://127.0.0.1:8000; }\n    location / { proxy_pass http://127.0.0.1:8501; }\n}'
         changed=installer.site_config(original)

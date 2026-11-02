@@ -76,6 +76,7 @@ def test_bim_page_restores_private_inspection_and_exports(system,monkeypatch):
     assert not app.exception
     html=' '.join(item.value for item in app.markdown)
     assert 'Download issues CSV' in html and 'Download full inspection data' in html and 'Download original' in html
+    assert 'Retained findings by severity' in html
     assert '/media/' not in html
     assert not app.get('json') and not app.get('code')
     columns={column for table in app.dataframe for column in table.value.columns}
