@@ -138,9 +138,11 @@ try:
     app.run()
     assert not app.exception and any(marker in item.value for item in app.markdown)
     assert app.get('download_button')
+    assert not app.get('json') and not app.get('code')
     app.session_state['active_project_id']=b['id']
     app.run()
     assert not app.exception and app.session_state['history']==[]
+    assert not app.get('json') and not app.get('code')
     checks['deployed_login_form_report_page_and_project_switch']=True
     # Exercise the managed file path with real embeddings and the deployed UI.
     from core import document_store, bim_checks
@@ -169,9 +171,18 @@ try:
     checks['real_ifc_parser_units_element_findings_and_saved_report']=True
     app.session_state['active_project_id']=a['id'];app.session_state['active_section']='Documents';app.run()
     assert not app.exception and any('Download original' in item.value for item in app.markdown)
+    assert not app.get('json') and any('Ready' in table.value.get('Status',[]).values for table in app.dataframe if 'Status' in table.value.columns)
     app.session_state['active_section']='BIM';app.run()
     assert not app.exception and any('Download issues CSV' in item.value for item in app.markdown)
     checks['deployed_document_and_bim_ui_private_download_links']=True
+    assert not app.get('json') and not app.get('code')
+    visible_columns={column for table in app.dataframe for column in table.value.columns}
+    assert {'Check','Element number','IFC identifier','Overall width (m)'}.issubset(visible_columns)
+    assert not {'rule','entity_id','global_id','OverallWidth_metres'} & visible_columns
+    assert any('Download full inspection data' in item.value for item in app.markdown)
+    assert report_store.get_report(alice['id'],a['id'],model_report['id'])['bim_analysis']==inspection
+    checks['readable_document_bim_views_preserve_saved_data_and_exports']=True
+
     app.button(key='quick_nav_Documents').click().run()
     app.button(key=f"dm_archive_{alice['id']}_{a['id']}_{first['file_id']}_False").click().run()
     assert not app.exception and document_store.get_file(alice['id'],a['id'],first['file_id'])['archived']==1
