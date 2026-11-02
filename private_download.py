@@ -2,6 +2,7 @@
 import html,os
 import streamlit as st
 import download_service
+from ui_labels import friendly_error
 
 def render(label,owner,project,kind,identifier):
     session=st.session_state.get('auth_session_token')
@@ -16,5 +17,5 @@ def render(label,owner,project,kind,identifier):
         base=os.getenv('PRIVATE_DOWNLOAD_BASE_URL','').rstrip('/')
         href=base+'/private-download/'+token
         st.markdown('<a target="_self" rel="noreferrer" href="'+html.escape(href,quote=True)+'" class="private-download">'+html.escape(label)+'</a>',unsafe_allow_html=True)
-    except (ValueError,PermissionError) as exc:st.warning(str(exc))
+    except (ValueError,PermissionError) as exc:st.warning(friendly_error(exc))
     st.caption('Secure download · Expires in 5 minutes · Single use. Refresh for a new link.')

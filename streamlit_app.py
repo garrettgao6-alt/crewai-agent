@@ -8,6 +8,7 @@ from uuid import uuid4
 
 import requests
 import streamlit as st
+from ui_labels import status_label, role_label, source_details, report_text, friendly_error, confidence_label
 
 st.set_page_config(
     page_title="Gao Intelligence Hub",
@@ -2141,7 +2142,7 @@ def build_pdf_report(
 def render_pdf_download(entry: dict) -> None:
     analysis_type = get_document_analysis_type(entry.get("query", ""))
     review_type = get_project_review_type(entry.get("query", ""))
-    report_content = str(entry.get("result", ""))
+    report_content = report_text(entry)
     report_type = analysis_type or review_type or str(entry.get("mode") or "Analysis Report")
     if not report_content:
         return
@@ -2484,7 +2485,7 @@ def render_auth_page(cookies: EncryptedCookieManager) -> None:
                     user = user_store.create_user(username, email, password,require_verification=True)
                     account_recovery.request_code(email,source=source_id(),purpose='activate')
                 except ValueError as exc:
-                    st.error(str(exc))
+                    st.error(friendly_error(exc))
                 except user_store.UserStoreError:
                     st.error("Could not create account right now. Please try again later.")
                 else:
@@ -2660,7 +2661,7 @@ def consume_ai_request_or_warn() -> bool:
     try:
         subscription_store.increment_ai_request(get_current_user_id())
     except PermissionError as exc:
-        st.error(str(exc))
+        st.error(friendly_error(exc))
         return False
     refresh_subscription_usage()
     return True
@@ -2687,7 +2688,7 @@ def consume_document_analysis_or_warn() -> bool:
     try:
         subscription_store.increment_document_analysis(get_current_user_id())
     except PermissionError as exc:
-        st.error(str(exc))
+        st.error(friendly_error(exc))
         return False
     refresh_subscription_usage()
     return True
@@ -2712,7 +2713,7 @@ def consume_executive_agent_usage_or_warn() -> bool:
         subscription_store.increment_document_analysis(get_current_user_id())
         subscription_store.increment_ai_request(get_current_user_id())
     except PermissionError as exc:
-        st.error(str(exc))
+        st.error(friendly_error(exc))
         return False
 
     refresh_subscription_usage()
@@ -3051,7 +3052,7 @@ def render_new_project_form() -> None:
                     project_description,
                 )
             except ValueError as exc:
-                st.error(str(exc))
+                st.error(friendly_error(exc))
             except project_store.ProjectStoreError:
                 st.error("Could not create project right now.")
             else:
@@ -3600,8 +3601,8 @@ def render_settings() -> None:
         f"""
         <div class="workspace-overview-card">
             <div class="workspace-overview-line"><strong>Account:</strong> {escape(str(st.session_state.username or current_user.get("username", "User")))}</div>
-            <div class="workspace-overview-line"><strong>Role:</strong> {escape(str(st.session_state.role or current_user.get("role", "User")))}</div>
-            <div class="workspace-overview-line"><strong>Session:</strong> Persistent cookie login enabled</div>
+            <div class="workspace-overview-line"><strong>Role:</strong> {escape(role_label(st.session_state.role or current_user.get("role", "user")))}</div>
+            <div class="workspace-overview-line"><strong>Session:</strong> Secure sign-in session</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -3624,13 +3625,13 @@ def render_ncc_reference_settings() -> None:
     try:
         ncc_library.library_root()
     except ncc_library.NCCReferenceError as exc:
-        st.info(str(exc))
+        st.info(friendly_error(exc))
         return
     user_id = get_current_user_id()
     saved = ncc_library.load_reference(user_id) or {}
     with st.form("ncc_reference_settings"):
-        path = st.text_input("NCC server path", value=saved.get("path", ""), help="Relative to the approved NCC root, or an absolute path inside it. Directories include PDF/TXT files immediately inside them.")
-        edition = st.text_input("NCC edition and volume", value=saved.get("edition", ""), placeholder="For example: NCC 2022 Volume One")
+        path = st.text_input("NCC reference location on server", value=saved.get("path", ""), help="Relative to the approved NCC root, or an absolute path inside it. Directories include PDF/TXT files immediately inside them.")
+        edition = st.text_input("NCC edition and volume", value=saved.get("edition", ""), placeholder="For example: NCC 2025 Volume One")
         st.caption("Relevant excerpts are sent to the configured AI service during analysis. Saving a path alone does not send document contents.")
         submitted = st.form_submit_button("Save and validate NCC path")
     if submitted:
@@ -3638,7 +3639,7 @@ def render_ncc_reference_settings() -> None:
             count = ncc_library.save_reference(user_id, path, edition)
             st.success(f"Saved. {count} reference file(s) available for analysis.")
         except (ncc_library.NCCReferenceError, OSError) as exc:
-            st.error(str(exc))
+            st.error(friendly_error(exc))
     if saved and st.button("Disable local NCC references", key="clear_ncc_reference"):
         ncc_library.clear_reference(user_id)
         st.rerun()
@@ -3780,17 +3781,17 @@ def render_reports_page() -> None:
     st.session_state.selected_history = selected_entry
 
     from ui_theme import saved_time
-    st.caption(f"Saved: {saved_time(selected_entry.get('created_at', ''))} · Status: {selected_entry.get('status', 'draft')}")
-    render_report_section("Full analysis", str(selected_entry.get("result", "")))
+    st.caption(f"Saved: {saved_time(selected_entry.get('created_at', ''))} · Status: {status_label(selected_entry.get('status', 'draft'))}")
+    render_report_section("Full analysis", report_text(selected_entry))
     sources = selected_entry.get("sources", [])
     if sources:
         st.markdown("### Source snapshots")
-        st.write(format_sources(sources))
+        st.text(format_sources(sources))
         with st.expander("Evidence saved with this report"):
             for source in sources:
-                st.write(source.get("metadata", {}))
+                for label, value in source_details(source):
+                    st.text(f"{label}: {value}")
                 st.text(source.get("text", ""))
-                st.caption(f"Snapshot SHA-256: {source.get('sha256', '')}")
     render_pdf_download(selected_entry)
 
 
@@ -3888,7 +3889,7 @@ def render_ai_copilot_panel() -> None:
                 analysis_payload = run_advanced_mode(cleaned_input)
                 response_text = analysis_payload["result"]
             except Exception as exc:
-                response_text = f"Error: {str(exc)}"
+                response_text = f"Error: {friendly_error(exc)}"
             finally:
                 st.session_state.copilot_calls += 1
                 typing_placeholder.empty()
@@ -3921,9 +3922,9 @@ def render_ai_copilot_panel() -> None:
 
                 if retrieved_chunks:
                     st.markdown("### Sources Used")
-                    st.write(format_sources(retrieved_chunks))
-                    with st.expander("Extracted context"):
-                        st.write(build_context(retrieved_chunks))
+                    st.text(format_sources(retrieved_chunks))
+                    with st.expander("Supporting excerpts"):
+                        st.text(build_context(retrieved_chunks))
 
                 st.rerun()
 
@@ -3934,9 +3935,8 @@ def display_result(entry: dict) -> None:
         result_metrics = [
             ("Mode", str(entry.get("mode", ""))),
             ("Response Time", f"{entry.get('elapsed_seconds', 0.0):.1f}s"),
-            ("Category", str(entry.get("category", ""))),
-            ("Confidence", str(entry.get("confidence", ""))),
-            ("Version", str(entry.get("version", ""))),
+            ("Review type", str(entry.get("category", "")).replace("_", " ").title()),
+            ("Routing confidence", confidence_label(entry.get("confidence"))),
         ]
         if entry.get("agent_mode"):
             result_metrics.append(("Agent Mode", str(entry.get("agent_mode", ""))))
@@ -4539,13 +4539,13 @@ with st.sidebar:
 
     if is_guest_user():
         st.caption("Exploring as: Guest")
-        st.caption("Role: Isolated sample workspace")
+        st.caption("Public sample workspace")
         if st.button("Login / Sign Up", key="sidebar_auth", use_container_width=True):
             show_login_modal("Sign in to unlock projects, uploads, reports, and advanced AI.")
     else:
         current_user = st.session_state.current_user or {}
         st.caption(f"Logged in as: {st.session_state.username or current_user.get('username', 'User')}")
-        st.caption(f"Role: {st.session_state.role or current_user.get('role', 'User')}")
+        st.caption(f"Role: {role_label(st.session_state.role or current_user.get('role', 'user'))}")
         if st.session_state.role == "Admin":render_user_limit_summary()
 
         projects=project_store.list_projects(get_current_user_id(),limit=1000)

@@ -1,5 +1,6 @@
 """Account forms; credentials remain password inputs and are never displayed."""
 import streamlit as st
+from ui_labels import friendly_error
 import account_recovery
 import user_store
 
@@ -13,7 +14,7 @@ def render_recovery():
         try:
             st.success(account_recovery.request_code(email,source=source_id()))
         except (ValueError, user_store.UserStoreError) as exc:
-            st.error(str(exc))
+            st.error(friendly_error(exc))
     with st.form('reset_password_with_code', clear_on_submit=True):
         email = st.text_input('Account email', key='recovery_reset_email')
         code = st.text_input('8-digit verification code', max_chars=8)
@@ -28,7 +29,7 @@ def render_recovery():
                 account_recovery.reset_password(email, code, password)
                 st.success('Password updated. All previous sessions have been signed out. Sign in with your new password.')
             except (ValueError, user_store.UserStoreError) as exc:
-                st.error(str(exc))
+                st.error(friendly_error(exc))
 
 
 def render_username_settings(user):
@@ -46,7 +47,7 @@ def render_username_settings(user):
             st.success('Username updated.')
             return updated
         except (ValueError, user_store.UserStoreError) as exc:
-            st.error(str(exc))
+            st.error(friendly_error(exc))
     return None
 
 
@@ -70,10 +71,10 @@ def render_activation():
         try:
             account_recovery.activate_account(email,code)
             st.success('Email verified. You can now sign in.')
-        except ValueError as exc:st.error(str(exc))
+        except ValueError as exc:st.error(friendly_error(exc))
     with st.form('resend_activation'):
         email=st.text_input('Registration email for resend',max_chars=254)
         resend=st.form_submit_button('Resend activation code')
     if resend:
         try:st.success(account_recovery.request_code(email,source=source_id(),purpose='activate'))
-        except (ValueError,user_store.UserStoreError) as exc:st.error(str(exc))
+        except (ValueError,user_store.UserStoreError) as exc:st.error(friendly_error(exc))

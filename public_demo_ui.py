@@ -16,7 +16,7 @@ def render_demo(page="Copilot", pdf_renderer=None):
     if page == "Documents":
         query = st.text_input("Search sample documents", max_chars=200, placeholder="Try: fire, payment, lift")
         matches = demo.search(case, query)
-        st.caption(f"{len(matches)} sample documents found. Keyword matching; no embeddings or AI call.")
+        st.caption(f"{len(matches)} sample documents found. Searches sample text without using AI.")
         for doc in matches:
             with st.expander(SOURCE_LABELS.get(doc["id"], "Sample document"), expanded=True):
                 st.text(doc["text"])
@@ -37,7 +37,7 @@ def render_demo(page="Copilot", pdf_renderer=None):
         if st.button("Run sample review", type="primary"):
             st.session_state["public_demo_result"] = demo.analyze(case, workflow, days)
         st.markdown("#### Real AI analysis")
-        st.caption("Only bundled public samples and your question are sent to the AI provider. Do not enter personal, confidential or customer information. No private uploads, projects, NCC paths, tools or conversation history are available to guest AI.")
+        st.caption("Only bundled public samples and your question are sent to the AI provider. Do not enter personal, confidential or customer information. Guest AI cannot access private documents, projects, reference libraries or account conversations.")
         if "guest_ai_session" not in st.session_state:
             st.session_state["guest_ai_session"] = uuid4().hex
         session = st.session_state["guest_ai_session"]
