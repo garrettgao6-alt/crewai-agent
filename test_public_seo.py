@@ -59,6 +59,18 @@ class PublicSiteTests(unittest.TestCase):
             with self.assertRaises(ValueError):installer.site_config(unsafe)
         self.assertIn('default "noindex, nofollow, noarchive";',installer.MAP_TEXT)
         self.assertNotIn('add_header',installer.SNIPPET_TEXT)
+    def test_reload_readiness_retries_old_worker_responses_and_still_fails_closed(self):
+        from unittest.mock import MagicMock
+        def response(body):
+            obj=MagicMock();obj.__enter__.return_value=obj;obj.status=200;obj.headers={};obj.read.return_value=body
+            return obj
+        with patch.object(installer.urllib.request,'urlopen',side_effect=[response(b'old Streamlit shell'),response(b'Construction AI'),response(b'User-agent: *'),response(b'<urlset')]),patch.object(installer.time,'sleep') as sleep:
+            installer.verify_public_ready()
+            sleep.assert_called_once()
+        with patch.object(installer.urllib.request,'urlopen',return_value=response(b'old Streamlit shell')):
+            with self.assertRaisesRegex(RuntimeError,'/discover/'):
+                installer.verify_public_ready(timeout=0)
+
     def test_failed_reload_restores_previous_config_and_public_release(self):
         with tempfile.TemporaryDirectory() as tmp:
             base=Path(tmp);public=base/'public';public.mkdir();previous=public/'previous';previous.mkdir();(public/'current').symlink_to(previous)
