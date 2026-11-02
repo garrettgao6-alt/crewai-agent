@@ -4,6 +4,9 @@ from uuid import uuid4
 from core import public_demo as demo
 from core import guest_ai
 
+SOURCE_LABELS = {"contract": "Sample contract", "programme": "Sample programme",
+                 "checklist": "Sample review checklist", "market": "Sample market summary"}
+
 
 def render_demo(page="Copilot", pdf_renderer=None):
     st.subheader("Interactive sample workspace")
@@ -15,10 +18,10 @@ def render_demo(page="Copilot", pdf_renderer=None):
         matches = demo.search(case, query)
         st.caption(f"{len(matches)} sample documents found. Keyword matching; no embeddings or AI call.")
         for doc in matches:
-            with st.expander(doc["id"], expanded=True):
+            with st.expander(SOURCE_LABELS.get(doc["id"], "Sample document"), expanded=True):
                 st.text(doc["text"])
-                st.caption(f"SHA-256: {doc['sha256']}")
-                st.download_button(f"Download {doc['id']}", doc["text"], f"sample-{doc['id']}.txt", key=f"sample_doc_{doc['id']}")
+                st.caption("Public synthetic sample document")
+                st.download_button(f"Download {SOURCE_LABELS.get(doc['id'], 'sample document').lower()}", doc["text"], f"sample-{doc['id']}.txt", key=f"sample_doc_{doc['id']}")
         st.info("Sign in and select your own project to upload documents or configure official server NCC references.")
         return
     if page == "Reports":
@@ -64,14 +67,22 @@ def render_demo(page="Copilot", pdf_renderer=None):
             reports = st.session_state.get("public_demo_reports", [])
             st.session_state["public_demo_reports"] = (reports + [report])[-20:]
             st.success("Sample report saved to this browser session. Open Reports or download it below.")
-    st.caption(f"Analysis method: {report['method']} · AI tokens: {report.get('ai_tokens') if report.get('ai_tokens') is not None else 'usage unavailable; full reservation charged'}")
+    method = "AI-assisted sample review" if report.get("method") == "public-ai-v1" else "Sample review"
+    usage = f"{report['ai_tokens']:,} tokens" if report.get("ai_tokens") is not None else "usage unavailable; full reservation charged"
+    st.caption(f"{method} · AI usage: {usage}")
     st.text(report["result"])
-    with st.expander("Evidence and reproducible method", expanded=True):
-        st.json(report["calculation"])
+    with st.expander("Calculations and supporting evidence", expanded=True):
+        calculation = report["calculation"]
+        st.markdown(
+            "| Measure | Estimate |\n|:--|--:|\n"
+            f"| Lead-time gap after programme float | {calculation['lead_gap_weeks']:,} weeks |\n"
+            f"| Estimated gross margin | AUD {calculation['gross_margin']:,.0f} |\n"
+            f"| Delay damages for {report['delay_days']} days | AUD {calculation['delay_exposure']:,.0f} |"
+        )
+        st.caption("Estimates use the selected synthetic project and delay scenario. They are not forecasts or compliance conclusions.")
         for source in report["sources"]:
+            st.markdown(f"**{SOURCE_LABELS.get(source['id'], 'Supporting sample document')}**")
             st.text(source["text"])
-            st.caption(f"{source['id']} · SHA-256: {source['sha256']}")
-    st.download_button("Download sample report JSON", demo.export_report(report), "gao-sample-report.json", mime="application/json")
     st.download_button("Download sample report text", report["result"], "gao-sample-report.txt", mime="text/plain")
     if pdf_renderer:
         pdf_renderer({"result": report["result"], "query": "Synthetic sample review", "mode": "Sample report"})
