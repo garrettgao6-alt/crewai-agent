@@ -25,6 +25,7 @@ MARKER='    # Gao public search guides\n'
 MAP_TEXT='''map $uri $gao_search_robots {
     default "noindex, nofollow, noarchive";
     / "";
+    /index.html "";  # try_files resolves the public root to this file URI.
     ~^/discover(?:/|$) "";
     ~^/seo-assets/ "";
     /robots.txt "";
