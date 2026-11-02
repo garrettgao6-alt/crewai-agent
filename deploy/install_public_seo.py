@@ -1,6 +1,7 @@
 """Back up and atomically install public guides; restore on any failed check."""
 import argparse
 import hashlib
+from html import escape
 import json
 import os
 from pathlib import Path
@@ -14,10 +15,11 @@ import urllib.request
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT))
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from public_site import build
+from public_site import build, social_metadata, PAGES
 SITE=Path('/etc/nginx/sites-available/gaointelligence')
 MAP=Path('/etc/nginx/conf.d/gao-search-robots.conf')
 SNIPPET=Path('/etc/nginx/snippets/gao-public-seo.conf')
+HOME_SOCIAL=Path('/etc/nginx/snippets/gao-home-social.conf')
 PUBLIC=Path('/var/www/gao-seo')
 MARKER='    # Gao public search guides\n'
 MAP_TEXT='''map $uri $gao_search_robots {
@@ -60,14 +62,24 @@ location = /sitemap.xml {
 '''
 
 def site_config(text):
+    needle='    location / {'
+    if text.count(needle)!=1:raise ValueError('Expected one existing workspace location; refusing ambiguous change')
     if MARKER in text:
         if text.count(MARKER)!=1 or text.count('include /etc/nginx/snippets/gao-public-seo.conf;')!=1:
             raise ValueError('Ambiguous public guide configuration')
-        return text
-    needle='    location / {'
-    if text.count(needle)!=1:raise ValueError('Expected one existing workspace location; refusing ambiguous change')
-    if '$gao_search_robots' in text:raise ValueError('Unexpected existing search policy')
-    return text.replace(needle,MARKER+'    add_header X-Robots-Tag $gao_search_robots always;\n    include /etc/nginx/snippets/gao-public-seo.conf;\n\n'+needle,1)
+    else:
+        if '$gao_search_robots' in text:raise ValueError('Unexpected existing search policy')
+        text=text.replace(needle,MARKER+'    add_header X-Robots-Tag $gao_search_robots always;\n    include /etc/nginx/snippets/gao-public-seo.conf;\n\n'+needle,1)
+    include='include /etc/nginx/snippets/gao-home-social.conf;'
+    if text.count(include)>1:raise ValueError('Ambiguous homepage social configuration')
+    if include not in text:text=text.replace(needle,needle+'\n        '+include,1)
+    return text
+
+def home_social_config():
+    # Public product metadata only, identical for visitors, accounts and crawlers.
+    metadata='<meta name="description" content="'+escape(PAGES[''][1])+'">'+social_metadata('')
+    if any(char in metadata for char in ("'",'$',chr(92))):raise ValueError('Unsafe Nginx metadata literal')
+    return 'proxy_set_header Accept-Encoding "";\nsub_filter_once on;\nsub_filter \'<title>Streamlit</title>\' \'<title>Gao Intelligence | Construction AI workspace</title>\';\nsub_filter \'</head>\' \''+metadata+'</head>\';\n'
 
 def atomic_write(path,data):
     path.parent.mkdir(parents=True,exist_ok=True)
@@ -86,7 +98,7 @@ def reload_nginx():
 def save_state(backup):
     state=backup/'public-seo-state';state.mkdir(mode=0o700)
     files=[]
-    for index,path in enumerate((SITE,MAP,SNIPPET)):
+    for index,path in enumerate((SITE,MAP,SNIPPET,HOME_SOCIAL)):
         existed=path.exists()
         files.append({'path':str(path),'existed':existed,'backup':str(index)})
         if existed:shutil.copy2(path,state/str(index))
@@ -117,10 +129,10 @@ def verify_public_ready(timeout=20):
     failure='No response'
     while True:
         try:
-            for route,expected in (('/discover/','Construction AI'),('/robots.txt','User-agent: *'),('/sitemap.xml','<urlset')):
+            for route,expected in (('/discover/','Construction AI'),('/robots.txt','User-agent: *'),('/sitemap.xml','<urlset'),('/','property="og:title"')):
                 with urllib.request.urlopen('https://www.gaointelligence.com'+route,timeout=5) as response:
                     body=response.read().decode()
-                    if response.status!=200 or expected not in body or 'noindex' in response.headers.get('X-Robots-Tag',''):
+                    if response.status!=200 or expected not in body or (route!='/' and 'noindex' in response.headers.get('X-Robots-Tag','')):
                         raise RuntimeError('Public readiness failed at '+route+' status='+str(response.status))
             return
         except (OSError,RuntimeError) as exc:
@@ -145,7 +157,7 @@ def install(backup):
             release=releases/digest.hexdigest()[:20]
             if not release.exists():shutil.copytree(tree,release)
         point_to(release)
-        atomic_write(MAP,MAP_TEXT.encode());atomic_write(SNIPPET,SNIPPET_TEXT.encode());atomic_write(SITE,new_config.encode())
+        atomic_write(MAP,MAP_TEXT.encode());atomic_write(SNIPPET,SNIPPET_TEXT.encode());atomic_write(HOME_SOCIAL,home_social_config().encode());atomic_write(SITE,new_config.encode())
         reload_nginx()
         verify_public_ready()
         print('Public search guides installed; prior configuration retained at '+str(state))

@@ -35,6 +35,23 @@ try:
         assert '<link rel="canonical" href="'+public_url(slug)+'">' in page.text
         assert 'application/ld+json' in page.text
         assert 'noindex' not in page.headers.get('X-Robots-Tag','')
+    from public_site import social_image
+    from io import BytesIO
+    from PIL import Image
+    for slug in PAGES:
+        card=requests.get(ORIGIN+social_image(slug),timeout=20)
+        assert card.status_code==200 and 'image/png' in card.headers.get('Content-Type','')
+        with Image.open(BytesIO(card.content)) as image:assert image.size==(1200,630)
+        html=requests.get(public_url(slug),timeout=20).text
+        assert 'data-public-url="'+public_url(slug)+'"' in html
+        assert 'name="twitter:image" content="'+ORIGIN+social_image(slug)+'"' in html
+    home=requests.get(ORIGIN+'/?project_id=seo-public-canary',timeout=20)
+    assert 'property="og:url" content="'+public_url('')+'"' in home.text
+    assert 'name="twitter:card" content="summary_large_image"' in home.text
+    assert 'seo-public-canary' not in home.text
+    assert 'noindex' in home.headers.get('X-Robots-Tag','')
+    assert '<div id="root"></div>' in home.text  # Streamlit shell remains usable.
+    checks['public_social_cards_homepage_preview_and_private_url_boundary']=True
     checks['public_guides_rendered_metadata_and_schema']=True
     sitemap=requests.get(ORIGIN+'/sitemap.xml',timeout=20)
     assert sitemap.status_code==200 and 'xml' in sitemap.headers.get('Content-Type','')
