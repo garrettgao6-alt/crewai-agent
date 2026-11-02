@@ -51,6 +51,10 @@ try:
     assert 'seo-public-canary' not in home.text
     assert 'noindex' in home.headers.get('X-Robots-Tag','')
     assert '<div id="root"></div>' in home.text  # Streamlit shell remains usable.
+    assert '<title>Gao Intelligence | Construction AI workspace</title>' in home.text
+    assert '<noscript><h1>Gao Intelligence</h1>' in home.text
+    assert 'You need to enable JavaScript to run this app.' not in home.text
+    assert '<link rel="icon" href="/seo-assets/logo.svg"' in home.text
     import re
     from urllib.parse import urljoin
     script=re.search(r'<script type="module"[^>]*src="([^"]+)"',home.text)

@@ -84,7 +84,19 @@ def home_social_config():
     # Public product metadata only, identical for visitors, accounts and crawlers.
     metadata='<meta name="description" content="'+escape(PAGES[''][1])+'">'+social_metadata('')
     if any(char in metadata for char in ("'",'$',chr(92))):raise ValueError('Unsafe Nginx metadata literal')
-    return 'proxy_set_header Accept-Encoding $gao_share_upstream_encoding;\nsub_filter_once on;\nsub_filter \'<title>Streamlit</title>\' \'<title>Gao Intelligence | Construction AI workspace</title>\';\nsub_filter \'</head>\' \''+metadata+'</head>\';\n'
+    replacements = [
+        ('<title>Streamlit</title>', '<title>Gao Intelligence | Construction AI workspace</title>'),
+        ('<link rel="shortcut icon" href="./favicon.png" />', '<link rel="icon" href="/seo-assets/logo.svg" type="image/svg+xml">'),
+        ('<noscript>You need to enable JavaScript to run this app.</noscript>',
+         '<noscript><h1>Gao Intelligence</h1><p>'+escape(PAGES[''][1])+'</p><p><a href="/discover/">Explore construction AI workflows</a> or enable JavaScript to open your workspace.</p></noscript>'),
+        ('</head>', metadata+'</head>'),
+    ]
+    config = 'proxy_set_header Accept-Encoding $gao_share_upstream_encoding;\nsub_filter_once on;\n'
+    for original, branded in replacements:
+        if any(char in branded for char in ("'", '$', chr(92))):raise ValueError('Unsafe Nginx branding literal')
+        config += "sub_filter '"+original+"' '"+branded+"';\n"
+    return config
+
 
 def atomic_write(path,data):
     path.parent.mkdir(parents=True,exist_ok=True)
