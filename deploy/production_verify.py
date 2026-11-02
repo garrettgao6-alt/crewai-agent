@@ -51,7 +51,14 @@ try:
     assert 'seo-public-canary' not in home.text
     assert 'noindex' in home.headers.get('X-Robots-Tag','')
     assert '<div id="root"></div>' in home.text  # Streamlit shell remains usable.
+    import re
+    from urllib.parse import urljoin
+    script=re.search(r'<script type="module"[^>]*src="([^"]+)"',home.text)
+    assert script, 'Workspace bootstrap script missing'
+    with requests.get(urljoin(ORIGIN+'/',script.group(1)),headers={'Accept-Encoding':'gzip'},stream=True,timeout=20) as asset:
+        assert asset.status_code==200 and asset.headers.get('Content-Encoding')=='gzip'
     checks['public_social_cards_homepage_preview_and_private_url_boundary']=True
+    checks['workspace_bootstrap_asset_compression_preserved']=True
     checks['public_guides_rendered_metadata_and_schema']=True
     sitemap=requests.get(ORIGIN+'/sitemap.xml',timeout=20)
     assert sitemap.status_code==200 and 'xml' in sitemap.headers.get('Content-Type','')

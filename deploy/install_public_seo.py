@@ -31,6 +31,11 @@ MAP_TEXT='''map $uri $gao_search_robots {
     /mail-privacy "";
 }
 '''
+MAP_TEXT+='''map $uri $gao_share_upstream_encoding {
+    default $http_accept_encoding;
+    / "";
+}
+'''
 SNIPPET_TEXT='''# Generated public-only files; never alias application data directories.
 location = /discover { return 301 https://www.gaointelligence.com/discover/; }
 location ^~ /discover/ {
@@ -79,7 +84,7 @@ def home_social_config():
     # Public product metadata only, identical for visitors, accounts and crawlers.
     metadata='<meta name="description" content="'+escape(PAGES[''][1])+'">'+social_metadata('')
     if any(char in metadata for char in ("'",'$',chr(92))):raise ValueError('Unsafe Nginx metadata literal')
-    return 'proxy_set_header Accept-Encoding "";\nsub_filter_once on;\nsub_filter \'<title>Streamlit</title>\' \'<title>Gao Intelligence | Construction AI workspace</title>\';\nsub_filter \'</head>\' \''+metadata+'</head>\';\n'
+    return 'proxy_set_header Accept-Encoding $gao_share_upstream_encoding;\nsub_filter_once on;\nsub_filter \'<title>Streamlit</title>\' \'<title>Gao Intelligence | Construction AI workspace</title>\';\nsub_filter \'</head>\' \''+metadata+'</head>\';\n'
 
 def atomic_write(path,data):
     path.parent.mkdir(parents=True,exist_ok=True)
