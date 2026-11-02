@@ -51,6 +51,8 @@ try:
     assert 'seo-public-canary' not in home.text
     assert 'noindex' not in home.headers.get('X-Robots-Tag','')
     assert 'href="/workspace/">Open workspace' in home.text
+    assert 'Workflow illustration · no project data' in home.text
+    assert home.text.count('name="public-workflow"')==3
     assert '<div id="root"></div>' not in home.text
     home=requests.get(ORIGIN+'/workspace/',timeout=20)
     assert 'noindex' in home.headers.get('X-Robots-Tag','')
@@ -192,6 +194,8 @@ try:
     assert not {'rule','entity_id','global_id','OverallWidth_metres'} & visible_columns
     assert any('Download full inspection data' in item.value for item in app.markdown)
     assert report_store.get_report(alice['id'],a['id'],model_report['id'])['bim_analysis']==inspection
+    assert any('Retained findings by severity' in item.value for item in app.markdown)
+    checks['workflow_illustration_and_retained_bim_visuals']=True
     checks['readable_document_bim_views_preserve_saved_data_and_exports']=True
 
     app.button(key='quick_nav_Documents').click().run()
