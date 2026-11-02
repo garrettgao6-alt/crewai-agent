@@ -3,7 +3,7 @@ from html import escape as e
 import json
 from pathlib import Path
 import sys
-from urllib.parse import urlencode
+from urllib.parse import urlencode, quote
 
 ORIGIN='https://www.gaointelligence.com'
 REVIEWED='2026-11-02'
@@ -81,7 +81,7 @@ def share_panel(slug):
         'X':'https://twitter.com/intent/tweet?'+urlencode({'url':canonical,'text':description,'hashtags':'ConstructionAI'}),
         'WhatsApp':'https://wa.me/?'+urlencode({'text':description+' '+canonical}),
         'Facebook':'https://www.facebook.com/sharer/sharer.php?'+urlencode({'u':canonical}),
-        'Email':'mailto:?'+urlencode({'subject':title+' | Gao Intelligence','body':post}),
+        'Email':'mailto:?'+urlencode({'subject':title+' | Gao Intelligence','body':post},quote_via=quote),
     }
     actions=''.join(f'<a class="button" href="{e(target)}" target="_blank" rel="noopener noreferrer nofollow" aria-label="Share this public guide via {name}">{name}</a>' for name,target in links.items())
     return f'''<section class="sharing" id="share" aria-labelledby="share-title" data-public-url="{canonical}" data-share-title="{e(title)}" data-share-description="{e(description)}"><div><p class="eyebrow">PASS IT ON</p><h2 id="share-title">Share this public guide</h2><p>Introduce the workflow to a colleague, research collaborator or project team.</p><p class="note">Only this public product guide is shared. Private documents, reports and account details stay in your workspace.</p><div class="share-actions"><button class="button primary" type="button" data-native-share hidden>Share…</button><button class="button" type="button" data-copy-link hidden>Copy public link</button>{actions}</div><label for="public-share-link">Public link</label><input id="public-share-link" type="url" value="{canonical}" readonly><p class="share-status note" role="status" aria-live="polite"></p><details><summary>Suggested post text</summary><label class="note" for="public-share-text">Edit the text in your social app before posting.</label><textarea id="public-share-text" rows="6" readonly>{e(post)}</textarea><button class="button" type="button" data-copy-post hidden>Copy post text</button></details></div><figure><img src="{social_image(slug)}" width="1200" height="630" loading="lazy" alt="Gao Intelligence: {e(' '.join(SOCIAL_CARDS[slug]))}"><figcaption><a href="{social_image(slug)}" target="_blank" rel="noopener">View share image</a>{' · <a href="/seo-assets/share-v2-home-square.png" target="_blank" rel="noopener">Square image</a>' if not slug else ''}</figcaption></figure></section>'''

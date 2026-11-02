@@ -85,7 +85,6 @@ class PublicSiteTests(unittest.TestCase):
                 self.assertEqual(reload.call_count,2)
                 self.assertTrue((backup/'public-seo-state/restore.py').exists())
 
-if __name__=='__main__':unittest.main()
 
 class SocialSharingTests(unittest.TestCase):
     def test_share_links_and_metadata_only_contain_canonical_public_urls(self):
@@ -104,6 +103,9 @@ class SocialSharingTests(unittest.TestCase):
             for tag,a in doc.tags:
                 if tag!='a' or not a.get('aria-label','').startswith('Share this public guide via'):continue
                 query=parse_qs(urlparse(a['href']).query)
+                if a['href'].startswith('mailto:'):
+                    self.assertNotIn('+',a['href'])
+                    self.assertIn('%20',a['href'])
                 self.assertIn(site.url(slug),str(query))
                 self.assertNotIn('project_id',a['href']);self.assertNotIn('session',a['href'])
                 self.assertIn('noopener',a['rel'])
@@ -136,3 +138,5 @@ class SocialSharingTests(unittest.TestCase):
         upgraded=installer.site_config(old)
         self.assertIn('include /etc/nginx/snippets/gao-home-social.conf;',upgraded)
         self.assertEqual(installer.site_config(upgraded),upgraded)
+
+if __name__=='__main__':unittest.main()
