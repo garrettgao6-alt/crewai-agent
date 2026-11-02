@@ -2526,10 +2526,11 @@ def require_premium_access() -> bool:
 
 
 def render_home_logo() -> None:
-    if st.button("Gao Intelligence", key="brand_home", help="Back to Home", use_container_width=True):
-        st.session_state.pop("auth_modal_open", None)
-        set_active_section(DEFAULT_SECTION)
-        st.rerun()
+    st.markdown(
+        '<a class="gao-home-link" href="/" target="_self" aria-label="Gao Intelligence home">'
+        '<span class="gao-home-mark" aria-hidden="true">G</span><span>Gao Intelligence</span></a>',
+        unsafe_allow_html=True,
+    )
 
 
 def render_auth_header(cookies: EncryptedCookieManager) -> None:
