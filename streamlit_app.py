@@ -4575,4 +4575,4 @@ else:
     render_workspace()
 
 
-st.caption("[Product guide](https://www.gaointelligence.com/discover/) · [FAQ](https://www.gaointelligence.com/discover/faq/) · [Data boundaries](https://www.gaointelligence.com/discover/data-boundaries/)")
+st.caption("[Product guide](https://www.gaointelligence.com/discover/) · [Share Gao Intelligence](https://www.gaointelligence.com/discover/#share) · [FAQ](https://www.gaointelligence.com/discover/faq/) · [Data boundaries](https://www.gaointelligence.com/discover/data-boundaries/)")

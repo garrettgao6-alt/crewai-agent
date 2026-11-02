@@ -35,7 +35,7 @@ class PublicSiteTests(unittest.TestCase):
                 self.assertTrue(any(v['@type']=='WebPage' and v['url']==canonical[0] for v in graph))
                 for tag,a in doc.tags:
                     target=a.get('href') or a.get('src')
-                    if target and target.startswith('/') and target not in ('/','/mail-privacy'):
+                    if target and target.startswith('/') and target not in ('/','/mail-privacy') and not target.startswith('#'):
                         file=root/target.lstrip('/')
                         self.assertTrue(file.exists(),target)
                 if slug=='faq':
@@ -64,7 +64,7 @@ class PublicSiteTests(unittest.TestCase):
         def response(body):
             obj=MagicMock();obj.__enter__.return_value=obj;obj.status=200;obj.headers={};obj.read.return_value=body
             return obj
-        with patch.object(installer.urllib.request,'urlopen',side_effect=[response(b'old Streamlit shell'),response(b'Construction AI'),response(b'User-agent: *'),response(b'<urlset')]),patch.object(installer.time,'sleep') as sleep:
+        with patch.object(installer.urllib.request,'urlopen',side_effect=[response(b'old Streamlit shell'),response(b'Construction AI'),response(b'User-agent: *'),response(b'<urlset'),response(b'property="og:title"')]),patch.object(installer.time,'sleep') as sleep:
             installer.verify_public_ready()
             sleep.assert_called_once()
         with patch.object(installer.urllib.request,'urlopen',return_value=response(b'old Streamlit shell')):
@@ -77,7 +77,7 @@ class PublicSiteTests(unittest.TestCase):
             config=base/'site';config.write_text('server {\n    location / { proxy_pass http://127.0.0.1:8501; }\n}')
             map_file=base/'map';snippet=base/'snippet';backup=base/'backup';backup.mkdir()
             original=config.read_bytes()
-            with patch.multiple(installer,SITE=config,MAP=map_file,SNIPPET=snippet,PUBLIC=public),patch.object(installer,'reload_nginx',side_effect=[RuntimeError('configuration check failed'),None]) as reload:
+            with patch.multiple(installer,SITE=config,MAP=map_file,SNIPPET=snippet,HOME_SOCIAL=base/'home-social',PUBLIC=public),patch.object(installer,'reload_nginx',side_effect=[RuntimeError('configuration check failed'),None]) as reload:
                 with self.assertRaises(RuntimeError):installer.install(backup)
                 self.assertEqual(config.read_bytes(),original)
                 self.assertFalse(map_file.exists());self.assertFalse(snippet.exists())
@@ -86,3 +86,53 @@ class PublicSiteTests(unittest.TestCase):
                 self.assertTrue((backup/'public-seo-state/restore.py').exists())
 
 if __name__=='__main__':unittest.main()
+
+class SocialSharingTests(unittest.TestCase):
+    def test_share_links_and_metadata_only_contain_canonical_public_urls(self):
+        from urllib.parse import urlparse,parse_qs
+        images=set()
+        for slug in site.PAGES:
+            doc=Document(site.render(slug))
+            metadata={a.get('property') or a.get('name'):a.get('content') for tag,a in doc.tags if tag=='meta'}
+            self.assertEqual(metadata['og:url'],site.url(slug))
+            self.assertEqual(metadata['og:image'],metadata['twitter:image'])
+            self.assertEqual(metadata['og:image:width'],'1200')
+            self.assertTrue(metadata['twitter:title']);self.assertTrue(metadata['twitter:description'])
+            images.add(metadata['og:image'])
+            panels=[a for tag,a in doc.tags if 'data-public-url' in a]
+            self.assertEqual([a['data-public-url'] for a in panels],[site.url(slug)])
+            for tag,a in doc.tags:
+                if tag!='a' or not a.get('aria-label','').startswith('Share this public guide via'):continue
+                query=parse_qs(urlparse(a['href']).query)
+                self.assertIn(site.url(slug),str(query))
+                self.assertNotIn('project_id',a['href']);self.assertNotIn('session',a['href'])
+                self.assertIn('noopener',a['rel'])
+            self.assertIn('value="'+site.url(slug)+'"',site.share_panel(slug))
+        self.assertEqual(len(images),len(site.PAGES))
+        self.assertNotIn('location',site.SHARE_JS)
+        self.assertNotIn('fetch(',site.SHARE_JS)
+        self.assertNotIn('localStorage',site.SHARE_JS)
+        self.assertIn('await navigator.clipboard.writeText',site.SHARE_JS)
+        self.assertIn('copy it manually',site.SHARE_JS)
+    def test_generated_social_images_and_homepage_preview_are_public_only(self):
+        from PIL import Image
+        import hashlib
+        with tempfile.TemporaryDirectory() as tmp:
+            root=site.build(tmp);hashes=set()
+            for slug in site.PAGES:
+                path=root/site.social_image(slug).lstrip('/')
+                with Image.open(path) as image:self.assertEqual(image.size,(1200,630))
+                hashes.add(hashlib.sha256(path.read_bytes()).hexdigest())
+                self.assertLess(path.stat().st_size,1000000)
+            self.assertEqual(len(hashes),len(site.PAGES))
+            with Image.open(root/'seo-assets/share-v2-home-square.png') as image:self.assertEqual(image.size,(1080,1080))
+        config=installer.home_social_config()
+        self.assertIn('sub_filter_once on;',config)
+        self.assertIn(site.ORIGIN+'/discover/',config)
+        self.assertNotIn('$request_uri',config)
+        self.assertNotIn('$cookie',config)
+        self.assertNotIn('private-download',config)
+        old='server {\n'+installer.MARKER+'    add_header X-Robots-Tag $gao_search_robots always;\n    include /etc/nginx/snippets/gao-public-seo.conf;\n    location / { proxy_pass http://127.0.0.1:8501; }\n}'
+        upgraded=installer.site_config(old)
+        self.assertIn('include /etc/nginx/snippets/gao-home-social.conf;',upgraded)
+        self.assertEqual(installer.site_config(upgraded),upgraded)
