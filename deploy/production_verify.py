@@ -60,7 +60,7 @@ try:
     assert '<title>Gao Intelligence | Construction AI workspace</title>' in home.text
     assert '<noscript><h1>Gao Intelligence</h1>' in home.text
     assert 'You need to enable JavaScript to run this app.' not in home.text
-    assert '<link rel="icon" href="/seo-assets/logo.svg"' in home.text
+    assert '<link rel="icon" href="/favicon.png"' in home.text
     import re
     from urllib.parse import urljoin
     script=re.search(r'<script type="module"[^>]*src="([^"]+)"',home.text)
@@ -76,6 +76,14 @@ try:
     robots=requests.get(ORIGIN+'/robots.txt',timeout=20)
     assert robots.status_code==200 and 'text/plain' in robots.headers.get('Content-Type','')
     assert 'Disallow: /private-download/' in robots.text and 'Disallow: /\n' not in robots.text
+    from PIL import Image
+    from io import BytesIO
+    icon=requests.get(ORIGIN+'/favicon.png',timeout=20)
+    assert icon.status_code==200 and 'noindex' not in icon.headers.get('X-Robots-Tag','')
+    assert Image.open(BytesIO(icon.content)).size==(96,96)
+    assert requests.get(ORIGIN+'/favicon.ico',timeout=20).status_code==200
+    assert 'On this page' in requests.get(ORIGIN+'/discover/ncc-review/',timeout=20).text
+    checks['public_search_icons_and_answer_navigation']=True
     checks['public_sitemap_and_robots']=True
     assert requests.get(ORIGIN+'/discover/acceptance-nonexistent/',timeout=20).status_code==404
     assert requests.get(ORIGIN+'/discover',timeout=20,allow_redirects=False).headers['Location']==ORIGIN+'/'

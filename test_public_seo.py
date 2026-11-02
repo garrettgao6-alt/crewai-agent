@@ -55,7 +55,7 @@ class PublicSiteTests(unittest.TestCase):
             self.assertIn('Disallow: /private-download/',robots)
             self.assertNotIn('Disallow: /\n',robots)
             self.assertNotIn(site.ORIGIN+'/<',robots)
-            self.assertEqual(set(p.name for p in root.iterdir()),{'index.html','discover','seo-assets','robots.txt','sitemap.xml'})
+            self.assertEqual(set(p.name for p in root.iterdir()),{'index.html','discover','seo-assets','robots.txt','sitemap.xml','favicon.png','favicon.ico'})
     def test_public_workflow_explorer_is_accessible_and_has_no_private_data_dependency(self):
         doc=Document(site.render(''))
         radios=[a for tag,a in doc.tags if tag=='input' and a.get('type')=='radio']
@@ -69,7 +69,29 @@ class PublicSiteTests(unittest.TestCase):
         self.assertIn('prefers-reduced-motion:reduce',site.FLOW_CSS)
         self.assertNotIn('infinite',site.FLOW_CSS)
         self.assertNotIn('workflow-explorer',site.render('ncc-review'))
-        self.assertIn('/seo-assets/site-v3.css',site.render(''))
+        self.assertIn('/seo-assets/site-v4.css',site.render(''))
+
+    def test_search_icons_answer_links_and_public_entity_metadata(self):
+        from PIL import Image
+        with tempfile.TemporaryDirectory() as tmp:
+            root=site.build(tmp)
+            with Image.open(root/'favicon.png') as icon:self.assertEqual(icon.size,(96,96))
+            with Image.open(root/'seo-assets/brand-logo.png') as icon:self.assertEqual(icon.size,(512,512))
+            with Image.open(root/'favicon.ico') as icon:self.assertIn((48,48),icon.ico.sizes())
+            for slug in site.PAGES:
+                doc=Document(site.render(slug));ids={a['id'] for _,a in doc.tags if 'id' in a}
+                for tag,attrs in doc.tags:
+                    if tag=='a' and attrs.get('href','').startswith('#'):
+                        self.assertIn(attrs['href'][1:],ids)
+                self.assertIn(site.SEO_TITLES[slug],site.render(slug).replace('&amp;','&'))
+                self.assertTrue(any(t=='link' and a.get('href')=='/favicon.png' and a.get('sizes')=='96x96' for t,a in doc.tags))
+            graph=Document(site.render('')).schemas[0]['@graph']
+            self.assertEqual(next(x for x in graph if x['@type']=='Organization')['logo']['url'],site.ORIGIN+'/seo-assets/brand-logo.png')
+            self.assertIn('independent construction software',site.render(''))
+            self.assertIn('Official reference sources',site.render('ncc-review'))
+            self.assertIn('technical.buildingsmart.org',site.render('ifc-model-checks'))
+        self.assertIn('location = /favicon.png {',installer.SNIPPET_TEXT)
+        self.assertIn('/favicon.png "";',installer.MAP_TEXT)
 
     def test_nginx_change_preserves_existing_proxy_and_rejects_ambiguous_config(self):
         original='server {\n    location ^~ /private-download/ { proxy_pass http://127.0.0.1:8000; }\n    location / { proxy_pass http://127.0.0.1:8501; }\n}'
@@ -174,7 +196,7 @@ class SocialSharingTests(unittest.TestCase):
         self.assertIn('<div id="root"></div>',shell)
         self.assertIn('<script type="module" src="./static/app.js"></script>',shell)
         doc=Document(shell)
-        self.assertTrue(any(t=='link' and a.get('rel')=='icon' and a.get('href')=='/seo-assets/logo.svg' for t,a in doc.tags))
+        self.assertTrue(any(t=='link' and a.get('rel')=='icon' and a.get('href')=='/favicon.png' for t,a in doc.tags))
         self.assertTrue(any(t=='a' and a.get('href')=='/discover/' for t,a in doc.tags))
         self.assertIn('proxy_set_header Accept-Encoding $gao_share_upstream_encoding;',config)
         self.assertNotIn('proxy_set_header Accept-Encoding "";',config)
