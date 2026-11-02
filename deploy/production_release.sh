@@ -35,6 +35,9 @@ switched=false
 success=false
 restart_previous() {
     if [ "$switched" = true ]; then
+        if [ -f "$backup_dir/public-seo-state/restore.py" ]; then
+            "$app/venv/bin/python" "$backup_dir/public-seo-state/restore.py" "$backup_dir" --restore
+        fi
         if [ -f "$backup_dir/environment-changes.json" ]; then
             "$app/venv/bin/python" - "$app/.env" "$backup_dir/environment-changes.json" <<'PYENV'
 import json,sys
@@ -207,6 +210,7 @@ done
 curl --fail --silent http://127.0.0.1:8000/health >/dev/null
 curl --fail --silent http://127.0.0.1:8501/_stcore/health >/dev/null
 "$new_runtime/bin/python" deploy/install_private_download_proxy.py
+"$new_runtime/bin/python" deploy/install_public_seo.py "$backup_dir"
 "$new_runtime/bin/python" deploy/production_verify.py > "$backup_dir/acceptance.log" 2>&1 || { echo 'Production acceptance failed; rolling back. Private log retained.'; test ! -f /root/gao-latest-acceptance.json || cat /root/gao-latest-acceptance.json; exit 1; }
 cp /root/gao-latest-acceptance.json "$backup_dir/acceptance.json"
 printf '%s\n' "$target" > "$app/.release_sha"

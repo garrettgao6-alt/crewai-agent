@@ -525,3 +525,11 @@ BIM limits: 20 MB, 100,000 entity records, 20,000 elements, a 40-second worker d
 ### Responsive interface and interactive workflows
 
 The active web UI uses one responsive theme in `ui_theme.py`, visible page shortcuts, a home logo, and a shared authorized project picker. Workflow selection prepares an editable Copilot draft; only explicit review submission calls AI. Changing project clears drafts, conversation history and report search. Dashboard workflow expansion, filename/report search, BIM severity/check/element filters, real processing status, and recoverable empty states use native controls. Download links retain the existing short-lived server authorization. Upload buttons disable oversized files before processing. Mobile layouts wrap navigation and metric cards; hover/focus feedback and entrance/loading motion respect reduced-motion preferences. Theme and navigation changes do not alter storage, ownership or AI budgets.
+
+## Public search and answer-engine content
+
+`public_site.py` builds English product guides under `/discover/`, with canonical metadata, visible FAQ answers, matching JSON-LD and a public-only sitemap. It imports no application stores. The workspace remains at `/`; Nginx sends `X-Robots-Tag: noindex, nofollow, noarchive` for app and private routes. Indexing controls supplement authentication and do not replace project access checks. No search rank, FAQ rich result or AI citation is promised.
+
+`deploy/install_public_seo.py BACKUP_DIR` snapshots Nginx configuration and the current public release before an atomic static release. It checks Nginx and live content, restoring on failure. The production release also restores this snapshot if later acceptance fails. Public files are generated separately from application uploads and credentials. To recover manually: `venv/bin/python BACKUP_DIR/public-seo-state/restore.py BACKUP_DIR --restore`.
+
+Review public feature statements when changing product capabilities; update `REVIEWED` only after reviewing that content. Validate with `python -m unittest test_public_seo`. Submit `https://www.gaointelligence.com/sitemap.xml` through an already verified search-console property when available.

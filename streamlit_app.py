@@ -4574,3 +4574,5 @@ else:
     st.session_state["active_section"] = DEFAULT_SECTION
     render_workspace()
 
+
+st.caption("[Product guide](https://www.gaointelligence.com/discover/) · [FAQ](https://www.gaointelligence.com/discover/faq/) · [Data boundaries](https://www.gaointelligence.com/discover/data-boundaries/)")
