@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.request
 
 ROOT=Path(__file__).resolve().parent.parent
@@ -110,6 +111,24 @@ def restore(backup):
     else:point_to(manifest['link'])
     reload_nginx()
 
+def verify_public_ready(timeout=20):
+    # Reload completes before new Nginx workers have replaced old workers.
+    deadline=time.monotonic()+timeout
+    failure='No response'
+    while True:
+        try:
+            for route,expected in (('/discover/','Construction AI'),('/robots.txt','User-agent: *'),('/sitemap.xml','<urlset')):
+                with urllib.request.urlopen('https://www.gaointelligence.com'+route,timeout=5) as response:
+                    body=response.read().decode()
+                    if response.status!=200 or expected not in body or 'noindex' in response.headers.get('X-Robots-Tag',''):
+                        raise RuntimeError('Public readiness failed at '+route+' status='+str(response.status))
+            return
+        except (OSError,RuntimeError) as exc:
+            failure=type(exc).__name__+': '+str(exc)
+        if time.monotonic()>=deadline:raise RuntimeError(failure)
+        time.sleep(0.5)
+
+
 def install(backup):
     new_config=site_config(SITE.read_text())
     state=save_state(backup)
@@ -128,10 +147,7 @@ def install(backup):
         point_to(release)
         atomic_write(MAP,MAP_TEXT.encode());atomic_write(SNIPPET,SNIPPET_TEXT.encode());atomic_write(SITE,new_config.encode())
         reload_nginx()
-        for route,expected in (('/discover/','Construction AI'),('/robots.txt','User-agent: *'),('/sitemap.xml','<urlset')):
-            with urllib.request.urlopen('https://www.gaointelligence.com'+route,timeout=20) as response:
-                assert response.status==200 and expected in response.read().decode()
-                assert 'noindex' not in response.headers.get('X-Robots-Tag','')
+        verify_public_ready()
         print('Public search guides installed; prior configuration retained at '+str(state))
     except BaseException:
         restore(backup)
