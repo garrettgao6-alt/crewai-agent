@@ -24,6 +24,7 @@ PUBLIC=Path('/var/www/gao-seo')
 MARKER='    # Gao public search guides\n'
 MAP_TEXT='''map $uri $gao_search_robots {
     default "noindex, nofollow, noarchive";
+    / "";
     ~^/discover(?:/|$) "";
     ~^/seo-assets/ "";
     /robots.txt "";
@@ -33,11 +34,24 @@ MAP_TEXT='''map $uri $gao_search_robots {
 '''
 MAP_TEXT+='''map $uri $gao_share_upstream_encoding {
     default $http_accept_encoding;
-    / "";
+    /workspace/ "";
 }
 '''
 SNIPPET_TEXT='''# Generated public-only files; never alias application data directories.
-location = /discover { return 301 https://www.gaointelligence.com/discover/; }
+location = / {
+    if ($host != "www.gaointelligence.com") { return 301 https://www.gaointelligence.com/; }
+    root /var/www/gao-seo/current;
+    try_files /index.html =404;
+    charset utf-8;
+}
+location = /discover { return 301 https://www.gaointelligence.com/; }
+location = /discover/ { return 301 https://www.gaointelligence.com/; }
+location = /workspace { return 308 /workspace/$is_args$args; }
+# Keep the existing external uptime monitor working during the path migration.
+location = /_stcore/health {
+    proxy_pass http://127.0.0.1:8501/workspace/_stcore/health;
+}
+location / { return 404; }
 location ^~ /discover/ {
     if ($host != "www.gaointelligence.com") { return 301 https://www.gaointelligence.com$request_uri; }
     root /var/www/gao-seo/current;
@@ -67,17 +81,21 @@ location = /sitemap.xml {
 '''
 
 def site_config(text):
-    needle='    location / {'
-    if text.count(needle)!=1:raise ValueError('Expected one existing workspace location; refusing ambiguous change')
+    old='    location / {'
+    workspace='    location ^~ /workspace/ {'
+    if text.count(old)+text.count(workspace)!=1:
+        raise ValueError('Expected one existing workspace location; refusing ambiguous change')
+    needle=workspace if workspace in text else old
     if MARKER in text:
         if text.count(MARKER)!=1 or text.count('include /etc/nginx/snippets/gao-public-seo.conf;')!=1:
             raise ValueError('Ambiguous public guide configuration')
     else:
         if '$gao_search_robots' in text:raise ValueError('Unexpected existing search policy')
         text=text.replace(needle,MARKER+'    add_header X-Robots-Tag $gao_search_robots always;\n    include /etc/nginx/snippets/gao-public-seo.conf;\n\n'+needle,1)
+    if needle==old:text=text.replace(old,workspace,1)
     include='include /etc/nginx/snippets/gao-home-social.conf;'
     if text.count(include)>1:raise ValueError('Ambiguous homepage social configuration')
-    if include not in text:text=text.replace(needle,needle+'\n        '+include,1)
+    if include not in text:text=text.replace(workspace,workspace+'\n        '+include,1)
     return text
 
 def home_social_config():
@@ -146,10 +164,10 @@ def verify_public_ready(timeout=20):
     failure='No response'
     while True:
         try:
-            for route,expected in (('/discover/','Construction AI'),('/robots.txt','User-agent: *'),('/sitemap.xml','<urlset'),('/','property="og:title"')):
+            for route,expected in (('/','Construction AI'),('/robots.txt','User-agent: *'),('/sitemap.xml','<urlset'),('/workspace/','<div id="root"></div>')):
                 with urllib.request.urlopen('https://www.gaointelligence.com'+route,timeout=5) as response:
                     body=response.read().decode()
-                    if response.status!=200 or expected not in body or (route!='/' and 'noindex' in response.headers.get('X-Robots-Tag','')):
+                    if response.status!=200 or expected not in body or (route!='/workspace/' and 'noindex' in response.headers.get('X-Robots-Tag','')):
                         raise RuntimeError('Public readiness failed at '+route+' status='+str(response.status))
             return
         except (OSError,RuntimeError) as exc:

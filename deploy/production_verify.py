@@ -49,6 +49,10 @@ try:
     assert 'property="og:url" content="'+public_url('')+'"' in home.text
     assert 'name="twitter:card" content="summary_large_image"' in home.text
     assert 'seo-public-canary' not in home.text
+    assert 'noindex' not in home.headers.get('X-Robots-Tag','')
+    assert 'href="/workspace/">Open workspace' in home.text
+    assert '<div id="root"></div>' not in home.text
+    home=requests.get(ORIGIN+'/workspace/',timeout=20)
     assert 'noindex' in home.headers.get('X-Robots-Tag','')
     assert '<div id="root"></div>' in home.text  # Streamlit shell remains usable.
     assert '<title>Gao Intelligence | Construction AI workspace</title>' in home.text
@@ -59,7 +63,7 @@ try:
     from urllib.parse import urljoin
     script=re.search(r'<script type="module"[^>]*src="([^"]+)"',home.text)
     assert script, 'Workspace bootstrap script missing'
-    with requests.get(urljoin(ORIGIN+'/',script.group(1)),headers={'Accept-Encoding':'gzip'},stream=True,timeout=20) as asset:
+    with requests.get(urljoin(ORIGIN+'/workspace/',script.group(1)),headers={'Accept-Encoding':'gzip'},stream=True,timeout=20) as asset:
         assert asset.status_code==200 and asset.headers.get('Content-Encoding')=='gzip'
     checks['public_social_cards_homepage_preview_and_private_url_boundary']=True
     checks['workspace_bootstrap_asset_compression_preserved']=True
@@ -72,10 +76,13 @@ try:
     assert 'Disallow: /private-download/' in robots.text and 'Disallow: /\n' not in robots.text
     checks['public_sitemap_and_robots']=True
     assert requests.get(ORIGIN+'/discover/acceptance-nonexistent/',timeout=20).status_code==404
-    assert requests.get(ORIGIN+'/discover',timeout=20,allow_redirects=False).headers['Location']==ORIGIN+'/discover/'
-    assert requests.get('https://gaointelligence.com/discover/',timeout=20,allow_redirects=False).headers['Location']==ORIGIN+'/discover/'
-    assert 'noindex' in requests.get(ORIGIN+'/',timeout=20).headers.get('X-Robots-Tag','')
+    assert requests.get(ORIGIN+'/discover',timeout=20,allow_redirects=False).headers['Location']==ORIGIN+'/'
+    assert requests.get('https://gaointelligence.com/discover/',timeout=20,allow_redirects=False).headers['Location']==ORIGIN+'/'
+    assert 'noindex' in requests.get(ORIGIN+'/workspace/',timeout=20).headers.get('X-Robots-Tag','')
     assert 'noindex' in requests.get(ORIGIN+'/private-download/acceptance-nonexistent',timeout=20).headers.get('X-Robots-Tag','')
+    assert requests.get(ORIGIN+'/workspace/_stcore/health',timeout=20).status_code==200
+    assert requests.get(ORIGIN+'/_stcore/health',timeout=20).status_code==200
+    checks['public_homepage_and_workspace_path_migration']=True
     checks['private_workspace_noindex_and_public_canonical_routes']=True
     user_store.initialize_user_store()
     project_store.initialize_project_store()

@@ -165,7 +165,7 @@ def alert_cycle(observations,config=None,now=None,sender=None):
 
 def health():
     result={}
-    for code,url in [('ui','http://127.0.0.1:8501/_stcore/health'),('api','http://127.0.0.1:8000/health'),('public','https://www.gaointelligence.com/_stcore/health')]:
+    for code,url in [('ui','http://127.0.0.1:8501/workspace/_stcore/health'),('api','http://127.0.0.1:8000/health'),('public','https://www.gaointelligence.com/_stcore/health')]:
         try:result[code]=requests.get(url,timeout=10,allow_redirects=False).status_code!=200
         except requests.RequestException:result[code]=True
     result['disk']=shutil.disk_usage('/').used/shutil.disk_usage('/').total>=0.85
