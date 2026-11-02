@@ -138,6 +138,25 @@ try:
     app.selectbox(key='workspace_project_'+str(alice['id'])).select(b['id']).run()
     assert not app.exception and app.session_state['history']==[] and not any(item.key=='copilot_draft' for item in app.text_area)
     checks['interactive_navigation_filters_and_project_draft_isolation']=True
+    # A tiny synthetic code excerpt cannot expose repeated full-catalog calls
+    # exhausting the request budget. Exercise the actual operator NCC library
+    # with a fresh canary project as well, never a customer's private files.
+    default_reference=os.getenv('NCC_DEFAULT_REFERENCE','').strip()
+    if default_reference:
+        ncc_library.save_reference(bob['id'],default_reference,'NCC 2025 operator reference library')
+        ncc_library.save_project_context(bob['id'],c['id'],'2025','1a','VIC')
+        notes=document_store.upload(bob['id'],c['id'],'acceptance-project-notes.txt',b'Synthetic project evidence only. NCC 2025 Class 1a dwelling in Victoria. Proposed external wall 600 mm from boundary. Wall construction and fire resistance evidence are missing. No compliance conclusion.',kind=None)
+        managed_scopes.add(scopes[2])
+        assert notes['status']=='ready'
+        catalog_response=requests.post(base+'/analyze',json={'project_id':c['id'],'query':'NCC 2025 Class 1a Victoria: review external wall fire separation at 600 mm from the boundary using Volume Two and Housing Provisions. Cross-reference acceptance-project-notes.txt. Cite clauses and PDF pages, identify missing evidence and do not issue a compliance conclusion.'},headers={'Authorization':f'Bearer {other}'},timeout=240)
+        assert catalog_response.status_code==200, f'Catalog analyze status {catalog_response.status_code}'
+        catalog_report=catalog_response.json()
+        authorities=[item for item in catalog_report['sources'] if item['metadata'].get('reference_kind')=='server_local_ncc']
+        assert authorities and all('2025' in str(item['metadata'].get('code','')) for item in authorities)
+        assert any(item['metadata'].get('source')=='acceptance-project-notes.txt' for item in catalog_report['sources'])
+        assert report_store.get_report(bob['id'],c['id'],catalog_report['id'])['sources']==catalog_report['sources']
+        assert requests.get(f"{base}/projects/{c['id']}/reports/{catalog_report['id']}",headers=headers,timeout=20).status_code==404
+        checks['real_ncc_2025_catalog_auto_project_upload_and_saved_report']=True
     from deploy.operations import verify_document_store
     verify_document_store(ROOT)
     import download_service
