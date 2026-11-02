@@ -130,6 +130,20 @@ class SocialSharingTests(unittest.TestCase):
             with Image.open(root/'seo-assets/share-v2-home-square.png') as image:self.assertEqual(image.size,(1080,1080))
         config=installer.home_social_config()
         self.assertIn('sub_filter_once on;',config)
+        # Apply the literal Nginx rules to the upstream shell and inspect the resulting document.
+        import re
+        shell='<html><head><title>Streamlit</title><link rel="shortcut icon" href="./favicon.png" /></head><body><noscript>You need to enable JavaScript to run this app.</noscript><div id="root"></div><script type="module" src="./static/app.js"></script></body></html>'
+        for before,after in re.findall(r"sub_filter '([^']*)' '([^']*)';",config):
+            shell=shell.replace(before,after,1)
+        self.assertIn('<title>Gao Intelligence | Construction AI workspace</title>',shell)
+        self.assertIn('<noscript><h1>Gao Intelligence</h1>',shell)
+        self.assertNotIn('You need to enable JavaScript to run this app.',shell)
+        self.assertNotIn('./favicon.png',shell)
+        self.assertIn('<div id="root"></div>',shell)
+        self.assertIn('<script type="module" src="./static/app.js"></script>',shell)
+        doc=Document(shell)
+        self.assertTrue(any(t=='link' and a.get('rel')=='icon' and a.get('href')=='/seo-assets/logo.svg' for t,a in doc.tags))
+        self.assertTrue(any(t=='a' and a.get('href')=='/discover/' for t,a in doc.tags))
         self.assertIn('proxy_set_header Accept-Encoding $gao_share_upstream_encoding;',config)
         self.assertNotIn('proxy_set_header Accept-Encoding "";',config)
         self.assertIn('default $http_accept_encoding;',installer.MAP_TEXT)
