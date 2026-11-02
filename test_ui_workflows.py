@@ -108,3 +108,27 @@ restore_authenticated_user_from_cookie(auth_cookies)''')
     assert not app.session_state['is_logged_in'] and app.session_state['active_project_id'] is None
     assert app.session_state['history']==[] and app.session_state['copilot_history']==[]
     assert user_store.resolve_session(token) is None
+
+
+@pytest.mark.parametrize('scenario',['revoked_session','other_account','other_project','current_session'])
+def test_file_callbacks_bind_the_live_session_and_current_project(system,scenario):
+    from core import document_store
+    owner,other,project,another,foreign=system
+    version=document_store.upload(owner['id'],project['id'],'callback-evidence.txt',b'Synthetic retained evidence',kind='business')
+    token=user_store.create_session((other if scenario=='other_account' else owner)['id'])
+    if scenario=='revoked_session':user_store.revoke_session(token)
+    current_user=(other if scenario=='other_account' else owner)['id']
+    current_project=(foreign if scenario=='other_account' else another if scenario=='other_project' else project)['id']
+    source=f'''import streamlit as st
+from core import document_store
+from document_management_ui import _action
+_action({owner['id']},{project['id']},document_store.set_archived,{version['file_id']!r})
+'''
+    app=AppTest.from_string(source,default_timeout=30)
+    app.session_state['auth_session_token']=token
+    app.session_state['user_id']=str(current_user)
+    app.session_state['active_project_id']=current_project
+    app.run();assert not app.exception
+    archived=document_store.get_file(owner['id'],project['id'],version['file_id'])['archived']
+    assert bool(archived)==(scenario=='current_session')
+    assert document_store.original(owner['id'],project['id'],version['file_id'],version['id'])==b'Synthetic retained evidence'

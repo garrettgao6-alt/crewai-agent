@@ -1,11 +1,16 @@
 """Persistent, project-owned file management; all mutations authorize again in the store."""
 import streamlit as st
+import user_store
 from datetime import datetime,timezone
 from core import document_store as store
 from private_download import render as private_download
 
 def _action(owner,project,function,*args):
-    try:function(owner,project,*args);notice=('success','File library updated.')
+    try:
+        user=user_store.resolve_session(st.session_state.get('auth_session_token'))
+        if not user or str(user['id'])!=str(owner) or str(st.session_state.get('user_id'))!=str(owner) or str(st.session_state.get('active_project_id'))!=str(project):
+            raise PermissionError('Your session or project changed. Reopen the file in its current project before trying again.')
+        function(owner,project,*args);notice=('success','File library updated.')
     except (ValueError,PermissionError) as exc:notice=('error',str(exc))
     except Exception:notice=('error','The file action could not complete. Existing data is preserved.')
     st.session_state[f'dm_notice_{owner}_{project}']=notice
