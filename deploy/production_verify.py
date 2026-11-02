@@ -126,6 +126,18 @@ try:
     app.session_state['active_section']='BIM';app.run()
     assert not app.exception and any('Download issues CSV' in item.value for item in app.markdown)
     checks['deployed_document_and_bim_ui_private_download_links']=True
+    next(item for item in app.text_input if item.label=='Find an element').set_value('no-such-acceptance-element').run()
+    assert not app.exception and any('No findings match' in item.value for item in app.info)
+    app.button(key='quick_nav_Documents').click().run()
+    next(item for item in app.text_input if item.label=='Find a file').set_value('no-such-acceptance-file').run()
+    assert not app.exception and any('No matching files' in item.value for item in app.info)
+    app.button(key='quick_nav_Dashboard').click().run()
+    app.selectbox(key='workflow_Construction Workspace').select('Contracts').run()
+    app.button(key='workflow_open_Construction Workspace').click().run()
+    assert not app.exception and 'contracts' in app.text_area(key='copilot_draft').value
+    app.selectbox(key='workspace_project_'+str(alice['id'])).select(b['id']).run()
+    assert not app.exception and app.session_state['history']==[] and not any(item.key=='copilot_draft' for item in app.text_area)
+    checks['interactive_navigation_filters_and_project_draft_isolation']=True
     from deploy.operations import verify_document_store
     verify_document_store(ROOT)
     import download_service
