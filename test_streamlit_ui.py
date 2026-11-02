@@ -70,9 +70,18 @@ def test_guest_review_save_and_project_isolation(app, monkeypatch):
     click_label(app, "Run sample review")
     assert app.session_state["public_demo_result"]["ai_tokens"] == 0
     assert "NOT DETERMINED" in app.session_state["public_demo_result"]["result"]
+    assert not app.get("json") and not app.get("code")
+    estimates = next(item.value for item in app.markdown if "| Measure | Estimate |" in item.value)
+    assert "| Lead-time gap after programme float | 4 weeks |" in estimates
+    assert "| Estimated gross margin | AUD 300,000 |" in estimates
+    assert "| Delay damages for 7 days | AUD 28,000 |" in estimates
+    assert not any("SHA-256" in item.value or "public-rules-v1" in item.value for item in app.caption)
+    assert not any("JSON" in button.label for button in app.get("download_button"))
     click_label(app, "Save sample report to this session")
     app.selectbox(key="nav_selected").select("Reports").run()
     assert any("SYNTHETIC DEMO" in item.value for item in app.text)
+    assert not app.get("json")
+    assert any("| Delay damages for 7 days | AUD 28,000 |" in item.value for item in app.markdown)
     assert any(button.label == "Download Report PDF" for button in app.get("download_button"))
     app.selectbox(key="public_demo_case").select("Hillview sample").run()
     assert not app.exception
