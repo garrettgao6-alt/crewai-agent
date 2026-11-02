@@ -69,7 +69,7 @@ class PublicSiteTests(unittest.TestCase):
         self.assertIn('prefers-reduced-motion:reduce',site.FLOW_CSS)
         self.assertNotIn('infinite',site.FLOW_CSS)
         self.assertNotIn('workflow-explorer',site.render('ncc-review'))
-        self.assertIn('/seo-assets/site-v4.css',site.render(''))
+        self.assertIn('/seo-assets/site-v5.css',site.render(''))
 
     def test_search_icons_answer_links_and_public_entity_metadata(self):
         from PIL import Image
@@ -92,6 +92,18 @@ class PublicSiteTests(unittest.TestCase):
             self.assertIn('technical.buildingsmart.org',site.render('ifc-model-checks'))
         self.assertIn('location = /favicon.png {',installer.SNIPPET_TEXT)
         self.assertIn('/favicon.png "";',installer.MAP_TEXT)
+
+    def test_keyword_guide_has_useful_comparison_and_links_to_supported_workflows(self):
+        html=site.render('construction-ai-tools');doc=Document(html)
+        self.assertIn('Construction AI platform',site.render(''))
+        self.assertIn('NCC AI tool',site.render('ncc-review'))
+        self.assertEqual(sum(t=='table' for t,_ in doc.tags),1)
+        self.assertEqual(sum(t=='caption' for t,_ in doc.tags),1)
+        for slug in ('ncc-review','document-management','ifc-model-checks','reports'):
+            self.assertTrue(any(t=='a' and a.get('href')==site.url(slug) for t,a in doc.tags))
+        self.assertIn('Parser checks use no AI tokens',html)
+        self.assertIn('does not provide geometric clash detection',html)
+        self.assertIn('Guest access does not expose customer documents',html)
 
     def test_nginx_change_preserves_existing_proxy_and_rejects_ambiguous_config(self):
         original='server {\n    location ^~ /private-download/ { proxy_pass http://127.0.0.1:8000; }\n    location / { proxy_pass http://127.0.0.1:8501; }\n}'
