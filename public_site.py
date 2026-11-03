@@ -9,7 +9,7 @@ ORIGIN='https://www.gaointelligence.com'
 REVIEWED='2026-11-03'
 PAGES={
 '':('Construction AI, NCC references and IFC checks','Gao Intelligence helps Australian construction teams review project evidence, retrieve NCC references, check IFC models and save reports.',[
-('What is Gao Intelligence?','Gao Intelligence is a construction analysis workspace for NCC reference retrieval, document management, IFC model quality checks and saved reports. It helps teams organise evidence and draft reviews for professional assessment.'),
+('What is Gao Intelligence?','Gao Intelligence (GaoIntelligence), available at gaointelligence.com, is a construction analysis workspace for NCC reference retrieval, document management, IFC model quality checks and saved reports. It helps teams organise evidence and draft reviews for professional assessment.'),
 ('Try a real workflow','Open the workspace to try public synthetic examples without registering. Guest AI analysis has server-enforced daily request and token limits. Sign in to manage private projects and documents.'),
 ('Evidence before conclusions','Review the cited publication, clause and PDF page alongside each finding. Missing information and reference coverage can affect the result. Outputs support professional judgement; they do not certify compliance.')]),
 'ncc-review':('NCC 2025 reference retrieval and review','Find relevant NCC 2025 references using project context, then inspect clause citations and source pages in Gao Intelligence.',[
@@ -66,7 +66,7 @@ PAGES['ifc-model-checks'][2].append(('How do I review an IFC model?','Export an 
 PAGES['reports'][2].append(('What makes a result traceable?','Check the project, document revision, cited passage and source page together. A saved evidence snapshot records the material used for that analysis; it does not prove that all relevant provisions or documents were retrieved.'))
 SEO_TITLES={
     'construction-ai-tools':'Construction AI Tools & Platform Guide | Gao Intelligence',
-    '':'Construction AI Platform & NCC AI Tool | Gao Intelligence',
+    '':'Gao Intelligence | Construction AI Platform & NCC AI Tool',
     'ncc-review':'NCC AI Tool & NCC 2025 Reference Search | Gao Intelligence',
     'ifc-model-checks':'IFC Model Data Quality Checks | Gao Intelligence',
     'document-management':'Construction Document Management | Gao Intelligence',
@@ -220,8 +220,8 @@ FLOW_CSS='''
 
 def render(slug):
     title,description,sections=PAGES[slug]
-    graph=[{'@type':'Organization','@id':ORIGIN+'/#organization','name':'Gao Intelligence','url':url(''),'logo':{'@type':'ImageObject','url':ORIGIN+'/seo-assets/brand-logo.png','width':512,'height':512}},
-           {'@type':'WebSite','@id':ORIGIN+'/#website','name':'Gao Intelligence','alternateName':'Gao Intelligence Construction AI','inLanguage':'en-AU','url':url(''),'publisher':{'@id':ORIGIN+'/#organization'}},
+    graph=[{'@type':'Organization','@id':ORIGIN+'/#organization','name':'Gao Intelligence','alternateName':'GaoIntelligence','url':url(''),'logo':{'@type':'ImageObject','url':ORIGIN+'/seo-assets/brand-logo.png','width':512,'height':512}},
+           {'@type':'WebSite','@id':ORIGIN+'/#website','name':'Gao Intelligence','alternateName':['GaoIntelligence','Gao Intelligence Construction AI'],'inLanguage':'en-AU','url':url(''),'publisher':{'@id':ORIGIN+'/#organization'}},
            {'@type':'WebPage','@id':url(slug)+'#page','url':url(slug),'name':title,'description':description,'inLanguage':'en-AU','dateModified':REVIEWED,'publisher':{'@id':ORIGIN+'/#organization'},'isPartOf':{'@id':ORIGIN+'/#website'}},
            {'@type':'BreadcrumbList','itemListElement':[{'@type':'ListItem','position':1,'name':'Gao Intelligence','item':url('')}]+([{'@type':'ListItem','position':2,'name':title,'item':url(slug)}] if slug else [])}]
     if not slug: graph.append({'@type':'SoftwareApplication','name':'Gao Intelligence','url':ORIGIN+'/','applicationCategory':'BusinessApplication','operatingSystem':'Web browser','description':description})
