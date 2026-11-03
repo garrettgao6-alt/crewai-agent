@@ -44,6 +44,9 @@ FAQ=[
 ('Do file revisions update saved reports automatically?','No. Saved reports retain their evidence snapshots. Run a new analysis against the revised documents to produce a new review.'),
 ('Does IFC checking spend AI tokens?','The IFC parser checks do not consume AI tokens. Account document allowances and processing limits still apply.'),
 ('Can the cloud workspace read my local file path?','No. Upload the file to your private project or use an authorised server-side library directory. A desktop path alone is not accessible to the server.')]
+DEVICE_ANSWER=('Can I use Gao Intelligence on a phone, tablet or computer?','Yes. Gao Intelligence runs in a web browser at gaointelligence.com/workspace/ on phones, tablets and computers. Sign in to the same account and select the authorised project to open its saved documents and reports. Guest sample reports belong to the current browser session and do not automatically follow you to another device. Upload a file from a device that can access it; a desktop file path is not a cloud upload.')
+CITATION_ANSWER=('How should I verify and cite a Gao Intelligence answer?','For an AI review, preserve the project, document revision, cited publication, clause or source page, and saved report evidence snapshot. Check the original source before using the conclusion. For a public product guide, cite its canonical page URL and displayed review date. A product guide is not an NCC provision, and neither the guide nor a draft AI answer is a compliance certificate.')
+FAQ.extend([DEVICE_ANSWER,CITATION_ANSWER])
 PAGES['faq']=('Gao Intelligence FAQ: NCC, BIM, documents and privacy','Answers about guest AI, NCC reference retrieval, IFC checks, document versions, saved reports and private project boundaries.',FAQ)
 
 PAGES['']=('Construction AI platform for NCC and IFC reviews','Gao Intelligence is a construction AI platform for Australian teams: NCC 2025 reference search, construction document review, IFC model checks and saved reports.',PAGES[''][2])
@@ -61,6 +64,8 @@ PAGES['ifc-model-checks'][2].append(('Is an IFC checker the same as a BIM AI too
 
 # Public, product-specific answers. No customer examples or application imports.
 PAGES[''][2].append(('Who is Gao Intelligence for?','Gao Intelligence is for Australian construction teams reviewing documents, NCC references and IFC model information. It is an independent construction software workspace; it is not the Australian Building Codes Board or the U.S. Government Accountability Office.'))
+PAGES[''][2].append(DEVICE_ANSWER)
+PAGES['construction-ai-tools'][2].append(DEVICE_ANSWER)
 PAGES['ncc-review'][2].append(('What should I provide for an NCC review?','Start with the building class, state or territory, project approval date, applicable NCC edition and a specific review question. Add relevant drawings or specifications in your private project. Review the retrieved source pages and any missing evidence before using the draft report.'))
 PAGES['ifc-model-checks'][2].append(('How do I review an IFC model?','Export an IFC STEP file from your modelling software, sign in, select the intended project and upload the model in BIM. Run the data checks, inspect findings by element and severity, then save the inspection report. The retained findings summary is not a measure of overall compliance.'))
 PAGES['reports'][2].append(('What makes a result traceable?','Check the project, document revision, cited passage and source page together. A saved evidence snapshot records the material used for that analysis; it does not prove that all relevant provisions or documents were retrieved.'))
@@ -222,10 +227,10 @@ def render(slug):
     title,description,sections=PAGES[slug]
     graph=[{'@type':'Organization','@id':ORIGIN+'/#organization','name':'Gao Intelligence','alternateName':'GaoIntelligence','url':url(''),'logo':{'@type':'ImageObject','url':ORIGIN+'/seo-assets/brand-logo.png','width':512,'height':512}},
            {'@type':'WebSite','@id':ORIGIN+'/#website','name':'Gao Intelligence','alternateName':['GaoIntelligence','Gao Intelligence Construction AI'],'inLanguage':'en-AU','url':url(''),'publisher':{'@id':ORIGIN+'/#organization'}},
-           {'@type':'WebPage','@id':url(slug)+'#page','url':url(slug),'name':title,'description':description,'inLanguage':'en-AU','dateModified':REVIEWED,'publisher':{'@id':ORIGIN+'/#organization'},'isPartOf':{'@id':ORIGIN+'/#website'}},
-           {'@type':'BreadcrumbList','itemListElement':[{'@type':'ListItem','position':1,'name':'Gao Intelligence','item':url('')}]+([{'@type':'ListItem','position':2,'name':title,'item':url(slug)}] if slug else [])}]
-    if not slug: graph.append({'@type':'SoftwareApplication','name':'Gao Intelligence','url':ORIGIN+'/','applicationCategory':'BusinessApplication','operatingSystem':'Web browser','description':description})
-    if slug=='faq': graph.append({'@type':'FAQPage','mainEntity':[{'@type':'Question','name':q,'acceptedAnswer':{'@type':'Answer','text':a}} for q,a in FAQ]})
+           {'@type':'WebPage','@id':url(slug)+'#page','url':url(slug),'name':SEO_TITLES[slug],'description':description,'inLanguage':'en-AU','dateModified':REVIEWED,'publisher':{'@id':ORIGIN+'/#organization'},'isPartOf':{'@id':ORIGIN+'/#website'},'breadcrumb':{'@id':url(slug)+'#breadcrumbs'}},
+           {'@type':'BreadcrumbList','@id':url(slug)+'#breadcrumbs','itemListElement':[{'@type':'ListItem','position':1,'name':'Gao Intelligence','item':url('')}]+([{'@type':'ListItem','position':2,'name':title,'item':url(slug)}] if slug else [])}]
+    if not slug: graph.append({'@type':'SoftwareApplication','@id':ORIGIN+'/#application','name':'Gao Intelligence','alternateName':'GaoIntelligence','url':ORIGIN+'/','applicationCategory':'BusinessApplication','operatingSystem':'Web browser','description':description,'publisher':{'@id':ORIGIN+'/#organization'}})
+    if slug=='faq': graph.append({'@type':'FAQPage','@id':url(slug)+'#faq','url':url(slug),'isPartOf':{'@id':ORIGIN+'/#website'},'mainEntity':[{'@type':'Question','name':q,'acceptedAnswer':{'@type':'Answer','text':a}} for q,a in FAQ]})
     body=answer_content(slug,sections)
     cards=''.join(f'<a class="card" href="/discover/{s}/"><span>{e(t)}</span><small>{e(d)}</small><b aria-hidden="true">↗</b></a>' for s,(t,d,_) in PAGES.items() if s and s!=slug)
     schema=json.dumps({'@context':'https://schema.org','@graph':graph},ensure_ascii=False).replace('<','\\u003c')
