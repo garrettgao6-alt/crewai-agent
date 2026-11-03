@@ -9,7 +9,7 @@ ORIGIN='https://www.gaointelligence.com'
 REVIEWED='2026-11-03'
 PAGES={
 '':('Construction AI, NCC references and IFC checks','Gao Intelligence helps Australian construction teams review project evidence, retrieve NCC references, check IFC models and save reports.',[
-('What is Gao Intelligence?','Gao Intelligence (GaoIntelligence), available at gaointelligence.com, is a construction analysis workspace for NCC reference retrieval, document management, IFC model quality checks and saved reports. It helps teams organise evidence and draft reviews for professional assessment.'),
+('What is Gao Intelligence?','Gao Intelligence (GaoIntelligence, also written gaointelligence), available at gaointelligence.com, is a construction analysis workspace for NCC reference retrieval, document management, IFC model quality checks and saved reports. It helps teams organise evidence and draft reviews for professional assessment.'),
 ('Try a real workflow','Open the workspace to try public synthetic examples without registering. Guest AI analysis has server-enforced daily request and token limits. Sign in to manage private projects and documents.'),
 ('Evidence before conclusions','Review the cited publication, clause and PDF page alongside each finding. Missing information and reference coverage can affect the result. Outputs support professional judgement; they do not certify compliance.')]),
 'ncc-review':('NCC 2025 reference retrieval and review','Find relevant NCC 2025 references using project context, then inspect clause citations and source pages in Gao Intelligence.',[
@@ -46,10 +46,11 @@ FAQ=[
 ('Can the cloud workspace read my local file path?','No. Upload the file to your private project or use an authorised server-side library directory. A desktop path alone is not accessible to the server.')]
 DEVICE_ANSWER=('Can I use Gao Intelligence on a phone, tablet or computer?','Yes. Gao Intelligence runs in a web browser at gaointelligence.com/workspace/ on phones, tablets and computers. Sign in to the same account and select the authorised project to open its saved documents and reports. Guest sample reports belong to the current browser session and do not automatically follow you to another device. Upload a file from a device that can access it; a desktop file path is not a cloud upload.')
 CITATION_ANSWER=('How should I verify and cite a Gao Intelligence answer?','For an AI review, preserve the project, document revision, cited publication, clause or source page, and saved report evidence snapshot. Check the original source before using the conclusion. For a public product guide, cite its canonical page URL and displayed review date. A product guide is not an NCC provision, and neither the guide nor a draft AI answer is a compliance certificate.')
-FAQ.extend([DEVICE_ANSWER,CITATION_ANSWER])
+BRAND_ANSWER=('What does gaointelligence mean?','GaoIntelligence, also written gaointelligence, is the joined spelling of Gao Intelligence. The official website is gaointelligence.com. It is a construction AI platform for Australian teams reviewing NCC references, project documents, IFC model information and saved evidence-linked reports. Geospatial intelligence is a different term and is not the product described by this guide.')
+FAQ.extend([DEVICE_ANSWER,CITATION_ANSWER,BRAND_ANSWER])
 PAGES['faq']=('Gao Intelligence FAQ: NCC, BIM, documents and privacy','Answers about guest AI, NCC reference retrieval, IFC checks, document versions, saved reports and private project boundaries.',FAQ)
 
-PAGES['']=('Construction AI platform for NCC and IFC reviews','Gao Intelligence is a construction AI platform for Australian teams: NCC 2025 reference search, construction document review, IFC model checks and saved reports.',PAGES[''][2])
+PAGES['']=('Construction AI platform for NCC and IFC reviews','Gao Intelligence (GaoIntelligence) is a construction AI platform for Australian teams: NCC 2025 reference search, document review, IFC model checks and saved reports.',PAGES[''][2])
 PAGES['ncc-review']=('NCC AI tool for reference search and review','Use the Gao Intelligence NCC AI tool to find NCC 2025 references by project context. Review cited clauses, source pages and missing evidence before saving a report.',PAGES['ncc-review'][2])
 PAGES['construction-ai-tools']=('Construction AI tools for Australian project teams','Choose a construction AI tool by task: NCC reference search, document review, IFC model data checks or evidence-linked reports. Explore the Gao Intelligence platform.',[
 ('What is a construction AI platform?','A construction AI platform brings project information and assisted review workflows into a shared workspace. Gao Intelligence connects project documents, NCC reference retrieval, IFC data quality checks and saved draft reports. Each workflow has different inputs, processing limits and review requirements.'),
@@ -65,6 +66,7 @@ PAGES['ifc-model-checks'][2].append(('Is an IFC checker the same as a BIM AI too
 # Public, product-specific answers. No customer examples or application imports.
 PAGES[''][2].append(('Who is Gao Intelligence for?','Gao Intelligence is for Australian construction teams reviewing documents, NCC references and IFC model information. It is an independent construction software workspace; it is not the Australian Building Codes Board or the U.S. Government Accountability Office.'))
 PAGES[''][2].append(DEVICE_ANSWER)
+PAGES[''][2].append(BRAND_ANSWER)
 PAGES['construction-ai-tools'][2].append(DEVICE_ANSWER)
 PAGES['ncc-review'][2].append(('What should I provide for an NCC review?','Start with the building class, state or territory, project approval date, applicable NCC edition and a specific review question. Add relevant drawings or specifications in your private project. Review the retrieved source pages and any missing evidence before using the draft report.'))
 PAGES['ifc-model-checks'][2].append(('How do I review an IFC model?','Export an IFC STEP file from your modelling software, sign in, select the intended project and upload the model in BIM. Run the data checks, inspect findings by element and severity, then save the inspection report. The retained findings summary is not a measure of overall compliance.'))
@@ -225,11 +227,11 @@ FLOW_CSS='''
 
 def render(slug):
     title,description,sections=PAGES[slug]
-    graph=[{'@type':'Organization','@id':ORIGIN+'/#organization','name':'Gao Intelligence','alternateName':'GaoIntelligence','url':url(''),'logo':{'@type':'ImageObject','url':ORIGIN+'/seo-assets/brand-logo.png','width':512,'height':512}},
-           {'@type':'WebSite','@id':ORIGIN+'/#website','name':'Gao Intelligence','alternateName':['GaoIntelligence','Gao Intelligence Construction AI'],'inLanguage':'en-AU','url':url(''),'publisher':{'@id':ORIGIN+'/#organization'}},
+    graph=[{'@type':'Organization','@id':ORIGIN+'/#organization','name':'Gao Intelligence','alternateName':['GaoIntelligence','gaointelligence'],'url':url(''),'logo':{'@type':'ImageObject','url':ORIGIN+'/seo-assets/brand-logo.png','width':512,'height':512}},
+           {'@type':'WebSite','@id':ORIGIN+'/#website','name':'Gao Intelligence','alternateName':['GaoIntelligence','gaointelligence','gaointelligence.com','Gao Intelligence Construction AI'],'inLanguage':'en-AU','url':url(''),'publisher':{'@id':ORIGIN+'/#organization'}},
            {'@type':'WebPage','@id':url(slug)+'#page','url':url(slug),'name':SEO_TITLES[slug],'description':description,'inLanguage':'en-AU','dateModified':REVIEWED,'publisher':{'@id':ORIGIN+'/#organization'},'isPartOf':{'@id':ORIGIN+'/#website'},'breadcrumb':{'@id':url(slug)+'#breadcrumbs'}},
            {'@type':'BreadcrumbList','@id':url(slug)+'#breadcrumbs','itemListElement':[{'@type':'ListItem','position':1,'name':'Gao Intelligence','item':url('')}]+([{'@type':'ListItem','position':2,'name':title,'item':url(slug)}] if slug else [])}]
-    if not slug: graph.append({'@type':'SoftwareApplication','@id':ORIGIN+'/#application','name':'Gao Intelligence','alternateName':'GaoIntelligence','url':ORIGIN+'/','applicationCategory':'BusinessApplication','operatingSystem':'Web browser','description':description,'publisher':{'@id':ORIGIN+'/#organization'}})
+    if not slug: graph.append({'@type':'SoftwareApplication','@id':ORIGIN+'/#application','name':'Gao Intelligence','alternateName':['GaoIntelligence','gaointelligence'],'url':ORIGIN+'/','applicationCategory':'BusinessApplication','operatingSystem':'Web browser','description':description,'publisher':{'@id':ORIGIN+'/#organization'}})
     if slug=='faq': graph.append({'@type':'FAQPage','@id':url(slug)+'#faq','url':url(slug),'isPartOf':{'@id':ORIGIN+'/#website'},'mainEntity':[{'@type':'Question','name':q,'acceptedAnswer':{'@type':'Answer','text':a}} for q,a in FAQ]})
     body=answer_content(slug,sections)
     cards=''.join(f'<a class="card" href="/discover/{s}/"><span>{e(t)}</span><small>{e(d)}</small><b aria-hidden="true">↗</b></a>' for s,(t,d,_) in PAGES.items() if s and s!=slug)
