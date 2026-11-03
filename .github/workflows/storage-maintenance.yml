@@ -1,6 +1,168 @@
 name: Storage maintenance
 on:
   workflow_dispatch:
+    inputs:
+      operation:
+        type: choice
+        description: Approved volume inspection, migration, verification or reboot
+        options: [inspect, migrate, verify, reboot]
+        default: inspect
+permissions:
+  contents: read
+concurrency:
+  group: production-main
+  cancel-in-progress: false
+jobs:
+  storage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Maintain approved construction storage volume
+        env:
+          SERVER_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          OPERATION: ${{ inputs.operation }}
+        run: |
+          set -euo pipefail
+          case "$OPERATION" in inspect|migrate|verify|reboot) ;; *) exit 2;; esac
+          umask 077
+          keydir=$(mktemp -d)
+          trap 'rm -rf "$keydir"' EXIT
+          printf '%s\n' "$SERVER_KEY" | tr -d '\r' > "$keydir/identity"
+          unset SERVER_KEY
+          chmod 600 "$keydir/identity"
+          ssh-keygen -y -P '' -f "$keydir/identity" > /dev/null
+          ssh-keyscan -T 15 -t ed25519 209.38.93.248 > "$keydir/known_hosts" 2>/dev/null
+          python3 - "$keydir/known_hosts" <<'HOSTCHECK'
+          import pathlib,sys,hashlib,base64
+          lines=pathlib.Path(sys.argv[1]).read_text().splitlines();assert len(lines)==1
+          host,kind,key=lines[0].split();assert host=='209.38.93.248' and kind=='ssh-ed25519'
+          assert hashlib.sha256(base64.b64decode(key)).hexdigest()=='81647e644f59cd3f4485129bc7695536eb0bd5e6bd4ce55b492c0df163f83d22'
+          HOSTCHECK
+          opts=(-i "$keydir/identity" -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$keydir/known_hosts" -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
+          ssh "${opts[@]}" root@209.38.93.248 "python3 - '$OPERATION'" <<'REMOTE'
+          import pathlib,subprocess,json,shutil,sys,os,stat,datetime,fcntl,time,urllib.request
+          mode=sys.argv[1]
+          assert mode in {'inspect','migrate','verify','reboot'}
+          volume=pathlib.Path('/dev/disk/by-id/scsi-0DO_Volume_gao-storage-syd1')
+          mount=pathlib.Path('/mnt/gao_storage_syd1')
+          assert volume.exists() and stat.S_ISBLK(volume.stat().st_mode),'Expected approved volume not found'
+          def run(args,check=True):
+           r=subprocess.run(args,capture_output=True,text=True)
+           if check and r.returncode:raise RuntimeError('Command failed: '+args[0]+' exit='+str(r.returncode))
+           return r.stdout.strip()
+          def usage(p):
+           d=shutil.disk_usage(p);return {'total_mb':d.total//2**20,'free_mb':d.free//2**20}
+          def active(unit):return subprocess.run(['systemctl','is-active','--quiet',unit]).returncode==0
+          def size(p):return int(run(['du','-sx','--block-size=1',str(p)]).split()[0])
+          assert run(['blkid','-s','UUID','-o','value',str(volume)])=='4b515b29-4dfb-489b-9da1-8ac5cda0f36b','Unexpected volume UUID'
+          assert run(['findmnt','-rn','-S',str(volume),'-o','TARGET'])==str(mount),'Approved volume not mounted at expected path'
+          assert run(['findmnt','-rn','-S',str(volume),'-o','FSTYPE'])=='ext4'
+          source_paths=[pathlib.Path('/root/gao-releases'),pathlib.Path('/root/gao-backups')]
+          area=mount/'gao'
+          record_path=pathlib.Path('/root/gao-volume-migration.json')
+          def health():
+           for address in ['http://127.0.0.1:8000/health','http://127.0.0.1:8501/workspace/_stcore/health','https://www.gaointelligence.com/','https://www.gaointelligence.com/_stcore/health']:
+            with urllib.request.urlopen(address,timeout=20) as response:
+             assert response.status==200
+             if address=='https://www.gaointelligence.com/':assert b'GaoIntelligence' in response.read()
+           for unit in ['crewai','garrett-api']:assert active(unit),'Inactive service: '+unit
+           return True
+          if mode=='inspect':
+           print('STORAGE_INSPECTION '+json.dumps({'root':usage('/'),'volume':usage(mount),'directories':{str(p):{'bytes':size(p),'symlink':p.is_symlink()} for p in source_paths},'fstab_entry_exists':any(str(mount) in line for line in pathlib.Path('/etc/fstab').read_text().splitlines() if not line.lstrip().startswith('#'))}),flush=True)
+           raise SystemExit(0)
+          if mode=='reboot':
+           assert json.loads(record_path.read_text())['verified']
+           health()
+           subprocess.run(['systemd-run','--unit=gao-storage-reboot-check','--on-active=10s','/usr/bin/systemctl','reboot'],capture_output=True,check=True)
+           print('REBOOT_SCHEDULED after verified storage migration',flush=True);raise SystemExit(0)
+          if mode=='verify':
+           receipt=json.loads(record_path.read_text());assert receipt['verified']
+           for p in source_paths:assert p.is_symlink() and p.resolve()==area/p.name
+           run(['findmnt','--verify','--tab-file','/etc/fstab'])
+           health()
+           print('STORAGE_POST_REBOOT_VERIFIED '+json.dumps({'root':usage('/'),'volume':usage(mount),'paths':{str(p):str(p.resolve()) for p in source_paths},'uptime_seconds':int(float(pathlib.Path('/proc/uptime').read_text().split()[0])),'website_and_services_healthy':True}),flush=True)
+           raise SystemExit(0)
+          assert shutil.which('rsync'),'rsync is required'
+          lock=pathlib.Path('/root/gao-release.lock').open('a');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+          assert not record_path.exists(),'Migration receipt already exists; use verify instead'
+          assert all(p.is_dir() and not p.is_symlink() for p in source_paths),'Unexpected source layout'
+          assert shutil.disk_usage(mount).free>sum(size(p) for p in source_paths)+512*2**20,'Insufficient data-volume capacity'
+          area.mkdir(mode=0o700,exist_ok=True);area.chmod(0o700)
+          stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+          receipt={'started_at':stamp,'root_before':usage('/'),'volume_before':usage(mount),'paths':[],'verified':False}
+          record_path.write_text(json.dumps(receipt,indent=2));record_path.chmod(0o600)
+          # Runtime bytecode caches are reproducible and excluded from migration comparisons.
+          rsync=['rsync','-aHAX','--omit-dir-times','--numeric-ids','--exclude=__pycache__/','--exclude=*.pyc']
+          def sync(src,dst):run(rsync+['--delete',str(src)+'/',str(dst)+'/'])
+          def compare(src,dst,checksum=False):
+           result=run(rsync+(['--checksum'] if checksum else [])+['--dry-run','--itemize-changes','--delete',str(src)+'/',str(dst)+'/'])
+           assert not result,'Source/target mismatch; original retained'
+          paused_helpers=[u for u in ['webhook','gao-backup.timer'] if active(u)]
+          apps=[u for u in ['crewai','garrett-api'] if active(u)]
+          assert set(apps)=={'crewai','garrett-api'},'Applications must be healthy before migration'
+          changed=[];dropins=[];apps_stopped=False
+          fstab=pathlib.Path('/etc/fstab');original_fstab=fstab.read_bytes()
+          try:
+           for unit in paused_helpers:run(['systemctl','stop',unit])
+           for attempt in range(60):
+            if not active('gao-backup.service'):break
+            time.sleep(2)
+           else:raise RuntimeError('Existing backup is still running')
+           for src in source_paths:
+            dst=area/src.name;assert not dst.exists(),'Unexpected existing destination';dst.mkdir(mode=0o700)
+            print('COPY_STARTED '+str(src),flush=True);sync(src,dst);compare(src,dst,True)
+            print('COPY_CHECKSUM_VERIFIED '+str(src),flush=True)
+           run(['systemctl','stop',*apps]);apps_stopped=True
+           for src in source_paths:
+            dst=area/src.name;sync(src,dst);compare(src,dst)
+            old=src.with_name('.'+src.name+'.pre-volume-'+stamp)
+            os.rename(src,old)
+            try:src.symlink_to(dst,target_is_directory=True)
+            except Exception:os.rename(old,src);raise
+            changed.append((src,dst,old))
+            receipt['paths'].append({'source':str(src),'destination':str(dst),'original_copy':str(old)})
+            record_path.write_text(json.dumps(receipt,indent=2))
+           if not any(str(mount) in line for line in original_fstab.decode().splitlines() if not line.lstrip().startswith('#')):
+            with fstab.open('a') as out:out.write('\nUUID=4b515b29-4dfb-489b-9da1-8ac5cda0f36b '+str(mount)+' ext4 defaults,nofail,discard,noatime 0 2\n')
+           # Service startup must wait for the data volume on every boot.
+           for unit in ['crewai','garrett-api','gao-backup']:
+            folder=pathlib.Path('/etc/systemd/system')/(unit+'.service.d');folder.mkdir(exist_ok=True)
+            dest=folder/'95-gao-volume.conf';assert not dest.exists(),'Unexpected existing volume dependency'
+            dest.write_text('[Unit]\nRequiresMountsFor='+str(mount)+'\n');dropins.append(dest)
+           run(['systemctl','daemon-reload']);run(['systemctl','start',*apps]);apps_stopped=False
+           for attempt in range(90):
+            try:health();break
+            except Exception:time.sleep(2)
+           else:raise RuntimeError('Health checks failed after path migration')
+           # Verify recoverability before reclaiming root copies. Installed files, backups,
+           # modes, hardlinks, ACLs and xattrs are retained; only bytecode caches are excluded.
+           for src,dst,old in changed:compare(old,dst,True)
+           receipt['verified']=True;receipt['website_and_services_healthy']=True
+           record_path.write_text(json.dumps(receipt,indent=2))
+           for src,dst,old in changed:
+            assert src.is_symlink() and src.resolve()==dst and old.is_dir() and not old.is_symlink()
+            shutil.rmtree(old)
+           receipt['root_after']=usage('/');receipt['volume_after']=usage(mount);receipt['root_original_copies_reclaimed']=True
+           record_path.write_text(json.dumps(receipt,indent=2))
+           print('STORAGE_MIGRATION_VERIFIED '+json.dumps(receipt),flush=True)
+          except Exception:
+           if not receipt.get('verified'):
+            for unit in apps:subprocess.run(['systemctl','stop',unit],capture_output=True)
+            for src,dst,old in reversed(changed):
+             if src.is_symlink():src.unlink()
+             if old.exists():os.rename(old,src)
+            fstab.write_bytes(original_fstab)
+            for dest in dropins:dest.unlink(missing_ok=True)
+            subprocess.run(['systemctl','daemon-reload'],capture_output=True)
+            for unit in apps:subprocess.run(['systemctl','start',unit],capture_output=True)
+            print('STORAGE_MIGRATION_ROLLED_BACK; all original data retained',flush=True)
+           raise
+          finally:
+           for unit in paused_helpers:subprocess.run(['systemctl','start',unit],capture_output=True)
+          REMOTE
+name: Storage maintenance
+on:
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
