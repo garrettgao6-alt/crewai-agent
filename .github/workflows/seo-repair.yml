@@ -1,0 +1,100 @@
+name: Public SEO repair
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        type: choice
+        description: Diagnose dependency failure or publish tested public pages
+        options: [diagnose, publish]
+        default: diagnose
+permissions:
+  contents: read
+concurrency:
+  group: production-main
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Diagnose or publish public SEO pages with rollback
+        env:
+          SERVER_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          OPERATION: ${{ inputs.operation }}
+        run: |
+          set -euo pipefail
+          case "$OPERATION" in diagnose|publish) ;; *) exit 2;; esac
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 2
+          umask 077
+          keydir=$(mktemp -d)
+          trap 'rm -rf "$keydir"' EXIT
+          printf '%s\n' "$SERVER_KEY" | tr -d '\r' > "$keydir/identity"
+          unset SERVER_KEY
+          chmod 600 "$keydir/identity"
+          ssh-keygen -y -P '' -f "$keydir/identity" > /dev/null
+          ssh-keyscan -T 15 -t ed25519 209.38.93.248 > "$keydir/known_hosts" 2>/dev/null
+          python3 - "$keydir/known_hosts" <<'HOSTCHECK'
+          import pathlib,sys,hashlib,base64
+          lines=pathlib.Path(sys.argv[1]).read_text().splitlines();assert len(lines)==1
+          host,kind,key=lines[0].split();assert host=='209.38.93.248' and kind=='ssh-ed25519'
+          assert hashlib.sha256(base64.b64decode(key)).hexdigest()=='81647e644f59cd3f4485129bc7695536eb0bd5e6bd4ce55b492c0df163f83d22'
+          HOSTCHECK
+          opts=(-i "$keydir/identity" -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$keydir/known_hosts" -o ConnectTimeout=15)
+          if [ "$OPERATION" = publish ]; then
+            scp "${opts[@]}" public_site.py root@209.38.93.248:/root/gao-seo-repair-source.py
+          fi
+          ssh "${opts[@]}" root@209.38.93.248 "/root/crewai-agent/venv/bin/python - '$OPERATION' '$GITHUB_SHA'" <<'REMOTE'
+          import pathlib,shutil,json,re,sys,importlib.util,datetime,subprocess,os,hashlib
+          mode=sys.argv[1];sha=sys.argv[2]
+          usage=shutil.disk_usage('/')
+          result={'disk_free_mb':usage.free//(1024*1024),'disk_used_percent':round(100*usage.used/usage.total,1)}
+          logs=sorted(pathlib.Path('/root/gao-backups').glob('*/dependency-install.log'),key=lambda p:p.stat().st_mtime,reverse=True)
+          if logs:
+           text=logs[0].read_text(errors='replace')[-100000:]
+           result['dependency_failure_categories']=[s for s in ['No space left on device','ResolutionImpossible','No matching distribution found','Could not find a version','ConnectionError','ReadTimeoutError','Permission denied','MemoryError','Killed','Temporary failure in name resolution'] if s.lower() in text.lower()]
+           result['last_packages']=re.findall(r'(?:Collecting|Downloading|Using cached) ([A-Za-z0-9_.-]+)',text)[-8:]
+          print('DIAGNOSTIC '+json.dumps(result),flush=True)
+          if mode=='diagnose':raise SystemExit(0)
+          assert mode=='publish' and re.fullmatch('[0-9a-f]{40}',sha)
+          assert usage.free>100*1024*1024,'Insufficient staging space'
+          root=pathlib.Path('/var/www/gao-seo');current=root/'current'
+          assert current.is_symlink(),'Expected versioned public-site pointer'
+          previous=current.resolve();assert previous.is_dir()
+          app=pathlib.Path('/root/crewai-agent')
+          def runtime():return subprocess.check_output(['systemctl','show','crewai','garrett-api','--property=MainPID','--property=ActiveEnterTimestampMonotonic'],text=True)
+          before=runtime()
+          spec=importlib.util.spec_from_file_location('public_site_repair','/root/gao-seo-repair-source.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+          stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+          stage=root/('seo-'+sha[:12]+'-'+stamp);module.build(stage)
+          home=(stage/'index.html').read_text()
+          assert 'GaoIntelligence' in home and '<title>Gao Intelligence | Construction AI Platform &amp; NCC AI Tool</title>' in home
+          assert 'https://www.gaointelligence.com/' in home
+          for slug in module.PAGES:
+           page=stage/'discover'/slug/'index.html' if slug else stage/'index.html'
+           assert page.is_file() and 'name="viewport"' in page.read_text()
+          backup=pathlib.Path('/root/gao-backups')/('public-seo-'+stamp);backup.mkdir(mode=0o700)
+          (backup/'previous-public-target').write_text(str(previous))
+          # Public files need readable modes; no private application paths are served.
+          for p in stage.rglob('*'):p.chmod(0o755 if p.is_dir() else 0o644)
+          stage.chmod(0o755)
+          temp=root/('.current-seo-'+stamp);temp.symlink_to(stage)
+          try:
+           os.replace(temp,current)
+           import urllib.request
+           for slug in module.PAGES:
+            address=module.url(slug)
+            with urllib.request.urlopen(address,timeout=25) as response:
+             content=response.read()
+             assert response.status==200
+             expected=stage/'discover'/slug/'index.html' if slug else stage/'index.html'
+             assert content==expected.read_bytes(),'Live mismatch: '+slug
+           assert runtime()==before,'Application runtime changed'
+           receipt={'commit':sha,'previous_target':str(previous),'target':str(stage),'backup':str(backup),'pages_verified':len(module.PAGES),'app_runtime_unchanged':True}
+           (root/'public-release.json').write_text(json.dumps(receipt,indent=2))
+           print('PUBLIC_SEO_RELEASE_VERIFIED '+json.dumps(receipt),flush=True)
+          except Exception:
+           restore=root/('.rollback-seo-'+stamp);restore.symlink_to(previous);os.replace(restore,current);raise
+          REMOTE
