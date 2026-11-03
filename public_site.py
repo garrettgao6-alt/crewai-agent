@@ -51,7 +51,7 @@ BRAND_ANSWER=('What does gaointelligence mean?','GaoIntelligence, also written g
 FAQ.extend([DEVICE_ANSWER,CITATION_ANSWER,BRAND_ANSWER])
 PAGES['faq']=('Gao Intelligence FAQ: NCC, BIM, documents and privacy','Answers about guest AI, NCC reference retrieval, IFC checks, document versions, saved reports and private project boundaries.',FAQ)
 
-PAGES['']=('Construction AI platform for NCC and IFC reviews','Gao Intelligence (GaoIntelligence) is a construction AI platform for Australian teams: NCC 2025 reference search, document review, IFC model checks and saved reports.',PAGES[''][2])
+PAGES['']=('Gao Intelligence (GaoIntelligence): Construction AI platform','Gao Intelligence (GaoIntelligence) is a construction AI platform for Australian teams: NCC 2025 reference search, document review, IFC model checks and saved reports.',PAGES[''][2])
 PAGES['ncc-review']=('NCC AI tool for reference search and review','Use the Gao Intelligence NCC AI tool to find NCC 2025 references by project context. Review cited clauses, source pages and missing evidence before saving a report.',PAGES['ncc-review'][2])
 PAGES['construction-ai-tools']=('Construction AI tools for Australian project teams','Choose a construction AI tool by task: NCC reference search, document review, IFC model data checks or evidence-linked reports. Explore the Gao Intelligence platform.',[
 ('What is a construction AI platform?','A construction AI platform brings project information and assisted review workflows into a shared workspace. Gao Intelligence connects project documents, NCC reference retrieval, IFC data quality checks and saved draft reports. Each workflow has different inputs, processing limits and review requirements.'),
@@ -285,7 +285,7 @@ FLOW_CSS='''
 
 def render(slug):
     title,description,sections=PAGES[slug]
-    graph=[{'@type':'Organization','@id':ORIGIN+'/#organization','name':'Gao Intelligence','alternateName':['GaoIntelligence','gaointelligence','gaointelligence.com'],'description':PAGES[''][2][0][1],'subjectOf':{'@id':url('about')+'#page'},'url':url(''),'logo':{'@type':'ImageObject','url':ORIGIN+'/seo-assets/brand-logo.png','width':512,'height':512}},
+    graph=[{'@type':'Organization','@id':ORIGIN+'/#organization','name':'Gao Intelligence','alternateName':['GaoIntelligence','gaointelligence','gaointelligence.com'],'description':PAGES[''][2][0][1],'disambiguatingDescription':'GaoIntelligence is the joined spelling of Gao Intelligence, the construction AI workspace at gaointelligence.com.','mainEntityOfPage':{'@id':url('about')+'#page'},'subjectOf':{'@id':url('about')+'#page'},'url':url(''),'logo':{'@type':'ImageObject','url':ORIGIN+'/seo-assets/brand-logo.png','width':512,'height':512}},
            {'@type':'WebSite','@id':ORIGIN+'/#website','name':'Gao Intelligence','alternateName':['GaoIntelligence','gaointelligence','gaointelligence.com','Gao Intelligence Construction AI'],'inLanguage':'en-AU','url':url(''),'publisher':{'@id':ORIGIN+'/#organization'}},
            {'@type':'WebPage','@id':url(slug)+'#page','url':url(slug),'name':SEO_TITLES[slug],'description':description,'inLanguage':'en-AU','dateModified':REVIEWED,'publisher':{'@id':ORIGIN+'/#organization'},'isPartOf':{'@id':ORIGIN+'/#website'},'breadcrumb':{'@id':url(slug)+'#breadcrumbs'}},
            {'@type':'BreadcrumbList','@id':url(slug)+'#breadcrumbs','itemListElement':[{'@type':'ListItem','position':1,'name':'Gao Intelligence','item':url('')}]+([{'@type':'ListItem','position':2,'name':title,'item':url(slug)}] if slug else [])}]
