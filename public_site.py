@@ -1,12 +1,13 @@
 """Deterministic public product pages. Never imports application stores or secrets."""
 from html import escape as e
 import json
+import re
 from pathlib import Path
 import sys
 from urllib.parse import urlencode, quote
 
 ORIGIN='https://www.gaointelligence.com'
-REVIEWED='2026-11-03'
+REVIEWED='2026-11-04'
 PAGES={
 '':('Construction AI, NCC references and IFC checks','Gao Intelligence helps Australian construction teams review project evidence, retrieve NCC references, check IFC models and save reports.',[
 ('What is Gao Intelligence?','Gao Intelligence (GaoIntelligence, also written gaointelligence), available at gaointelligence.com, is a construction analysis workspace for NCC reference retrieval, document management, IFC model quality checks and saved reports. It helps teams organise evidence and draft reviews for professional assessment.'),
@@ -113,10 +114,52 @@ def workflow_comparison():
     return '<section aria-labelledby="workflow-comparison-title"><h2 id="workflow-comparison-title">Choose a workflow by task</h2><div class="comparison-scroll" role="region" aria-label="Construction workflow comparison" tabindex="0"><table><caption>Gao Intelligence workflows, inputs and processing</caption><thead><tr><th scope="col">Workflow</th><th scope="col">What to provide</th><th scope="col">What to review</th><th scope="col">Processing</th></tr></thead><tbody>'+body+'</tbody></table></div></section>'
 
 
+
+# Link product terms to their explanatory guides, once per destination per page.
+# Render from escaped plain text so FAQ schema and visible answers stay equivalent.
+ANSWER_LINKS={
+    'GaoIntelligence':'about',
+    'NCC reference retrieval':'ncc-review',
+    'NCC reference search':'ncc-review',
+    'NCC references':'ncc-review',
+    'document management':'document-management',
+    'construction document review':'document-management',
+    'project documents':'document-management',
+    'IFC model quality checks':'ifc-model-checks',
+    'IFC model checks':'ifc-model-checks',
+    'IFC data quality checks':'ifc-model-checks',
+    'IFC checker':'ifc-model-checks',
+    'saved reports':'reports',
+    'saved customer reports':'reports',
+    'evidence snapshot':'reports',
+    'construction AI tools guide':'construction-ai-tools',
+    'public synthetic examples':'data-boundaries',
+    'project evidence':'document-management',
+    'original document':'document-management',
+    'inspection report':'reports',
+    'draft report':'reports',
+    'private project':'data-boundaries',
+}
+
+def answer_markup(slug,text,linked):
+    pattern=r'(?<!\w)(?:'+'|'.join(re.escape(term) for term in sorted(ANSWER_LINKS,key=len,reverse=True))+r')(?!\w)'
+    parts=[];start=0
+    for match in re.finditer(pattern,text):
+        parts.append(e(text[start:match.start()]))
+        destination=ANSWER_LINKS[match.group()]
+        if destination!=slug and destination not in linked:
+            parts.append('<a href="'+url(destination)+'">'+e(match.group())+'</a>')
+            linked.add(destination)
+        else:parts.append(e(match.group()))
+        start=match.end()
+    parts.append(e(text[start:]))
+    return ''.join(parts)
+
 def answer_content(slug,sections):
+    linked=set()
     links=''.join(f'<li><a href="#{section_id(i)}">{e(q)}</a></li>' for i,(q,_) in enumerate(sections))
     contents='<nav class="guide-contents" aria-label="On this page"><strong>On this page</strong><ul>'+links+'</ul></nav>'
-    answers=''.join((f'<details id="{section_id(i)}"><summary>{e(q)}</summary><p>{e(a)}</p></details>' if slug=='faq' else f'<section id="{section_id(i)}"><h2>{e(q)}</h2><p>{e(a)}</p></section>') for i,(q,a) in enumerate(sections))
+    answers=''.join((f'<details id="{section_id(i)}"><summary>{e(q)}</summary><p>{answer_markup(slug,a,linked)}</p></details>' if slug=='faq' else f'<section id="{section_id(i)}"><h2>{e(q)}</h2><p>{answer_markup(slug,a,linked)}</p></section>') for i,(q,a) in enumerate(sections))
     references=''
     if slug in REFERENCES:
         references='<section class="official-references"><h2>Official reference sources</h2><p>Use the publisher’s original material to verify terminology and requirements. These links do not imply endorsement of Gao Intelligence.</p><ul>'+''.join(f'<li><a href="{href}" rel="noopener noreferrer" target="_blank">{e(label)}</a></li>' for label,href in REFERENCES[slug])+'</ul></section>'
@@ -256,7 +299,7 @@ def render(slug):
     schema=json.dumps({'@context':'https://schema.org','@graph':graph},ensure_ascii=False).replace('<','\\u003c')
     hero=f'''<div class="hero"><p class="eyebrow">CONSTRUCTION INTELLIGENCE · AUSTRALIA</p><h1>{e(title)}</h1><p class="lead">{e(description)}</p><a class="button primary" href="/workspace/">Try the workspace ↗</a><p class="note">Guest examples available · Private projects require sign-in</p></div>'''
     if not slug:hero='<div class="hero-layout">'+hero+workflow_explorer()+'</div>'
-    return f'''<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{e(SEO_TITLES[slug])}</title><meta name="description" content="{e(description)}"><link rel="canonical" href="{url(slug)}"><meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large">{social_metadata(slug)}<link rel="icon" href="/favicon.png" type="image/png" sizes="96x96"><link rel="shortcut icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/seo-assets/apple-touch-icon.png" sizes="180x180"><link rel="stylesheet" href="/seo-assets/site-v5.css"><script type="application/ld+json">{schema}</script><script src="/seo-assets/share-v2.js" defer></script></head><body><a class="skip" href="#main">Skip to content</a><header><a class="brand" href="/"><img src="/seo-assets/logo.svg" width="36" height="36" alt="">Gao Intelligence</a><nav aria-label="Main navigation"><a class="share-nav" href="#share">Share</a><a href="/discover/faq/">FAQ</a><a class="button" href="/workspace/">Open workspace ↗</a></nav></header><main id="main">{hero}<article>{body}<p class="review">Product guide reviewed <time datetime="{REVIEWED}">3 November 2026</time> · Gao Intelligence</p></article>{share_panel(slug)}<aside aria-label="Explore product guides"><h2>Explore the workflow</h2><div class="cards">{cards}</div></aside></main><footer><a class="brand" href="/">Gao Intelligence</a><p>Construction evidence, connected.</p><a href="/discover/about/">About Gao Intelligence</a> · <a href="/discover/data-boundaries/">Data boundaries</a> · <a href="/mail-privacy">Account and Email Privacy</a> · <a href="/workspace/">Workspace</a><p class="note">Analysis supports professional review. It does not certify compliance.</p></footer></body></html>'''
+    return f'''<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{e(SEO_TITLES[slug])}</title><meta name="description" content="{e(description)}"><link rel="canonical" href="{url(slug)}"><meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large">{social_metadata(slug)}<link rel="icon" href="/favicon.png" type="image/png" sizes="96x96"><link rel="shortcut icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/seo-assets/apple-touch-icon.png" sizes="180x180"><link rel="stylesheet" href="/seo-assets/site-v5.css"><script type="application/ld+json">{schema}</script><script src="/seo-assets/share-v2.js" defer></script></head><body><a class="skip" href="#main">Skip to content</a><header><a class="brand" href="/"><img src="/seo-assets/logo.svg" width="36" height="36" alt="">Gao Intelligence</a><nav aria-label="Main navigation"><a class="share-nav" href="#share">Share</a><a href="/discover/faq/">FAQ</a><a class="button" href="/workspace/">Open workspace ↗</a></nav></header><main id="main">{hero}<article>{body}<p class="review">Product guide reviewed <time datetime="{REVIEWED}">4 November 2026</time> · Gao Intelligence</p></article>{share_panel(slug)}<aside aria-label="Explore product guides"><h2>Explore the workflow</h2><div class="cards">{cards}</div></aside></main><footer><a class="brand" href="/">Gao Intelligence</a><p>Construction evidence, connected.</p><a href="/discover/about/">About Gao Intelligence</a> · <a href="/discover/data-boundaries/">Data boundaries</a> · <a href="/mail-privacy">Account and Email Privacy</a> · <a href="/workspace/">Workspace</a><p class="note">Analysis supports professional review. It does not certify compliance.</p></footer></body></html>'''
 
 CSS='''*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#080f1c;color:#edf4fa;font:17px/1.7 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}a{color:#70dfcb;text-underline-offset:.22em}a:hover{color:#fff}a:focus-visible,summary:focus-visible{outline:3px solid #70dfcb;outline-offset:5px}header,main,footer{width:min(1120px,calc(100% - 48px));margin:auto}header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:28px 0;border-bottom:1px solid #29384a}.brand{display:inline-flex;align-items:center;gap:12px;font-size:20px;font-weight:750;color:#fff;text-decoration:none}nav{display:flex;gap:24px;align-items:center}.button{display:inline-block;padding:10px 20px;border:1px solid #435d6c;border-radius:9px;text-decoration:none;font-weight:650;color:#fff}.primary{background:#72e3cd;color:#081923;border-color:#72e3cd}.primary:hover{background:#b0f6e7;color:#081923}.hero{padding:88px 0 60px;max-width:900px}.eyebrow{font-size:12px;letter-spacing:.17em;font-weight:700;color:#70dfcb}h1{font-size:clamp(36px,5.3vw,64px);line-height:1.1;letter-spacing:-.035em;margin:22px 0}h2{font-size:26px;line-height:1.3;letter-spacing:-.02em}.lead{font-size:21px;color:#b5c6d7;max-width:760px}.note,.review{font-size:13px;color:#b5c6d7}.hero .button{margin-top:18px}article{max-width:790px}section{padding:20px 0;border-top:1px solid #29384a}section p,details p{color:#c1cfdd}details{border-top:1px solid #29384a;padding:24px 0}summary{cursor:pointer;font-size:21px;font-weight:650}details[open] summary{color:#70dfcb}.review{padding:25px 0}aside{margin:40px 0 80px}.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.card{display:block;position:relative;background:#101e2e;border:1px solid #293e50;border-radius:14px;padding:25px 48px 25px 25px;text-decoration:none;transition:transform .15s,border-color .15s}.card:hover{transform:translateY(-3px);border-color:#70dfcb}.card span{display:block;font-size:20px;font-weight:650}.card small{display:block;color:#b5c6d7;margin-top:10px;font-size:14px}.card b{position:absolute;top:24px;right:22px}footer{padding:35px 0 50px;border-top:1px solid #29384a;color:#b5c6d7;font-size:14px}.skip{position:absolute;top:-100px;left:15px;background:#fff;color:#081923;padding:12px;z-index:10}.skip:focus{top:10px}@media(max-width:600px){header,main,footer{width:calc(100% - 32px)}header{align-items:flex-start;flex-direction:column;padding:20px 0}nav{width:100%;justify-content:space-between}.hero{padding:45px 0 35px}.lead{font-size:18px}.cards{grid-template-columns:1fr}.button{padding:9px 16px}h2{font-size:23px}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.card{transition:none}}'''
 LOGO='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect width="48" height="48" rx="12" fill="#72e3cd"/><path d="M33 17a12 12 0 1 0 1 13v-7H23v5h6a7 7 0 1 1-1-8z" fill="#081923"/></svg>'
