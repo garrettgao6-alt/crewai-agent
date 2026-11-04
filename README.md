@@ -1,4 +1,18 @@
-# CrewAI Agent Gateway
+# Gao Intelligence (GaoIntelligence)
+
+Gao Intelligence, also written GaoIntelligence or gaointelligence, is the construction AI workspace at [gaointelligence.com](https://www.gaointelligence.com/). This repository contains the project code and technical documentation.
+
+- [Official website](https://www.gaointelligence.com/)
+- [Official project identity and scope](https://www.gaointelligence.com/discover/about/)
+- [Construction workflow guide](https://www.gaointelligence.com/discover/construction-ai-tools/)
+- [NCC reference search](https://www.gaointelligence.com/discover/ncc-review/)
+- [IFC model data checks](https://www.gaointelligence.com/discover/ifc-model-checks/)
+
+The workspace helps Australian construction teams review project documents and NCC references, inspect bounded IFC model data checks and retain evidence-linked reports. Its outputs support professional review and do not certify compliance. It is separate from geospatial intelligence (GEOINT).
+
+This is project-maintained documentation, not independent third-party coverage. The gateway component and its technical setup are documented below.
+
+## CrewAI Agent Gateway component
 
 Small CrewAI project with `intelligent_gateway.py` as the recommended main entry point.
 
